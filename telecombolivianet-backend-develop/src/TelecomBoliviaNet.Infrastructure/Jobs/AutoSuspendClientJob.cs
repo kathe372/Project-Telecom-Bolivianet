@@ -73,7 +73,12 @@ public class AutoSuspendClientJob : BackgroundService
         }
     }
 
-    private async Task RunAsync(CancellationToken ct)
+    /// <summary>
+    /// Público para poder ejercitarlo en pruebas sin esperar a la ventana horaria:
+    /// la lógica de negocio del job no debe vivir escondida detrás de su temporizador.
+    /// Mismo criterio que <see cref="ApplyScheduledPlanChangesJob.RunAsync"/>.
+    /// </summary>
+    public async Task RunAsync(CancellationToken ct)
     {
         using var scope    = _scopeFactory.CreateScope();
         var db             = scope.ServiceProvider.GetRequiredService<AppDbContext>();

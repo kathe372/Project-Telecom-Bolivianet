@@ -130,6 +130,26 @@ contador que nunca se moverá.
 rama (y el contador) o convertirla en una aserción de invariante. No tocar antes:
 el test de caracterización congela `Errors == 0` y detectará el cambio.
 
+### 🟠 D-09 · El serial de la ONU no se propaga de la instalación al cliente
+
+`CompleteInstallationCommand` guarda `EquipoOnuSerial` en la **instalación**, pero
+nunca lo copia a `Client.OnuSerialNumber`. Son dos fuentes de verdad para el mismo
+dato y ya divergen: un cliente puede tener la ONU registrada en su instalación y el
+campo del cliente vacío.
+
+Se nota en `CancelClientCommand`, que crea el ticket de recolección leyendo
+`client.OnuSerialNumber` — si está vacío, el ticket sale sin el serial del equipo
+que hay que recuperar.
+
+**Congelado en** `InstallationCompleteCharacterizationTests.El_serial_de_la_ONU_NO_se_copia_al_cliente`.
+Si algún día se sincronizan, ese test lo detectará y habrá que actualizarlo a
+conciencia.
+
+**Dónde resolverlo:** es exactamente el problema que ataca el módulo de inventario
+(entidad de equipo con serial único y movimientos), analizado en la conversación
+previa al plan. Mientras tanto, la corrección mínima es propagar el serial al
+completar.
+
 ### 🟡 D-07 · `appsettings.Production.json` con contraseña por defecto
 
 Contiene `Password=telecom_pass_2025`, el mismo default de `docker-compose.yml`.
