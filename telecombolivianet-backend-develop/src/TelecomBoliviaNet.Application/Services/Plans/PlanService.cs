@@ -13,7 +13,7 @@ using r = TelecomBoliviaNet.Domain.Primitives.Result;
 
 namespace TelecomBoliviaNet.Application.Services.Plans;
 
-public class PlanService
+public class PlanService : IPlanService
 {
     private readonly IGenericRepository<Plan>        _repo;
     private readonly IGenericRepository<Client>      _clientRepo;

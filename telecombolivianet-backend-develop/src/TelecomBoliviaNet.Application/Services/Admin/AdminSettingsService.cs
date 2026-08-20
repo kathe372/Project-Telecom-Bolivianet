@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using TelecomBoliviaNet.Application.Interfaces;
 using TelecomBoliviaNet.Application.Services.Auth;
 using TelecomBoliviaNet.Domain.Entities.Admin;
 using TelecomBoliviaNet.Domain.Interfaces;
@@ -7,7 +8,7 @@ using TelecomBoliviaNet.Domain.Primitives;
 
 namespace TelecomBoliviaNet.Application.Services.Admin;
 
-public class AdminSettingsService
+public class AdminSettingsService : IAdminSettingsService
 {
     private readonly IGenericRepository<SystemConfig> _configRepo;
     private readonly AuditService                     _audit;

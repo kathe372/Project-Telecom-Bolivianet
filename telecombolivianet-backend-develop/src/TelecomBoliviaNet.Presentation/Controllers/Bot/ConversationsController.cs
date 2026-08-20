@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using TelecomBoliviaNet.Application.DTOs.Bot;
+using TelecomBoliviaNet.Application.Interfaces;
 using TelecomBoliviaNet.Application.Services.Bot;
 
 namespace TelecomBoliviaNet.Presentation.Controllers.Bot;
@@ -9,12 +10,12 @@ namespace TelecomBoliviaNet.Presentation.Controllers.Bot;
 [Authorize(Policy = "AdminOrOperadorOrTecnico")]
 public class ConversationsController : BaseController
 {
-    private readonly BotProxyService  _proxy;
-    private readonly BotConfigService _config;
+    private readonly IBotProxyService  _proxy;
+    private readonly IBotConfigService _config;
     private readonly CompanyQrService _companyQr;
 
     public ConversationsController(
-        BotProxyService proxy, BotConfigService config,
+        IBotProxyService proxy, IBotConfigService config,
         CompanyQrService companyQr)
     {
         _proxy     = proxy;

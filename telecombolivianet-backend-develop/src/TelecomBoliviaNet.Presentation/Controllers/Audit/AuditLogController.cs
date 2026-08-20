@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using TelecomBoliviaNet.Application.Interfaces;
 using TelecomBoliviaNet.Application.DTOs.Auth;
 using TelecomBoliviaNet.Application.Services.Auth;
 using TelecomBoliviaNet.Presentation.Controllers;
@@ -10,9 +11,9 @@ namespace TelecomBoliviaNet.Presentation.Controllers.Audit;
 [Authorize(Policy = "AdminOnly")]
 public class AuditLogController : BaseController
 {
-    private readonly AuditLogService _service;
+    private readonly IAuditLogService _service;
 
-    public AuditLogController(AuditLogService service)
+    public AuditLogController(IAuditLogService service)
     {
         _service = service;
     }

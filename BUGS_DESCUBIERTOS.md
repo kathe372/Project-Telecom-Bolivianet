@@ -204,7 +204,44 @@ Existen en PostgreSQL pero el modelo de EF ya no las mapea. Registradas en
 | `NotifJobLog.JobName`, `NotifJobLog.LastRun` | `20260427000001` | Tabla sin entidad ni `DbSet`; la escribe el notifier por SQL. ¿Entidad propia o borrado? |
 | `SupportTickets.CsatScore`, `CsatRespondedAt` | `20260508000001_Phase2Improvements` | Encuesta de satisfacción nunca implementada en el modelo. Confirmar que no hay datos antes de borrar. |
 
-### 🟡 D-05 · Conflicto de versiones de EF Core en los proyectos de test
+### 🟠 D-11 · Tres entidades no tenían repositorio registrado — **CORREGIDO en F1.1**
+
+`DependencyInjection.AddRepositories()` registraba `IGenericRepository<T>` **a mano,
+entidad por entidad** (44 líneas). La lista se había quedado corta:
+
+| Entidad | Consecuencia |
+|---|---|
+| `DashboardPreference` | Inyectar su repositorio reventaba en runtime |
+| `NapPort` | Ídem |
+| `PortReservation` | Ídem |
+
+No explotaba porque el código que las usa (`NapPortService`, `PortReservationStore`)
+va contra `AppDbContext` directamente. Pero era una mina: el primer handler que
+inyectara `IGenericRepository<NapPort>` habría fallado con un 500 en producción,
+sin ningún aviso en compilación.
+
+**Cómo apareció:** `DependencyResolutionTests` recorre el modelo de EF y exige
+repositorio para cada entidad real, en vez de fiarse de una lista escrita a mano.
+Falló antes del cambio y pasa después.
+
+**Corrección:** registro abierto `services.AddScoped(typeof(IGenericRepository<>),
+typeof(GenericRepository<>))`. De 44 líneas a 1, y ya no se puede olvidar ninguna.
+
+### 🟡 D-05 · Conflicto de versiones de EF Core en los proyectos de test — **CORREGIDO en F1**
+
+Los `.csproj` de test pedían `Microsoft.EntityFrameworkCore 8.*` y resolvían una
+versión distinta a la de `Infrastructure`, con dos warnings `MSB3277` en cada build.
+
+Fijados los tres proyectos a **8.0.29** (la que resuelve `Infrastructure` vía
+`Npgsql.EntityFrameworkCore.PostgreSQL`) y añadida la referencia explícita a
+`Microsoft.EntityFrameworkCore.Relational`, que faltaba en dos de ellos.
+
+Build: **0 warnings, 0 errores**.
+
+<details>
+<summary>Diagnóstico original</summary>
+
+### D-05 · Conflicto de versiones de EF Core en los proyectos de test
 
 `dotnet build` emite 2 warnings `MSB3277`: los `.csproj` de test piden
 `Microsoft.EntityFrameworkCore 8.*` y resuelven **8.0.29**, mientras `Infrastructure`
@@ -212,6 +249,12 @@ usa **8.0.11**. No rompe nada hoy, pero es exactamente el tipo de diferencia que
 produce fallos irreproducibles entre local y CI.
 
 **Arreglo:** fijar la misma versión exacta en todos los `.csproj`. Va en **F1**.
+
+> Nota al hacerlo: se fijó primero a 8.0.11 por leer el warning al revés — la que
+> resuelve `Infrastructure` es la **8.0.29**, la más alta. El build lo cazó al
+> instante con `CS1705` ("uses a higher version than referenced assembly").
+
+</details>
 
 ### 🟡 D-06 · Los tres `ci.yml` de servicio estaban inertes — **CORREGIDO en F0.2**
 

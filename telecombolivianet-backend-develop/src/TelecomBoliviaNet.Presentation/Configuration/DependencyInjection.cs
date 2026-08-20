@@ -1,4 +1,4 @@
-using TelecomBoliviaNet.Application.Installations.Commands;
+﻿using TelecomBoliviaNet.Application.Installations.Commands;
 using TelecomBoliviaNet.Application.Installations.Services;
 using TelecomBoliviaNet.Infrastructure.Security;
 using TelecomBoliviaNet.Application.Services.Payments;
@@ -90,55 +90,19 @@ public static class DependencyInjection
 
     private static IServiceCollection AddRepositories(this IServiceCollection services)
     {
-        services.AddScoped<IGenericRepository<UserSystem>,            GenericRepository<UserSystem>>();
-        services.AddScoped<IGenericRepository<TokenBlacklist>,        GenericRepository<TokenBlacklist>>();
-        services.AddScoped<IGenericRepository<RefreshToken>,          GenericRepository<RefreshToken>>();
-        services.AddScoped<IGenericRepository<AuditLog>,              GenericRepository<AuditLog>>();
-        services.AddScoped<IGenericRepository<EmailActivationToken>,  GenericRepository<EmailActivationToken>>();
+        // Registro ABIERTO: cualquier IGenericRepository<T> se resuelve sin tocar
+        // este archivo.
+        //
+        // Antes había 44 registros manuales, uno por entidad, y añadir una nueva
+        // obligaba a editar aquí — violación directa de Open/Closed. Peor: la lista
+        // se había quedado corta. DashboardPreference, NapPort y PortReservation
+        // NO estaban registradas, así que inyectar su repositorio habría reventado
+        // en tiempo de ejecución. Lo detectó DependencyResolutionTests, que
+        // recorre el modelo de EF en vez de fiarse de una lista escrita a mano.
+        services.AddScoped(typeof(IGenericRepository<>), typeof(GenericRepository<>));
 
-        services.AddScoped<IGenericRepository<Plan>,           GenericRepository<Plan>>();
-        services.AddScoped<IGenericRepository<PlanHistory>,    GenericRepository<PlanHistory>>();
-        services.AddScoped<IGenericRepository<Client>,         GenericRepository<Client>>();
-        services.AddScoped<IGenericRepository<Invoice>,        GenericRepository<Invoice>>();
-        services.AddScoped<IGenericRepository<Payment>,        GenericRepository<Payment>>();
-        services.AddScoped<IGenericRepository<PaymentInvoice>, GenericRepository<PaymentInvoice>>();
-        services.AddScoped<IGenericRepository<CreditMovement>, GenericRepository<CreditMovement>>();
-
-        services.AddScoped<IGenericRepository<SupportTicket>,      GenericRepository<SupportTicket>>();
-        services.AddScoped<IGenericRepository<TicketNotification>, GenericRepository<TicketNotification>>();
-        services.AddScoped<IGenericRepository<TicketComment>,      GenericRepository<TicketComment>>();
-        services.AddScoped<IGenericRepository<TicketWorkLog>,      GenericRepository<TicketWorkLog>>();
-        services.AddScoped<IGenericRepository<TicketVisit>,            GenericRepository<TicketVisit>>();
-        services.AddScoped<IGenericRepository<TicketCannedResponse>,   GenericRepository<TicketCannedResponse>>();
-        services.AddScoped<IGenericRepository<SlaPlan>,            GenericRepository<SlaPlan>>();
-        services.AddScoped<IGenericRepository<WhatsAppReceipt>,    GenericRepository<WhatsAppReceipt>>();
-        services.AddScoped<IGenericRepository<BusinessSchedule>,   GenericRepository<BusinessSchedule>>();
-        services.AddScoped<IGenericRepository<ScheduleHoliday>,    GenericRepository<ScheduleHoliday>>();
-
-        services.AddScoped<IGenericRepository<NotifConfig>,             GenericRepository<NotifConfig>>();
-        services.AddScoped<IGenericRepository<NotifTemplate>,          GenericRepository<NotifTemplate>>();
-        services.AddScoped<IGenericRepository<NotifTemplateHistory>, GenericRepository<NotifTemplateHistory>>();
-        services.AddScoped<IGenericRepository<NotifOutbox>,             GenericRepository<NotifOutbox>>();
-        services.AddScoped<IGenericRepository<NotifLog>,                GenericRepository<NotifLog>>();
-        services.AddScoped<IGenericRepository<NotifSegment>,             GenericRepository<NotifSegment>>();
-
-        services.AddScoped<IGenericRepository<Installation>,           GenericRepository<Installation>>();
-        services.AddScoped<IGenericRepository<InstallationTechnician>, GenericRepository<InstallationTechnician>>();
-        services.AddScoped<IGenericRepository<VisitTechnician>,        GenericRepository<VisitTechnician>>();
+        // Repositorios específicos (no genéricos) siguen explícitos.
         services.AddScoped<IScheduleRepository, ScheduleRepository>();
-
-        services.AddScoped<IGenericRepository<ClientQr>,          GenericRepository<ClientQr>>();
-
-        services.AddScoped<IGenericRepository<PlanChangeRequest>,  GenericRepository<PlanChangeRequest>>();
-
-        services.AddScoped<IGenericRepository<SystemConfig>,       GenericRepository<SystemConfig>>();
-
-        services.AddScoped<IGenericRepository<InternalAlert>,      GenericRepository<InternalAlert>>();
-
-        services.AddScoped<IGenericRepository<CoverageZone>,       GenericRepository<CoverageZone>>();
-        services.AddScoped<IGenericRepository<DistributionBox>,    GenericRepository<DistributionBox>>();
-        services.AddScoped<IGenericRepository<CoverageQuery>,      GenericRepository<CoverageQuery>>();
-        services.AddScoped<IGenericRepository<GeocodeCache>,       GenericRepository<GeocodeCache>>();
 
         return services;
     }
@@ -153,10 +117,10 @@ public static class DependencyInjection
         services.AddScoped<AuditService>();
         services.AddScoped<RefreshTokenService>();
         services.AddScoped<AuthService>();
-        services.AddScoped<AuditLogService>();
+        services.AddScoped<IAuditLogService, AuditLogService>();
 
         services.AddScoped<ITbnService, TbnService>();
-        services.AddScoped<PlanService>();
+        services.AddScoped<IPlanService, PlanService>();
         services.AddHttpClient<IWhatsAppNotifier, WhatsAppNotifier>();
 
         // Email:Provider = "Smtp" (Gmail, envía a cualquier destinatario) o "Resend"
@@ -179,22 +143,17 @@ public static class DependencyInjection
         services.AddScoped<PaymentService>();
         services.AddScoped<IPaymentService>(sp => sp.GetRequiredService<PaymentService>());
         services.AddScoped<ICreditLedger, CreditLedgerService>();
-        services.AddScoped<PaymentCreditService>();
-        services.AddScoped<IPaymentCreditService>(sp => sp.GetRequiredService<PaymentCreditService>());
+        services.AddScoped<IPaymentCreditService, PaymentCreditService>();
         services.AddScoped<CashCloseService>();
         services.AddScoped<ICashCloseService>(sp => sp.GetRequiredService<CashCloseService>());
         services.AddScoped<ReceiptImageService>();
         services.AddScoped<IReceiptImageService>(sp => sp.GetRequiredService<ReceiptImageService>());
         services.AddScoped<PaymentQueryService>();
         services.AddScoped<IPaymentQueryService>(sp => sp.GetRequiredService<PaymentQueryService>());
-        services.AddScoped<ClientAttachmentService>();
-        services.AddScoped<IClientAttachmentService>(sp => sp.GetRequiredService<ClientAttachmentService>());
-        services.AddScoped<IGenericRepository<PasswordResetToken>, GenericRepository<PasswordResetToken>>();
+        services.AddScoped<IClientAttachmentService, ClientAttachmentService>();
         services.AddScoped<TicketNumberService>();
-        services.AddScoped<BotProxyService>();
-        services.AddScoped<IBotProxyService>(sp => sp.GetRequiredService<BotProxyService>());
-        services.AddScoped<BotConfigService>();
-        services.AddScoped<IBotConfigService>(sp => sp.GetRequiredService<BotConfigService>());
+        services.AddScoped<IBotProxyService, BotProxyService>();
+        services.AddScoped<IBotConfigService, BotConfigService>();
         services.AddScoped<CompanyQrService>();
         services.AddHttpClient("ChatbotMonitor")
             .ConfigureHttpClient((sp, client) =>
@@ -205,11 +164,7 @@ public static class DependencyInjection
             });
         services.AddScoped<TicketBalancingService>();
         services.AddScoped<TicketAttachmentService>();
-        services.AddScoped<IGenericRepository<TicketAttachment>, GenericRepository<TicketAttachment>>();
         services.AddScoped<ClientHistoryService>();
-        services.AddScoped<IGenericRepository<ClientAttachment>, GenericRepository<ClientAttachment>>();
-        services.AddScoped<IGenericRepository<CashClose>,       GenericRepository<CashClose>>();
-        services.AddScoped<IGenericRepository<PaymentReceipt>,  GenericRepository<PaymentReceipt>>();
         services.AddScoped<IChatbotDirectNotifier, ChatbotDirectNotifier>();
 
         services.AddScoped<IFileStorage>(sp =>
@@ -244,7 +199,7 @@ public static class DependencyInjection
         services.AddScoped<NotifHistoryService>();
         services.AddScoped<NotifConfigService>();
 
-        services.AddScoped<AdminSettingsService>();
+        services.AddScoped<IAdminSettingsService, AdminSettingsService>();
         services.AddSingleton<SecretEncryptionService>();
 
         services.AddScoped<ClientQrService>();

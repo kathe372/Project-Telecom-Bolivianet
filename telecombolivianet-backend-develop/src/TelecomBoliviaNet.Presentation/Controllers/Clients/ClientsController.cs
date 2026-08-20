@@ -19,7 +19,7 @@ public class ClientsController : BaseController
     private readonly IValidator<RegisterClientDto>   _registerVal;
     private readonly IValidator<UpdateClientDto>     _updateVal;
     private readonly IValidator<RegisterPaymentDto>  _paymentVal;
-    private readonly ClientAttachmentService         _attSvc;
+    private readonly IClientAttachmentService         _attSvc;
     private readonly ClientHistoryService          _histSvc;
     private readonly IPaymentCreditService           _creditSvc;
 
@@ -28,7 +28,7 @@ public class ClientsController : BaseController
         IValidator<RegisterClientDto>  registerVal,
         IValidator<UpdateClientDto>    updateVal,
         IValidator<RegisterPaymentDto> paymentVal,
-        ClientAttachmentService        attSvc,
+        IClientAttachmentService        attSvc,
         ClientHistoryService         histSvc,
         IPaymentCreditService          creditSvc)
     {

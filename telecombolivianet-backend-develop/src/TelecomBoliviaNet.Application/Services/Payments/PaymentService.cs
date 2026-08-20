@@ -118,7 +118,11 @@ public class PaymentService : IPaymentService
 
         if (p is null) return null;
 
-        var canVoid  = (DateTime.UtcNow - p.RegisteredAt).TotalDays <= 30;
+        // Misma constante que usa la validación real de VoidPaymentAsync. Antes
+        // aquí había un 30 literal: si alguien cambiaba VoidPaymentWindowDays, la
+        // UI seguía ofreciendo "Anular" durante 30 días y el backend lo rechazaba.
+        var canVoid  = (DateTime.UtcNow - p.RegisteredAt).TotalDays
+                       <= AppConstants.Security.VoidPaymentWindowDays;
         var isVoided = p.IsVoided;
         return new PaymentDetailDto(
             p.Id, p.ClientId,

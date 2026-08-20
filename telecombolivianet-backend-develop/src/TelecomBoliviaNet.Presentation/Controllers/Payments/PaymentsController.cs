@@ -13,14 +13,14 @@ namespace TelecomBoliviaNet.Presentation.Controllers.Payments;
 public class PaymentsController : BaseController
 {
     private readonly IPaymentService           _svc;
-    private readonly PaymentCreditService      _creditSvc;
+    private readonly IPaymentCreditService      _creditSvc;
     private readonly ICashCloseService         _cashCloseSvc;
     private readonly IReceiptImageService      _receiptImageSvc;
     private readonly AuditService              _audit;
 
     public PaymentsController(
         IPaymentService svc,
-        PaymentCreditService creditSvc,
+        IPaymentCreditService      creditSvc,
         ICashCloseService cashCloseSvc,
         IReceiptImageService receiptImageSvc,
         AuditService audit)

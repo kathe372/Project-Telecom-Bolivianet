@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using TelecomBoliviaNet.Application.Interfaces;
 using TelecomBoliviaNet.Application.DTOs.Auth;
 using TelecomBoliviaNet.Application.DTOs.Common;
 using TelecomBoliviaNet.Application.Utils;
@@ -7,7 +8,7 @@ using TelecomBoliviaNet.Domain.Interfaces;
 
 namespace TelecomBoliviaNet.Application.Services.Auth;
 
-public class AuditLogService
+public class AuditLogService : IAuditLogService
 {
     private readonly IGenericRepository<AuditLog> _repo;
 

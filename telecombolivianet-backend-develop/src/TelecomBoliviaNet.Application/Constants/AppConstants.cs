@@ -12,7 +12,20 @@ public static class AppConstants
     public static class Billing
     {
         public const int    DecimalPlaces    = 2;
+
+        /// <summary>Texto que se muestra cuando un dato no está disponible.</summary>
         public const string FallbackPlanName = "—";
+
+        /// <summary>
+        /// Día del mes en que vence la mensualidad.
+        ///
+        /// OJO: NO es lo mismo que <see cref="Time.InvoiceDueDays"/>. Aquélla son
+        /// "días a partir de hoy" (<c>now.AddDays(5)</c>, para facturas de
+        /// instalación); ésta es "el día 5 del mes"
+        /// (<c>new DateTime(año, mes, 5)</c>, para las mensualidades). Coinciden en
+        /// el número por casualidad; reutilizar una por otra sería un bug.
+        /// </summary>
+        public const int DueDayOfMonth = 5;
     }
 
     public static class Security

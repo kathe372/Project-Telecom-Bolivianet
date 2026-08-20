@@ -1,6 +1,7 @@
 using FluentValidation;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using TelecomBoliviaNet.Application.Interfaces;
 using TelecomBoliviaNet.Application.DTOs.Plans;
 using TelecomBoliviaNet.Application.Services.Plans;
 using TelecomBoliviaNet.Presentation.Controllers;
@@ -10,12 +11,12 @@ namespace TelecomBoliviaNet.Presentation.Controllers.Plans;
 [Route("api/plans")]
 public class PlansController : BaseController
 {
-    private readonly PlanService _service;
+    private readonly IPlanService _service;
     private readonly IValidator<CreatePlanDto> _createVal;
     private readonly IValidator<UpdatePlanDto> _updateVal;
 
     public PlansController(
-        PlanService service,
+        IPlanService service,
         IValidator<CreatePlanDto> createVal,
         IValidator<UpdatePlanDto> updateVal)
     {

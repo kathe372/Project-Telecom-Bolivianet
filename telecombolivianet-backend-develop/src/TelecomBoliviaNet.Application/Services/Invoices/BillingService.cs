@@ -2,6 +2,7 @@ using System.Globalization;
 using Microsoft.EntityFrameworkCore;
 
 using Microsoft.Extensions.Logging;
+using TelecomBoliviaNet.Application.Constants;
 using TelecomBoliviaNet.Application.DTOs.Invoices;
 using TelecomBoliviaNet.Application.Interfaces;
 using TelecomBoliviaNet.Application.Services.Auth;
@@ -82,7 +83,9 @@ public class BillingService : IBillingService
             {
                 var (amount, notes) = CalculateMonthlyAmount(monthlyPrice, installDate, cursor.Year, cursor.Month);
 
-                var dueDate = new DateTime(cursor.Year, cursor.Month, 5, 0, 0, 0, DateTimeKind.Utc);
+                var dueDate = new DateTime(
+                    cursor.Year, cursor.Month, AppConstants.Billing.DueDayOfMonth,
+                    0, 0, 0, DateTimeKind.Utc);
                 var status  = dueDate < DateTime.UtcNow
                     ? InvoiceStatus.Vencida
                     : InvoiceStatus.Pendiente;
@@ -167,7 +170,8 @@ public class BillingService : IBillingService
         _logger.LogInformation("Facturación {Month}/{Year} iniciada", month, year);
 
         var monthEnd = new DateTime(year, month, 1, 0, 0, 0, DateTimeKind.Utc).AddMonths(1);
-        var dueDate  = new DateTime(year, month, 5, 0, 0, 0, DateTimeKind.Utc);
+        var dueDate  = new DateTime(
+            year, month, AppConstants.Billing.DueDayOfMonth, 0, 0, 0, DateTimeKind.Utc);
         var period   = $"{MonthName(month)} {year}";
 
         // Congelamiento: solo se factura a clientes facturables (activos), no a suspendidos.

@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using TelecomBoliviaNet.Application.Interfaces;
 using TelecomBoliviaNet.Application.Services.Admin;
 using TelecomBoliviaNet.Presentation.Controllers;
 
@@ -9,9 +10,9 @@ namespace TelecomBoliviaNet.Presentation.Controllers.Admin;
 [Authorize(Policy = "AdminOnly")]
 public class AdminSettingsController : BaseController
 {
-    private readonly AdminSettingsService _svc;
+    private readonly IAdminSettingsService _svc;
 
-    public AdminSettingsController(AdminSettingsService svc) => _svc = svc;
+    public AdminSettingsController(IAdminSettingsService svc) => _svc = svc;
 
     [HttpGet]
     public async Task<IActionResult> Get() => OkResult(await _svc.GetCurrentAsync());
