@@ -1,7 +1,10 @@
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.AspNetCore.TestHost;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 using Testcontainers.PostgreSql;
 using TelecomBoliviaNet.Infrastructure.Data;
 
@@ -51,6 +54,43 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>, IAsyn
                 ["Jwt:Key"] = "IntegrationTests_JWT_Key_MinLength32Characters_1234567890",
                 ["SkipStartupMigration"] = "true",
             });
+        });
+
+        // ── Fuera los jobs en segundo plano (D-03) ───────────────────────────
+        //
+        // Program.cs registra ONCE BackgroundService, y WebApplicationFactory
+        // arranca el host de verdad: esos jobs quedaban VIVOS durante toda la
+        // suite, ejecutándose contra la base de pruebas.
+        //
+        // Cinco de ellos (SlaAlert, AutoSuspend, AutoClose, SendInstallationReminders,
+        // ApplyScheduledPlanChanges) publican en NotifOutbox. Cuando el temporizador
+        // de alguno caía justo entre el `DELETE FROM "NotifOutbox"` y el
+        // `DELETE FROM "Clients"` de la limpieza de un test, insertaba una fila que
+        // rompía el borrado siguiente:
+        //
+        //   23503: update or delete on table "Clients" violates foreign key
+        //          constraint "FK_NotifOutbox_Clients_ClienteId"
+        //
+        // Ése era el fallo intermitente: ~1 de cada 10 ejecuciones, en un test
+        // distinto cada vez (el que tuviera la mala suerte de limpiar en ese
+        // instante). Se cazó con 10 corridas seguidas guardando .trx.
+        //
+        // Ningún test depende de que los jobs se disparen solos: los dos que los
+        // prueban (ScheduledPlanChangeIntegrationTests y
+        // AutoSuspendCharacterizationTests) los instancian a mano y llaman a
+        // RunAsync, justamente para no depender de la ventana horaria.
+        //
+        // Se filtra por espacio de nombres a propósito: quitar TODOS los
+        // IHostedService eliminaría también GenericWebHostService, que es el que
+        // levanta el servidor de pruebas.
+        builder.ConfigureTestServices(services =>
+        {
+            var jobs = services
+                .Where(d => d.ServiceType == typeof(IHostedService)
+                         && d.ImplementationType?.Namespace == "TelecomBoliviaNet.Infrastructure.Jobs")
+                .ToList();
+
+            foreach (var job in jobs) services.Remove(job);
         });
     }
 
