@@ -1,0 +1,85 @@
+# Bugs y deuda descubiertos durante el plan de mejora técnica
+
+Regla de la Fase 0: **si al escribir un test se descubre un bug, NO se arregla ahí.**
+Se anota aquí y se congela el comportamiento actual. Arreglar bugs y refactorizar a
+la vez es cómo se rompen los sistemas en producción.
+
+---
+
+## F0 — Fase 0 (2026-08-20)
+
+### 🔴 D-01 · Tres migraciones eran invisibles para EF Core — **CORREGIDO en F0.4**
+
+`FixPaymentReceiptGeneratedByFK`, `AddCoverageModule` y `AddInstallationTechniciansV2`
+no tenían `[DbContext(typeof(AppDbContext))]` ni figuraban en `MigrationsDbContextLink.cs`.
+EF las ignoraba **en silencio**: nunca se aplicaron, y sus cambios llegaron a producción
+por SQL directo.
+
+**Síntoma:** `MigrateAsync()` sobre una base limpia fallaba con
+`42703: column "ReminderSentAt" of relation "Installations" does not exist`.
+
+**Impacto histórico:** es la causa raíz de los 502 en despliegues que se venían
+parcheando con SQL manual.
+
+**Corrección:** las tres reescritas como SQL idempotente + `[DbContext]` añadido.
+Ver `ADR-004`. Requiere el paso manual de `docs/sql/F0-registrar-migraciones.sql`.
+
+### 🔴 D-02 · Cuatro tablas existían solo en producción — **CORREGIDO en F0.4**
+
+`CoverageQueries`, `GeocodeCaches`, `NapPorts` y `PortReservations` estaban mapeadas
+en `AppDbContext` y existían en producción, pero **ninguna migración las creaba**.
+Una base reconstruida desde cero salía sin ellas.
+
+**Corrección:** nueva migración `20260820000001_BackfillCoverageSupportTables`,
+idempotente.
+
+### 🟠 D-03 · Un test de integración es flaky
+
+En 3 ejecuciones de la suite completa, una terminó con `Failed: 1, Passed: 94`; las
+otras dos con `95/95`. El fallo no se reprodujo al reejecutar, así que no quedó
+registrado el nombre del test.
+
+Coincide con el problema ya conocido de los **tests de slots sensibles a la hora del
+día** (candidatos: `RescheduleTicketVisitTests`, `ScheduleRepositoryTests`,
+`GetTicketVisitSlotsHandlerTests`).
+
+**Por qué importa:** un test flaky envenena la línea base — a partir de ahora, cada
+fallo obliga a preguntarse "¿rompí algo o es el flaky?". Debe arreglarse antes de F3.
+
+**Cómo arreglarlo:** inyectar el reloj (`IClock`/`TimeProvider`) en lugar de leer
+`DateTime.UtcNow` dentro de la lógica de slots, y fijarlo en los tests.
+
+### 🟡 D-04 · Columnas huérfanas en la base
+
+Existen en PostgreSQL pero el modelo de EF ya no las mapea. Registradas en
+`SchemaParityTests.ColumnasHuerfanasConocidas` para que la lista solo pueda encoger:
+
+| Columna | Origen | Qué decidir |
+|---|---|---|
+| `Clients.search_vector` | `20260409000001_AddPerformanceIndexesAndPhase1Fixes` | Columna `tsvector` para búsqueda full-text que nadie usa (la búsqueda va con `LIKE`). **F7** decide si se aprovecha o se borra. |
+| `NotifJobLog.JobName`, `NotifJobLog.LastRun` | `20260427000001` | Tabla sin entidad ni `DbSet`; la escribe el notifier por SQL. ¿Entidad propia o borrado? |
+| `SupportTickets.CsatScore`, `CsatRespondedAt` | `20260508000001_Phase2Improvements` | Encuesta de satisfacción nunca implementada en el modelo. Confirmar que no hay datos antes de borrar. |
+
+### 🟡 D-05 · Conflicto de versiones de EF Core en los proyectos de test
+
+`dotnet build` emite 2 warnings `MSB3277`: los `.csproj` de test piden
+`Microsoft.EntityFrameworkCore 8.*` y resuelven **8.0.29**, mientras `Infrastructure`
+usa **8.0.11**. No rompe nada hoy, pero es exactamente el tipo de diferencia que
+produce fallos irreproducibles entre local y CI.
+
+**Arreglo:** fijar la misma versión exacta en todos los `.csproj`. Va en **F1**.
+
+### 🟡 D-06 · Los tres `ci.yml` de servicio estaban inertes — **CORREGIDO en F0.2**
+
+Al unificar los cuatro servicios en un monorepo, los workflows quedaron en
+`<servicio>/.github/workflows/`. GitHub Actions solo lee `.github/workflows/` de la
+**raíz**: no se ejecutaba ninguna comprobación en ningún push.
+
+**Corrección:** creado `.github/workflows/backend-ci.yml` en la raíz, con filtro de
+rutas. **Pendiente:** hacer lo mismo para chatbot y frontend (fuera del alcance de F0).
+
+### 🟡 D-07 · `appsettings.Production.json` con contraseña por defecto
+
+Contiene `Password=telecom_pass_2025`, el mismo default de `docker-compose.yml`.
+No es la credencial de Railway (esa se inyecta por variable de entorno), pero es una
+contraseña versionada. **F8** decide si se vacía como en `appsettings.json`.

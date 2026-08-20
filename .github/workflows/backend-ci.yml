@@ -1,0 +1,102 @@
+name: CI — Backend .NET
+
+# Los workflows solo se ejecutan si viven en .github/workflows/ de la RAÍZ del
+# repositorio. Al unificar los cuatro servicios en un monorepo, los tres ci.yml
+# que había dentro de cada carpeta de servicio quedaron inertes: GitHub Actions
+# no los leía y no se ejecutaba ninguna comprobación en ningún push.
+#
+# Este workflow los sustituye para el backend. El filtro de rutas evita
+# reconstruir .NET cuando el cambio solo toca el chatbot o el frontend.
+
+on:
+  push:
+    branches: ["**"]
+    paths:
+      - "telecombolivianet-backend-develop/**"
+      - "Project-Telecom-Bolivianet.sln"
+      - ".github/workflows/backend-ci.yml"
+  pull_request:
+    branches: [main, develop]
+    paths:
+      - "telecombolivianet-backend-develop/**"
+      - "Project-Telecom-Bolivianet.sln"
+      - ".github/workflows/backend-ci.yml"
+  workflow_dispatch:
+
+env:
+  SOLUTION: Project-Telecom-Bolivianet.sln
+  TESTS_DIR: telecombolivianet-backend-develop/tests
+
+jobs:
+  build-and-test:
+    name: Build & Test (.NET 8)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout código
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+
+      - name: Cache NuGet packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ hashFiles('**/*.csproj') }}
+          restore-keys: nuget-
+
+      # La solución completa, no solo Presentation. Antes se restauraba y
+      # compilaba únicamente el proyecto de arranque y luego se ejecutaba
+      # `dotnet test --no-build` sobre un proyecto de test que nadie había
+      # compilado en ese paso.
+      - name: Restore
+        run: dotnet restore ${{ env.SOLUTION }}
+
+      - name: Build (Release)
+        run: dotnet build ${{ env.SOLUTION }} --no-restore --configuration Release
+
+      # Los tres proyectos, no uno. Antes solo corría TelecomBoliviaNet.Tests:
+      # los 54 tests unitarios y los 91 de integración no se ejecutaban nunca en CI.
+      - name: Tests unitarios (dominio puro)
+        run: >
+          dotnet test ${{ env.TESTS_DIR }}/TelecomBoliviaNet.UnitTests
+          --no-build --configuration Release
+          --logger "trx;LogFileName=unit.trx"
+
+      - name: Tests de servicios y handlers
+        run: >
+          dotnet test ${{ env.TESTS_DIR }}/TelecomBoliviaNet.Tests
+          --no-build --configuration Release
+          --logger "trx;LogFileName=services.trx"
+          --collect:"XPlat Code Coverage"
+
+      # Testcontainers levanta postgis/postgis:16-3.4-alpine. El runner de
+      # ubuntu-latest ya trae Docker, así que no hace falta ningún servicio extra.
+      - name: Tests de integración (Testcontainers + PostGIS)
+        run: >
+          dotnet test ${{ env.TESTS_DIR }}/TelecomBoliviaNet.IntegrationTests
+          --no-build --configuration Release
+          --logger "trx;LogFileName=integration.trx"
+
+      - name: Publicar resultados
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-results-backend
+          path: "**/TestResults/**"
+          retention-days: 7
+
+  docker-build:
+    name: Docker Build
+    runs-on: ubuntu-latest
+    needs: build-and-test
+
+    steps:
+      - name: Checkout código
+        uses: actions/checkout@v4
+
+      - name: Docker Build
+        run: docker build -t telecombolivianet-backend:ci telecombolivianet-backend-develop

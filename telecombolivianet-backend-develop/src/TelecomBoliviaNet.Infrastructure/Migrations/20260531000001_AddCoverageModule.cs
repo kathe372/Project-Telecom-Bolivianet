@@ -1,150 +1,156 @@
 using System;
+using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Migrations;
-using NetTopologySuite.Geometries;
+using TelecomBoliviaNet.Infrastructure.Data;
 
 #nullable disable
 
 namespace TelecomBoliviaNet.Infrastructure.Migrations
 {
     /// <summary>
-    /// Agrega el módulo de cobertura real:
+    /// Módulo de cobertura real:
     /// - Extensión PostGIS
-    /// - Tabla CoverageZones (polígonos de cobertura con GIST index)
-    /// - Tabla DistributionBoxes (cajas NAP con GIST index y contadores de puertos)
+    /// - CoverageZones (polígonos con índice GIST)
+    /// - DistributionBoxes (cajas NAP con índice GIST y contadores de puertos)
     /// - Columnas GPS y FK en Installations
-    /// - Seed de Coverage:MaxCableDropMeters en SystemConfigs
+    /// - Seed de Coverage:MaxCableDropMeters
     /// </summary>
+    /// <remarks>
+    /// 2026-08-20 — Reescrita como SQL idempotente. Motivo (ver ADR-004):
+    ///
+    /// Le faltaba <c>[DbContext(typeof(AppDbContext))]</c> y tampoco estaba en
+    /// MigrationsDbContextLink.cs, así que EF nunca la vio. Sus tablas
+    /// (CoverageZones, DistributionBoxes) y las columnas de Installations
+    /// llegaron a producción por SQL directo — de ahí que la base real y las
+    /// migraciones llevaran meses divergiendo.
+    ///
+    /// Al recuperar la visibilidad, EF intentará aplicarla en el próximo
+    /// despliegue porque no consta en __EFMigrationsHistory. Cada operación es
+    /// idempotente para que en producción sea un no-op y en una base nueva
+    /// construya el esquema correcto.
+    ///
+    /// Las claves foráneas no admiten IF NOT EXISTS en PostgreSQL, así que se
+    /// hace DROP CONSTRAINT IF EXISTS + ADD CONSTRAINT: el resultado final es el
+    /// mismo tanto si la restricción existía como si no.
+    /// </remarks>
     [Migration("20260531000001_AddCoverageModule")]
+    [DbContext(typeof(AppDbContext))]
     public partial class AddCoverageModule : Migration
     {
         protected override void Up(MigrationBuilder migrationBuilder)
         {
-            // 1. Extensión PostGIS (idempotente)
+            // 1. Extensión PostGIS
             migrationBuilder.Sql("CREATE EXTENSION IF NOT EXISTS postgis;");
 
             // 2. CoverageZones
-            migrationBuilder.CreateTable(
-                name: "CoverageZones",
-                columns: table => new
-                {
-                    Id                     = table.Column<Guid>(type: "uuid", nullable: false),
-                    Nombre                 = table.Column<string>(type: "character varying(200)", maxLength: 200, nullable: false),
-                    Tecnologia             = table.Column<string>(type: "character varying(20)", maxLength: 20, nullable: false),
-                    VelocidadMaxMbps       = table.Column<int>(type: "integer", nullable: false),
-                    Estado                 = table.Column<string>(type: "character varying(20)", maxLength: 20, nullable: false, defaultValue: "Planificada"),
-                    FechaExpansionEstimada = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
-                    Geom                   = table.Column<Geometry>(type: "geometry(Polygon,4326)", nullable: false),
-                    CreadoAt               = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
-                    CreadoPorId            = table.Column<Guid>(type: "uuid", nullable: false),
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("PK_CoverageZones", x => x.Id);
-                });
+            migrationBuilder.Sql("""
+                CREATE TABLE IF NOT EXISTS "CoverageZones" (
+                    "Id"                     uuid NOT NULL,
+                    "Nombre"                 character varying(200) NOT NULL,
+                    "Tecnologia"             character varying(20)  NOT NULL,
+                    "VelocidadMaxMbps"       integer NOT NULL,
+                    "Estado"                 character varying(20)  NOT NULL DEFAULT 'Planificada',
+                    "FechaExpansionEstimada" timestamp with time zone NULL,
+                    "Geom"                   geometry(Polygon,4326) NOT NULL,
+                    "CreadoAt"               timestamp with time zone NOT NULL,
+                    "CreadoPorId"            uuid NOT NULL,
+                    CONSTRAINT "PK_CoverageZones" PRIMARY KEY ("Id")
+                );
+                """);
 
-            migrationBuilder.CreateIndex("IX_CoverageZones_Nombre", "CoverageZones", "Nombre", unique: true);
-            migrationBuilder.CreateIndex("IX_CoverageZones_Estado", "CoverageZones", "Estado");
-            // GIST index obligatorio para rendimiento de ST_Contains
-            migrationBuilder.Sql(
-                "CREATE INDEX IX_CoverageZones_Geom_GIST ON \"CoverageZones\" USING GIST (\"Geom\");");
+            migrationBuilder.Sql("""
+                CREATE UNIQUE INDEX IF NOT EXISTS "IX_CoverageZones_Nombre" ON "CoverageZones" ("Nombre");
+                CREATE INDEX IF NOT EXISTS "IX_CoverageZones_Estado" ON "CoverageZones" ("Estado");
+                -- GIST obligatorio para el rendimiento de ST_Contains
+                CREATE INDEX IF NOT EXISTS "IX_CoverageZones_Geom_GIST" ON "CoverageZones" USING GIST ("Geom");
+                """);
 
             // 3. DistributionBoxes
-            migrationBuilder.CreateTable(
-                name: "DistributionBoxes",
-                columns: table => new
-                {
-                    Id                      = table.Column<Guid>(type: "uuid", nullable: false),
-                    Codigo                  = table.Column<string>(type: "character varying(50)", maxLength: 50, nullable: false),
-                    DireccionReferencia     = table.Column<string>(type: "character varying(300)", maxLength: 300, nullable: false),
-                    ZoneId                  = table.Column<Guid>(type: "uuid", nullable: false),
-                    Location                = table.Column<Point>(type: "geometry(Point,4326)", nullable: false),
-                    PuertosTotal            = table.Column<int>(type: "integer", nullable: false),
-                    PuertosOcupados         = table.Column<int>(type: "integer", nullable: false, defaultValue: 0),
-                    PuertosReservados       = table.Column<int>(type: "integer", nullable: false, defaultValue: 0),
-                    DistanciaMaxCableMetros = table.Column<int>(type: "integer", nullable: true),
-                    Estado                  = table.Column<string>(type: "character varying(20)", maxLength: 20, nullable: false, defaultValue: "Activo"),
-                    CreadoAt                = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("PK_DistributionBoxes", x => x.Id);
-                    table.ForeignKey(
-                        name: "FK_DistributionBoxes_CoverageZones_ZoneId",
-                        column: x => x.ZoneId,
-                        principalTable: "CoverageZones",
-                        principalColumn: "Id",
-                        onDelete: ReferentialAction.Restrict);
-                });
+            migrationBuilder.Sql("""
+                CREATE TABLE IF NOT EXISTS "DistributionBoxes" (
+                    "Id"                      uuid NOT NULL,
+                    "Codigo"                  character varying(50)  NOT NULL,
+                    "DireccionReferencia"     character varying(300) NOT NULL,
+                    "ZoneId"                  uuid NOT NULL,
+                    "Location"                geometry(Point,4326) NOT NULL,
+                    "PuertosTotal"            integer NOT NULL,
+                    "PuertosOcupados"         integer NOT NULL DEFAULT 0,
+                    "PuertosReservados"       integer NOT NULL DEFAULT 0,
+                    "DistanciaMaxCableMetros" integer NULL,
+                    "Estado"                  character varying(20) NOT NULL DEFAULT 'Activo',
+                    "CreadoAt"                timestamp with time zone NOT NULL,
+                    CONSTRAINT "PK_DistributionBoxes" PRIMARY KEY ("Id"),
+                    CONSTRAINT "FK_DistributionBoxes_CoverageZones_ZoneId"
+                        FOREIGN KEY ("ZoneId") REFERENCES "CoverageZones" ("Id") ON DELETE RESTRICT
+                );
+                """);
 
-            migrationBuilder.CreateIndex("IX_DistributionBoxes_Codigo", "DistributionBoxes", "Codigo", unique: true);
-            migrationBuilder.CreateIndex("IX_DistributionBoxes_ZoneId", "DistributionBoxes", "ZoneId");
-            migrationBuilder.CreateIndex("IX_DistributionBoxes_Estado", "DistributionBoxes", "Estado");
-            // GIST index obligatorio para rendimiento de ST_DWithin
-            migrationBuilder.Sql(
-                "CREATE INDEX IX_DistributionBoxes_Location_GIST ON \"DistributionBoxes\" USING GIST (\"Location\");");
+            migrationBuilder.Sql("""
+                CREATE UNIQUE INDEX IF NOT EXISTS "IX_DistributionBoxes_Codigo" ON "DistributionBoxes" ("Codigo");
+                CREATE INDEX IF NOT EXISTS "IX_DistributionBoxes_ZoneId" ON "DistributionBoxes" ("ZoneId");
+                CREATE INDEX IF NOT EXISTS "IX_DistributionBoxes_Estado" ON "DistributionBoxes" ("Estado");
+                -- GIST obligatorio para el rendimiento de ST_DWithin
+                CREATE INDEX IF NOT EXISTS "IX_DistributionBoxes_Location_GIST" ON "DistributionBoxes" USING GIST ("Location");
+                """);
 
-            // 4. Nuevas columnas en Installations
-            migrationBuilder.AddColumn<decimal>(
-                name: "GpsLatitude", table: "Installations",
-                type: "decimal(10,7)", nullable: true);
-            migrationBuilder.AddColumn<decimal>(
-                name: "GpsLongitude", table: "Installations",
-                type: "decimal(10,7)", nullable: true);
-            migrationBuilder.AddColumn<string>(
-                name: "LocationSource", table: "Installations",
-                type: "character varying(30)", maxLength: 30, nullable: true);
-            migrationBuilder.AddColumn<Guid>(
-                name: "CoverageZoneId", table: "Installations",
-                type: "uuid", nullable: true);
-            migrationBuilder.AddColumn<Guid>(
-                name: "DistributionBoxId", table: "Installations",
-                type: "uuid", nullable: true);
+            // 4. Columnas nuevas en Installations
+            migrationBuilder.Sql("""
+                ALTER TABLE "Installations" ADD COLUMN IF NOT EXISTS "GpsLatitude"       numeric(10,7) NULL;
+                ALTER TABLE "Installations" ADD COLUMN IF NOT EXISTS "GpsLongitude"      numeric(10,7) NULL;
+                ALTER TABLE "Installations" ADD COLUMN IF NOT EXISTS "LocationSource"    character varying(30) NULL;
+                ALTER TABLE "Installations" ADD COLUMN IF NOT EXISTS "CoverageZoneId"    uuid NULL;
+                ALTER TABLE "Installations" ADD COLUMN IF NOT EXISTS "DistributionBoxId" uuid NULL;
+                """);
 
-            migrationBuilder.AddForeignKey(
-                name: "FK_Installations_CoverageZones_CoverageZoneId",
-                table: "Installations", column: "CoverageZoneId",
-                principalTable: "CoverageZones", principalColumn: "Id",
-                onDelete: ReferentialAction.Restrict);
-            migrationBuilder.AddForeignKey(
-                name: "FK_Installations_DistributionBoxes_DistributionBoxId",
-                table: "Installations", column: "DistributionBoxId",
-                principalTable: "DistributionBoxes", principalColumn: "Id",
-                onDelete: ReferentialAction.Restrict);
+            // Las FK no admiten IF NOT EXISTS: se sueltan y se vuelven a crear.
+            migrationBuilder.Sql("""
+                ALTER TABLE "Installations"
+                    DROP CONSTRAINT IF EXISTS "FK_Installations_CoverageZones_CoverageZoneId";
+                ALTER TABLE "Installations"
+                    ADD CONSTRAINT "FK_Installations_CoverageZones_CoverageZoneId"
+                    FOREIGN KEY ("CoverageZoneId") REFERENCES "CoverageZones" ("Id") ON DELETE RESTRICT;
 
-            // 5. Seed: distancia máxima de cable drop configurable
-            migrationBuilder.InsertData(
-                table: "SystemConfigs",
-                columns: new[] { "Id", "Key", "Value", "Description", "IsSecret", "UpdatedAt" },
-                values: new object[]
-                {
-                    Guid.Parse("00000000-0000-0000-0099-000000000001"),
-                    "Coverage:MaxCableDropMeters",
-                    "50",
-                    "Distancia máxima de cable drop para instalación estándar (metros). Rango recomendado: 30-100.",
-                    false,
-                    DateTime.UtcNow,
-                });
+                ALTER TABLE "Installations"
+                    DROP CONSTRAINT IF EXISTS "FK_Installations_DistributionBoxes_DistributionBoxId";
+                ALTER TABLE "Installations"
+                    ADD CONSTRAINT "FK_Installations_DistributionBoxes_DistributionBoxId"
+                    FOREIGN KEY ("DistributionBoxId") REFERENCES "DistributionBoxes" ("Id") ON DELETE RESTRICT;
+                """);
+
+            // 5. Seed: distancia máxima de cable drop configurable.
+            // ON CONFLICT DO NOTHING: si el operador ya ajustó el valor en producción,
+            // este seed no debe pisárselo.
+            migrationBuilder.Sql("""
+                INSERT INTO "SystemConfigs" ("Id", "Key", "Value", "Description", "IsSecret", "UpdatedAt")
+                VALUES (
+                    '00000000-0000-0000-0099-000000000001',
+                    'Coverage:MaxCableDropMeters',
+                    '50',
+                    'Distancia máxima de cable drop para instalación estándar (metros). Rango recomendado: 30-100.',
+                    FALSE,
+                    NOW() AT TIME ZONE 'UTC'
+                )
+                ON CONFLICT ("Id") DO NOTHING;
+                """);
         }
 
         protected override void Down(MigrationBuilder migrationBuilder)
         {
-            migrationBuilder.DropForeignKey(
-                name: "FK_Installations_DistributionBoxes_DistributionBoxId",
-                table: "Installations");
-            migrationBuilder.DropForeignKey(
-                name: "FK_Installations_CoverageZones_CoverageZoneId",
-                table: "Installations");
-            migrationBuilder.DropColumn(name: "GpsLatitude",       table: "Installations");
-            migrationBuilder.DropColumn(name: "GpsLongitude",      table: "Installations");
-            migrationBuilder.DropColumn(name: "LocationSource",    table: "Installations");
-            migrationBuilder.DropColumn(name: "CoverageZoneId",    table: "Installations");
-            migrationBuilder.DropColumn(name: "DistributionBoxId", table: "Installations");
-            migrationBuilder.DropTable(name: "DistributionBoxes");
-            migrationBuilder.DropTable(name: "CoverageZones");
-            migrationBuilder.DeleteData(
-                table: "SystemConfigs",
-                keyColumn: "Id",
-                keyValue: Guid.Parse("00000000-0000-0000-0099-000000000001"));
+            migrationBuilder.Sql("""
+                ALTER TABLE "Installations" DROP CONSTRAINT IF EXISTS "FK_Installations_DistributionBoxes_DistributionBoxId";
+                ALTER TABLE "Installations" DROP CONSTRAINT IF EXISTS "FK_Installations_CoverageZones_CoverageZoneId";
+
+                ALTER TABLE "Installations" DROP COLUMN IF EXISTS "GpsLatitude";
+                ALTER TABLE "Installations" DROP COLUMN IF EXISTS "GpsLongitude";
+                ALTER TABLE "Installations" DROP COLUMN IF EXISTS "LocationSource";
+                ALTER TABLE "Installations" DROP COLUMN IF EXISTS "CoverageZoneId";
+                ALTER TABLE "Installations" DROP COLUMN IF EXISTS "DistributionBoxId";
+
+                DROP TABLE IF EXISTS "DistributionBoxes";
+                DROP TABLE IF EXISTS "CoverageZones";
+
+                DELETE FROM "SystemConfigs" WHERE "Id" = '00000000-0000-0000-0099-000000000001';
+                """);
         }
     }
 }

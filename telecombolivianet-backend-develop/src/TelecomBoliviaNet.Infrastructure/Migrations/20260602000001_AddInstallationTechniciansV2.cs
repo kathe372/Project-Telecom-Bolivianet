@@ -1,129 +1,104 @@
-using System;
+using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Migrations;
+using TelecomBoliviaNet.Infrastructure.Data;
 
 #nullable disable
 
 namespace TelecomBoliviaNet.Infrastructure.Migrations;
 
-/// <inheritdoc />
+/// <summary>
+/// Técnicos múltiples por instalación y por visita, más los campos que
+/// necesitan (recordatorio, cancelación, duración y dotación por plan).
+/// </summary>
+/// <remarks>
+/// 2026-08-20 — Reescrita como SQL idempotente. Motivo (ver ADR-004):
+///
+/// Esta migración carecía de <c>[DbContext(typeof(AppDbContext))]</c> y NO
+/// estaba en MigrationsDbContextLink.cs, así que EF nunca la vio ni la aplicó:
+/// sus cambios llegaron a producción por SQL directo. El síntoma era que
+/// `MigrateAsync()` sobre una base limpia reventaba más adelante con
+/// <c>42703: column "ReminderSentAt" of relation "Installations" does not
+/// exist</c>, en el UPDATE de 20260715000002_NormalizeReprogramadaStatus.
+///
+/// Al devolverle la visibilidad, EF intentará aplicarla en el próximo despliegue
+/// porque no consta en __EFMigrationsHistory. Por eso cada operación va con
+/// IF NOT EXISTS: en producción no hace nada (los objetos ya existen) y en una
+/// base nueva construye el esquema correcto. El SQL reproduce exactamente lo que
+/// generaban las llamadas originales de MigrationBuilder.
+/// </remarks>
 [Migration("20260602000001_AddInstallationTechniciansV2")]
+[DbContext(typeof(AppDbContext))]
 public partial class AddInstallationTechniciansV2 : Migration
 {
     /// <inheritdoc />
     protected override void Up(MigrationBuilder migrationBuilder)
     {
         // ── InstallationTechnicians ───────────────────────────────────────────
-        migrationBuilder.CreateTable(
-            name: "InstallationTechnicians",
-            columns: table => new
-            {
-                Id             = table.Column<Guid>(nullable: false),
-                InstallationId = table.Column<Guid>(nullable: false),
-                TechnicianId   = table.Column<Guid>(nullable: false),
-                IsLead         = table.Column<bool>(nullable: false, defaultValue: false),
-                AssignedAt     = table.Column<DateTime>(nullable: false),
-                AssignedBy     = table.Column<Guid>(nullable: false),
-            },
-            constraints: table =>
-            {
-                table.PrimaryKey("PK_InstallationTechnicians", x => x.Id);
-                table.ForeignKey(
-                    name: "FK_InstallationTechnicians_Installations_InstallationId",
-                    column: x => x.InstallationId,
-                    principalTable: "Installations",
-                    principalColumn: "Id",
-                    onDelete: ReferentialAction.Cascade);
-                table.ForeignKey(
-                    name: "FK_InstallationTechnicians_UserSystems_TechnicianId",
-                    column: x => x.TechnicianId,
-                    principalTable: "UserSystems",
-                    principalColumn: "Id",
-                    onDelete: ReferentialAction.Restrict);
-            });
+        migrationBuilder.Sql("""
+            CREATE TABLE IF NOT EXISTS "InstallationTechnicians" (
+                "Id"             uuid    NOT NULL,
+                "InstallationId" uuid    NOT NULL,
+                "TechnicianId"   uuid    NOT NULL,
+                "IsLead"         boolean NOT NULL DEFAULT FALSE,
+                "AssignedAt"     timestamp with time zone NOT NULL,
+                "AssignedBy"     uuid    NOT NULL,
+                CONSTRAINT "PK_InstallationTechnicians" PRIMARY KEY ("Id"),
+                CONSTRAINT "FK_InstallationTechnicians_Installations_InstallationId"
+                    FOREIGN KEY ("InstallationId") REFERENCES "Installations" ("Id") ON DELETE CASCADE,
+                CONSTRAINT "FK_InstallationTechnicians_UserSystems_TechnicianId"
+                    FOREIGN KEY ("TechnicianId") REFERENCES "UserSystems" ("Id") ON DELETE RESTRICT
+            );
+            """);
 
-        migrationBuilder.CreateIndex(
-            name: "IX_InstallationTechnicians_InstallationId_TechnicianId",
-            table: "InstallationTechnicians",
-            columns: new[] { "InstallationId", "TechnicianId" },
-            unique: true);
+        migrationBuilder.Sql("""
+            CREATE UNIQUE INDEX IF NOT EXISTS "IX_InstallationTechnicians_InstallationId_TechnicianId"
+                ON "InstallationTechnicians" ("InstallationId", "TechnicianId");
+            """);
 
         // ── VisitTechnicians ──────────────────────────────────────────────────
-        migrationBuilder.CreateTable(
-            name: "VisitTechnicians",
-            columns: table => new
-            {
-                Id           = table.Column<Guid>(nullable: false),
-                VisitId      = table.Column<Guid>(nullable: false),
-                TechnicianId = table.Column<Guid>(nullable: false),
-                IsLead       = table.Column<bool>(nullable: false, defaultValue: false),
-                AssignedAt   = table.Column<DateTime>(nullable: false),
-                AssignedBy   = table.Column<Guid>(nullable: false),
-            },
-            constraints: table =>
-            {
-                table.PrimaryKey("PK_VisitTechnicians", x => x.Id);
-                table.ForeignKey(
-                    name: "FK_VisitTechnicians_TicketVisits_VisitId",
-                    column: x => x.VisitId,
-                    principalTable: "TicketVisits",
-                    principalColumn: "Id",
-                    onDelete: ReferentialAction.Cascade);
-                table.ForeignKey(
-                    name: "FK_VisitTechnicians_UserSystems_TechnicianId",
-                    column: x => x.TechnicianId,
-                    principalTable: "UserSystems",
-                    principalColumn: "Id",
-                    onDelete: ReferentialAction.Restrict);
-            });
+        migrationBuilder.Sql("""
+            CREATE TABLE IF NOT EXISTS "VisitTechnicians" (
+                "Id"           uuid    NOT NULL,
+                "VisitId"      uuid    NOT NULL,
+                "TechnicianId" uuid    NOT NULL,
+                "IsLead"       boolean NOT NULL DEFAULT FALSE,
+                "AssignedAt"   timestamp with time zone NOT NULL,
+                "AssignedBy"   uuid    NOT NULL,
+                CONSTRAINT "PK_VisitTechnicians" PRIMARY KEY ("Id"),
+                CONSTRAINT "FK_VisitTechnicians_TicketVisits_VisitId"
+                    FOREIGN KEY ("VisitId") REFERENCES "TicketVisits" ("Id") ON DELETE CASCADE,
+                CONSTRAINT "FK_VisitTechnicians_UserSystems_TechnicianId"
+                    FOREIGN KEY ("TechnicianId") REFERENCES "UserSystems" ("Id") ON DELETE RESTRICT
+            );
+            """);
 
-        migrationBuilder.CreateIndex(
-            name: "IX_VisitTechnicians_VisitId_TechnicianId",
-            table: "VisitTechnicians",
-            columns: new[] { "VisitId", "TechnicianId" },
-            unique: true);
+        migrationBuilder.Sql("""
+            CREATE UNIQUE INDEX IF NOT EXISTS "IX_VisitTechnicians_VisitId_TechnicianId"
+                ON "VisitTechnicians" ("VisitId", "TechnicianId");
+            """);
 
-        // ── Nuevos campos en Installations ───────────────────────────────────
-        migrationBuilder.AddColumn<DateTime>(
-            name: "ReminderSentAt",
-            table: "Installations",
-            nullable: true);
-
-        migrationBuilder.AddColumn<DateTime>(
-            name: "CanceladoAt",
-            table: "Installations",
-            nullable: true);
-
-        // ── Nuevos campos en TicketVisits ─────────────────────────────────────
-        migrationBuilder.AddColumn<int>(
-            name: "DuracionMin",
-            table: "TicketVisits",
-            nullable: false,
-            defaultValue: 60);
-
-        // ── Nuevos campos en Plans ────────────────────────────────────────────
-        migrationBuilder.AddColumn<int>(
-            name: "TecnicosRequeridos",
-            table: "Plans",
-            nullable: false,
-            defaultValue: 1);
-
-        migrationBuilder.AddColumn<int>(
-            name: "DuracionInstalacionMin",
-            table: "Plans",
-            nullable: false,
-            defaultValue: 120);
+        // ── Campos nuevos ─────────────────────────────────────────────────────
+        migrationBuilder.Sql("""
+            ALTER TABLE "Installations" ADD COLUMN IF NOT EXISTS "ReminderSentAt" timestamp with time zone NULL;
+            ALTER TABLE "Installations" ADD COLUMN IF NOT EXISTS "CanceladoAt"    timestamp with time zone NULL;
+            ALTER TABLE "TicketVisits" ADD COLUMN IF NOT EXISTS "DuracionMin"     integer NOT NULL DEFAULT 60;
+            ALTER TABLE "Plans"        ADD COLUMN IF NOT EXISTS "TecnicosRequeridos"     integer NOT NULL DEFAULT 1;
+            ALTER TABLE "Plans"        ADD COLUMN IF NOT EXISTS "DuracionInstalacionMin" integer NOT NULL DEFAULT 120;
+            """);
     }
 
     /// <inheritdoc />
     protected override void Down(MigrationBuilder migrationBuilder)
     {
-        migrationBuilder.DropTable(name: "InstallationTechnicians");
-        migrationBuilder.DropTable(name: "VisitTechnicians");
+        migrationBuilder.Sql("""
+            DROP TABLE IF EXISTS "InstallationTechnicians";
+            DROP TABLE IF EXISTS "VisitTechnicians";
 
-        migrationBuilder.DropColumn(name: "ReminderSentAt",      table: "Installations");
-        migrationBuilder.DropColumn(name: "CanceladoAt",          table: "Installations");
-        migrationBuilder.DropColumn(name: "DuracionMin",          table: "TicketVisits");
-        migrationBuilder.DropColumn(name: "TecnicosRequeridos",   table: "Plans");
-        migrationBuilder.DropColumn(name: "DuracionInstalacionMin", table: "Plans");
+            ALTER TABLE "Installations" DROP COLUMN IF EXISTS "ReminderSentAt";
+            ALTER TABLE "Installations" DROP COLUMN IF EXISTS "CanceladoAt";
+            ALTER TABLE "TicketVisits" DROP COLUMN IF EXISTS "DuracionMin";
+            ALTER TABLE "Plans"        DROP COLUMN IF EXISTS "TecnicosRequeridos";
+            ALTER TABLE "Plans"        DROP COLUMN IF EXISTS "DuracionInstalacionMin";
+            """);
     }
 }
