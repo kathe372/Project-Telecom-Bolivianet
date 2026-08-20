@@ -33,7 +33,10 @@ Thumbs.db
 *.sw?
 
 # Testing
-coverage/
+# ANCLADO a la raíz del servicio: sin la barra inicial, "coverage/" también
+# excluía src/modules/coverage —el módulo de cobertura de red— que es código
+# fuente. En Windows, además, el patrón es case-insensitive.
+/coverage/
 .nyc_output/
 
 # Docker

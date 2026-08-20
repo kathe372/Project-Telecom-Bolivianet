@@ -27,8 +27,15 @@ playwright-report/
 **/dist/
 **/TestResults/
 *.trx
-coverage/
 baseline.txt
+
+# Salida de cobertura. Los patrones van ANCLADOS a su ruta exacta: un
+# "coverage/" suelto es case-insensitive en Windows y se traga las carpetas de
+# CÓDIGO llamadas Coverage/ (el módulo de cobertura de red vive en
+# Domain/Entities/Coverage, Application/Coverage, etc.). Pasó: el primer push
+# subió el repo sin el módulo entero y el CI lo detectó al no compilar en Linux.
+/telecombolivianet-chatbot-develop/coverage/
+/telecombolivianet-frontend-develop/frontend/coverage/
 
 # ── Copias de seguridad locales ──────────────────────────────────────────────
 *.BACKUP-*
