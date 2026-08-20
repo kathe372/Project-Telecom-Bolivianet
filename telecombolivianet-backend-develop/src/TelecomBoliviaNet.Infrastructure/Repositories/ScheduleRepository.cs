@@ -1,0 +1,22 @@
+using Microsoft.EntityFrameworkCore;
+using TelecomBoliviaNet.Domain.Entities.Tickets;
+using TelecomBoliviaNet.Domain.Interfaces;
+using TelecomBoliviaNet.Infrastructure.Data;
+
+namespace TelecomBoliviaNet.Infrastructure.Repositories;
+
+public class ScheduleRepository : IScheduleRepository
+{
+    private readonly AppDbContext _db;
+
+    public ScheduleRepository(AppDbContext db) => _db = db;
+
+    // PASO 15 (2026-08): antes solo exigía IsActive — con más de un
+    // BusinessSchedule activo, resolvía "el primero por orden de inserción",
+    // que podía no coincidir con el que ya usa el cálculo de SLA
+    // (TicketHelper.GetDueDateFromSlaAsync, que sí exige IsDefault && IsActive).
+    public Task<BusinessSchedule?> GetActiveAsync(CancellationToken ct = default) =>
+        _db.BusinessSchedules
+           .Include(s => s.Holidays)
+           .FirstOrDefaultAsync(s => s.IsActive && s.IsDefault, ct);
+}

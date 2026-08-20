@@ -1,0 +1,63 @@
+using Microsoft.EntityFrameworkCore;
+using TelecomBoliviaNet.Application.DTOs.Notifications;
+using TelecomBoliviaNet.Domain.Entities.Notifications;
+using TelecomBoliviaNet.Domain.Interfaces;
+
+namespace TelecomBoliviaNet.Application.Services.Notifications;
+
+public class NotifHistoryService
+{
+    private readonly IGenericRepository<NotifLog>    _logRepo;
+    private readonly IGenericRepository<NotifOutbox> _outboxRepo;
+
+    public NotifHistoryService(
+        IGenericRepository<NotifLog>    logRepo,
+        IGenericRepository<NotifOutbox> outboxRepo)
+    {
+        _logRepo    = logRepo;
+        _outboxRepo = outboxRepo;
+    }
+
+    public async Task<NotifLogPageDto> GetHistorialClienteAsync(
+        Guid clienteId, int page, int pageSize,
+        string? tipoFilter, DateTime? desde, DateTime? hasta)
+    {
+        var query = _logRepo.GetAll().Where(l => l.ClienteId == clienteId);
+
+        if (!string.IsNullOrWhiteSpace(tipoFilter)
+            && Enum.TryParse<NotifType>(tipoFilter, out var tipo))
+            query = query.Where(l => l.Tipo == tipo);
+
+        if (desde.HasValue) query = query.Where(l => l.RegistradoAt >= desde.Value);
+        if (hasta.HasValue) query = query.Where(l => l.RegistradoAt <= hasta.Value);
+
+        var total = await query.CountAsync();
+        var logs  = await query
+            .OrderByDescending(l => l.RegistradoAt)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .ToListAsync();
+
+        var outboxIds = logs
+            .Select(l => l.OutboxId)
+            .Where(id => id.HasValue && id.Value != Guid.Empty)
+            .Select(id => id!.Value)
+            .ToList();
+
+        var outboxMap = await _outboxRepo.GetAll()
+            .Where(o => outboxIds.Contains(o.Id))
+            .ToDictionaryAsync(o => o.Id, o => o.EnviarDesde);
+
+        var items = logs.Select(l => new NotifLogItemDto(
+            l.Id, l.OutboxId ?? Guid.Empty,
+            l.Tipo, l.Tipo.ToString(),
+            l.Estado.ToString(),
+            l.PhoneNumber, l.Mensaje,
+            l.IntentoNum, l.ErrorDetalle,
+            l.RegistradoAt,
+            l.OutboxId.HasValue && outboxMap.TryGetValue(l.OutboxId.Value, out var env) ? env : null
+        )).ToList();
+
+        return new NotifLogPageDto(items, total, page, pageSize);
+    }
+}

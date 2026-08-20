@@ -1,0 +1,23 @@
+[tool.pytest.ini_options]
+asyncio_mode  = "auto"
+testpaths     = ["tests"]
+addopts       = "--cov=app --cov-report=term-missing --cov-fail-under=60"
+
+[tool.coverage.run]
+source         = ["app"]
+omit           = ["app/__init__.py", "*/migrations/*"]
+
+[tool.coverage.report]
+show_missing   = true
+skip_empty     = true
+exclude_lines  = [
+    "pragma: no cover",
+    "if __name__ == .__main__.:",
+    "raise NotImplementedError",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+select = ["E", "F", "W", "I"]
+ignore = ["E501"]

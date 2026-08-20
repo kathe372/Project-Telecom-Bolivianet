@@ -1,0 +1,78 @@
+using MediatR;
+using Microsoft.EntityFrameworkCore;
+using TelecomBoliviaNet.Application.DTOs.Clients;
+using TelecomBoliviaNet.Domain.Entities.Clients;
+using TelecomBoliviaNet.Domain.Interfaces;
+
+namespace TelecomBoliviaNet.Application.Clients.Queries;
+
+public record GetClientByPhoneQuery(string Phone) : IRequest<ClientBotDto?>;
+
+/// <summary>
+/// 2026-08-05: PhoneMain no tiene constraint único (solo IdentityCard/TbnCode
+/// la tienen) — dos clientes distintos (dos CIs, ej. familiares) pueden
+/// compartir el mismo teléfono de contacto. GetClientByPhoneQuery (single,
+/// FirstOrDefaultAsync) sigue existiendo para los callers que ya asumen 1
+/// resultado; esta query devuelve TODOS los que coincidan, para que el bot
+/// pueda detectar la ambigüedad y preguntar con cuál cuenta continuar en vez
+/// de elegir una arbitrariamente y esconder la otra.
+/// </summary>
+public record GetClientsByPhoneQuery(string Phone) : IRequest<List<ClientBotDto>>;
+
+public class GetClientByPhoneHandler :
+    IRequestHandler<GetClientByPhoneQuery, ClientBotDto?>,
+    IRequestHandler<GetClientsByPhoneQuery, List<ClientBotDto>>
+{
+    private readonly IGenericRepository<Client> _clientRepo;
+
+    public GetClientByPhoneHandler(IGenericRepository<Client> clientRepo) => _clientRepo = clientRepo;
+
+    public async Task<ClientBotDto?> Handle(GetClientByPhoneQuery q, CancellationToken ct)
+    {
+        var matches = await FindByPhoneAsync(q.Phone, ct);
+        return matches.FirstOrDefault();
+    }
+
+    public async Task<List<ClientBotDto>> Handle(GetClientsByPhoneQuery q, CancellationToken ct)
+        => await FindByPhoneAsync(q.Phone, ct);
+
+    private async Task<List<ClientBotDto>> FindByPhoneAsync(string rawPhoneInput, CancellationToken ct)
+    {
+        var rawPhone = rawPhoneInput;
+        var phone    = rawPhone.Trim();
+        if (phone.StartsWith("591") && phone.Length > 3)
+            phone = phone[3..];
+
+        var clients = await _clientRepo.GetAll()
+            .Include(c => c.Plan)
+            .Include(c => c.Invoices)
+            .Where(c =>
+                c.PhoneMain      == phone    ||
+                c.PhoneMain      == rawPhone ||
+                c.PhoneSecondary == phone    ||
+                c.PhoneSecondary == rawPhone)
+            .OrderBy(c => c.CreatedAt)
+            .ToListAsync(ct);
+
+        return clients.Select(client =>
+        {
+            // La deuda usa InvoiceDomainService.UnpaidStatuses (fuente única): incluye
+            // Emitida/Enviada/ParcialmentePagada, no solo Pendiente|Vencida. Antes una
+            // factura recién generada (Emitida) no contaba y el bot reportaba deuda cero.
+            var pendingInvoices = client.Invoices.Where(i => i.IsUnpaid).ToList();
+
+            return new ClientBotDto(
+                Id:            client.Id.ToString(),
+                TbnCode:       client.TbnCode,
+                FullName:      client.FullName,
+                PhoneMain:     client.PhoneMain,
+                Status:        client.Status.ToString(),
+                PlanId:        client.PlanId.ToString(),
+                PlanName:      client.Plan?.Name ?? "—",
+                PlanSpeedMbps: client.Plan?.SpeedMb ?? 0,
+                TotalDebt:     pendingInvoices.Sum(i => i.Outstanding),
+                PendingMonths: pendingInvoices.Count(i => i.Type == InvoiceType.Mensualidad),
+                Zone:          client.Zone);
+        }).ToList();
+    }
+}

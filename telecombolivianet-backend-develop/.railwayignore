@@ -1,0 +1,10 @@
+# Artefactos de build .NET (se regeneran en el Docker build de Railway)
+**/bin/
+**/obj/
+
+# Proyectos de test: el Dockerfile solo compila Presentation, no los necesita
+tests/
+
+# Varios
+**/.vs/
+*.user

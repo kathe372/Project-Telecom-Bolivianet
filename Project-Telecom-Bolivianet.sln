@@ -1,0 +1,63 @@
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.5.2.0
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "telecombolivianet-backend-develop", "telecombolivianet-backend-develop", "{2FEEF334-DA04-C9E1-5022-6D71ADB7475D}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{A24FF56F-0784-139B-2D32-61290A21A7FD}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TelecomBoliviaNet.Application", "telecombolivianet-backend-develop\src\TelecomBoliviaNet.Application\TelecomBoliviaNet.Application.csproj", "{C24FB132-C3C2-14A2-5C83-67123C63DBEE}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TelecomBoliviaNet.Domain", "telecombolivianet-backend-develop\src\TelecomBoliviaNet.Domain\TelecomBoliviaNet.Domain.csproj", "{1FDE123E-0154-E6EF-0904-6F42CDD51040}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TelecomBoliviaNet.Infrastructure", "telecombolivianet-backend-develop\src\TelecomBoliviaNet.Infrastructure\TelecomBoliviaNet.Infrastructure.csproj", "{286638A3-AD0F-F9EE-7E0C-A633630CAE08}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TelecomBoliviaNet.Presentation", "telecombolivianet-backend-develop\src\TelecomBoliviaNet.Presentation\TelecomBoliviaNet.Presentation.csproj", "{94EBB243-477D-B435-8B4C-61DBFA3BEFB6}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tests", "tests", "{BC32DE81-FADE-CF3C-0B02-3793A4A069C9}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TelecomBoliviaNet.Tests", "telecombolivianet-backend-develop\tests\TelecomBoliviaNet.Tests\TelecomBoliviaNet.Tests.csproj", "{EE8BEC57-4CDB-DA44-821E-3158ED1B782A}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{C24FB132-C3C2-14A2-5C83-67123C63DBEE}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{C24FB132-C3C2-14A2-5C83-67123C63DBEE}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{C24FB132-C3C2-14A2-5C83-67123C63DBEE}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{C24FB132-C3C2-14A2-5C83-67123C63DBEE}.Release|Any CPU.Build.0 = Release|Any CPU
+		{1FDE123E-0154-E6EF-0904-6F42CDD51040}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{1FDE123E-0154-E6EF-0904-6F42CDD51040}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{1FDE123E-0154-E6EF-0904-6F42CDD51040}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{1FDE123E-0154-E6EF-0904-6F42CDD51040}.Release|Any CPU.Build.0 = Release|Any CPU
+		{286638A3-AD0F-F9EE-7E0C-A633630CAE08}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{286638A3-AD0F-F9EE-7E0C-A633630CAE08}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{286638A3-AD0F-F9EE-7E0C-A633630CAE08}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{286638A3-AD0F-F9EE-7E0C-A633630CAE08}.Release|Any CPU.Build.0 = Release|Any CPU
+		{94EBB243-477D-B435-8B4C-61DBFA3BEFB6}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{94EBB243-477D-B435-8B4C-61DBFA3BEFB6}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{94EBB243-477D-B435-8B4C-61DBFA3BEFB6}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{94EBB243-477D-B435-8B4C-61DBFA3BEFB6}.Release|Any CPU.Build.0 = Release|Any CPU
+		{EE8BEC57-4CDB-DA44-821E-3158ED1B782A}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{EE8BEC57-4CDB-DA44-821E-3158ED1B782A}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{EE8BEC57-4CDB-DA44-821E-3158ED1B782A}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{EE8BEC57-4CDB-DA44-821E-3158ED1B782A}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{A24FF56F-0784-139B-2D32-61290A21A7FD} = {2FEEF334-DA04-C9E1-5022-6D71ADB7475D}
+		{C24FB132-C3C2-14A2-5C83-67123C63DBEE} = {A24FF56F-0784-139B-2D32-61290A21A7FD}
+		{1FDE123E-0154-E6EF-0904-6F42CDD51040} = {A24FF56F-0784-139B-2D32-61290A21A7FD}
+		{286638A3-AD0F-F9EE-7E0C-A633630CAE08} = {A24FF56F-0784-139B-2D32-61290A21A7FD}
+		{94EBB243-477D-B435-8B4C-61DBFA3BEFB6} = {A24FF56F-0784-139B-2D32-61290A21A7FD}
+		{BC32DE81-FADE-CF3C-0B02-3793A4A069C9} = {2FEEF334-DA04-C9E1-5022-6D71ADB7475D}
+		{EE8BEC57-4CDB-DA44-821E-3158ED1B782A} = {BC32DE81-FADE-CF3C-0B02-3793A4A069C9}
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {23901D04-5248-45D6-98DF-3A22162B3D18}
+	EndGlobalSection
+EndGlobal

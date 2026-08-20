@@ -1,0 +1,52 @@
+# ── Secretos y configuración local ──────────────────────────────────────────
+.env
+*.env
+!.env.example
+
+# Archivos de configuración de servicios individuales
+telecombolivianet-backend-develop/.env
+telecombolivianet-chatbot-develop/.env
+telecombolivianet-notifier-develop/.env
+telecombolivianet-frontend-develop/.env
+
+# ── Configuración local de herramientas ──────────────────────────────────────
+# settings.local.json llega a contener cadenas de conexión REALES de Railway
+# (se guardan ahí como comandos permitidos). Nunca debe versionarse.
+.claude/
+scheduled_tasks.lock
+
+# ── Dependencias ─────────────────────────────────────────────────────────────
+node_modules/
+**/node_modules/
+
+# ── Resultados de pruebas y artefactos de build ──────────────────────────────
+test-results/
+playwright-report/
+**/bin/
+**/obj/
+**/dist/
+**/TestResults/
+*.trx
+coverage/
+baseline.txt
+
+# ── Copias de seguridad locales ──────────────────────────────────────────────
+*.BACKUP-*
+Migrations.BACKUP*/
+
+# ── Logs ─────────────────────────────────────────────────────────────────────
+logs/
+*.log
+
+# ── OS ───────────────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+
+# ── Editores ─────────────────────────────────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# ── Docker volumes locales ───────────────────────────────────────────────────
+uploads/

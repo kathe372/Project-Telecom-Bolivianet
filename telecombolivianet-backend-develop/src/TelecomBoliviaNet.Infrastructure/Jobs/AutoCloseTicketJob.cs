@@ -1,0 +1,77 @@
+using Microsoft.EntityFrameworkCore;
+using TelecomBoliviaNet.Application.Constants;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
+using TelecomBoliviaNet.Application.Interfaces;
+using TelecomBoliviaNet.Domain.Entities.Notifications;
+using TelecomBoliviaNet.Domain.Entities.Tickets;
+using TelecomBoliviaNet.Infrastructure.Data;
+
+namespace TelecomBoliviaNet.Infrastructure.Jobs;
+
+public class AutoCloseTicketJob : BackgroundService
+{
+    private readonly IServiceScopeFactory        _scopeFactory;
+    private readonly IConfiguration              _config;
+    private readonly ILogger<AutoCloseTicketJob> _logger;
+
+    public AutoCloseTicketJob(IServiceScopeFactory s, IConfiguration c, ILogger<AutoCloseTicketJob> l)
+    { _scopeFactory = s; _config = c; _logger = l; }
+
+    protected override async Task ExecuteAsync(CancellationToken ct)
+    {
+        while (!ct.IsCancellationRequested)
+        {
+            var now  = DateTime.UtcNow;
+            var next = now.Date.AddDays(1).AddHours(AppConstants.Time.AutoCloseRunHour);
+            if (next <= now) next = next.AddDays(1);
+            try { await Task.Delay(next - now, ct); } catch (TaskCanceledException) { break; }
+            await RunAsync(ct);
+        }
+    }
+
+    private async Task RunAsync(CancellationToken ct)
+    {
+        int waitDays = _config.GetValue<int>("AutoClose:WaitDays", 3);
+        using var scope  = _scopeFactory.CreateScope();
+        var db             = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        var notifPublisher = scope.ServiceProvider.GetRequiredService<INotifPublisher>();
+
+        var cutoff  = DateTime.UtcNow.AddDays(-waitDays);
+        var tickets = await db.SupportTickets.Include(t => t.Client)
+            .Where(t => t.Status == TicketStatus.Resuelto && t.ResolvedAt.HasValue && t.ResolvedAt.Value <= cutoff)
+            .ToListAsync(ct);
+
+        foreach (var ticket in tickets)
+        {
+            ticket.Status   = TicketStatus.Cerrado;
+            ticket.ClosedAt = DateTime.UtcNow;
+
+            if (ticket.Client is not null && !string.IsNullOrWhiteSpace(ticket.Client.PhoneMain))
+            {
+                var numTicket = ticket.TicketNumber
+                    ?? $"#{ticket.Id.ToString()[..8].ToUpper()}";
+                var nombre = ticket.Client.FullName.Split(' ')[0];
+                await notifPublisher.PublishAsync(
+                    NotifType.TICKET_RESUELTO,
+                    ticket.ClientId ?? Guid.Empty,
+                    ticket.Client.PhoneMain,
+                    new Dictionary<string, string>
+                    {
+                        ["nombre"]     = nombre,
+                        ["num_ticket"] = numTicket,
+                    });
+                db.TicketNotifications.Add(new TicketNotification
+                {
+                    TicketId = ticket.Id, Type = NotificationType.CierreAutomatico,
+                    Status = NotificationStatus.Enviado, Recipient = ticket.Client.PhoneMain,
+                    Message = $"Ticket {numTicket} cerrado automáticamente tras resolución.", SentAt = DateTime.UtcNow,
+                });
+            }
+        }
+        if (tickets.Count > 0) await db.SaveChangesAsync(ct);
+        _logger.LogInformation("AutoCloseTicketJob: {Count} tickets cerrados.", tickets.Count);
+    }
+}
