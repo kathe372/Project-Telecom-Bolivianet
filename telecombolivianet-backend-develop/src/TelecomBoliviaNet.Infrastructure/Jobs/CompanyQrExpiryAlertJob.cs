@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -39,7 +39,16 @@ public class CompanyQrExpiryAlertJob : BackgroundService
                 && lastRunDate != today)
             {
                 lastRunDate = today;
-                await RunAsync(today, ct);
+
+                // Igual que en QrExpiryAlertJob: lastRunDate es de proceso, no compartido.
+                // La garantía real la dan este lease más SystemConfigKeys.CompanyQrAlertSentDate,
+                // que RunAsync persiste al terminar.
+                using (var leaseScope = _scopeFactory.CreateScope())
+                {
+                    var leaseDb = leaseScope.ServiceProvider.GetRequiredService<AppDbContext>();
+                    await JobLease.TryRunExclusiveAsync(leaseDb, nameof(CompanyQrExpiryAlertJob),
+                        () => RunAsync(today, ct), ct);
+                }
                 await Task.Delay(TimeSpan.FromMinutes(15), ct);
                 continue;
             }

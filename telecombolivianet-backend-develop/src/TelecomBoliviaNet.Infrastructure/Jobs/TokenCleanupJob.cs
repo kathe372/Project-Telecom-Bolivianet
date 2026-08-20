@@ -45,16 +45,25 @@ public class TokenCleanupJob : BackgroundService
                 using var scope = _scopeFactory.CreateScope();
                 var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
 
-                var lastRunDay = await JobRunTracker.ReadLastRunAsync(
-                    db, SystemConfigKeys.TokenCleanupLastRunDay, ct);
-
-                if (JobSchedule.ShouldRunDaily(DateTime.UtcNow, lastRunDay, RunHourUtc))
+                // La lectura del tracker va DENTRO del lease: si se dejara fuera,
+                // dos réplicas leerían "lastRun=ayer" antes de que ninguna tomara
+                // el lock y no se habría arreglado nada.
+                var ejecuto = await JobLease.TryRunExclusiveAsync(db, nameof(TokenCleanupJob), async () =>
                 {
+                    var lastRunDay = await JobRunTracker.ReadLastRunAsync(
+                        db, SystemConfigKeys.TokenCleanupLastRunDay, ct);
+
+                    if (!JobSchedule.ShouldRunDaily(DateTime.UtcNow, lastRunDay, RunHourUtc)) return;
+
                     await RunAsync(scope, db, ct);
                     await JobRunTracker.MarkRanAsync(
                         db, SystemConfigKeys.TokenCleanupLastRunDay,
                         JobSchedule.DayKey(DateTime.UtcNow), ct);
-                }
+                }, ct);
+
+                if (!ejecuto)
+                    _logger.LogDebug("{Job}: otra instancia tiene el lease, se omite el tick.",
+                                     nameof(TokenCleanupJob));
             }
             catch (Exception ex)
             {

@@ -6,6 +6,40 @@ la vez es cómo se rompen los sistemas en producción.
 
 ---
 
+## Pendientes arrastrados
+
+### 🟠 P-01 · F1 cerró al ~70%: faltan 3 interfaces y el despliegue
+
+Se decidió avanzar a F2 con estos dos criterios de salida de F1 sin cumplir:
+
+**a) Interfaces: 7 de los 10 pedidos.** Quedan 13 servicios que los controladores
+inyectan como clase concreta:
+
+```
+AuditService · AuthService · BusinessScheduleService · ClientHistoryService
+ClientQrService · CompanyQrService · InstallationPhotoService
+InvoiceOperationsService · NotifConfigService · NotifHistoryService
+NotifSendService · TicketAttachmentService · TicketBalancingService
+```
+
+`NotifConfigService` (16 métodos públicos) **no** debería recibir interfaz ahora:
+sería consagrar el problema. Su sitio es F5, donde se parte.
+
+**b) Nada se ha desplegado a Railway desde que empezó el plan.** F0 y F1 están solo
+en CI. Importa especialmente porque F1 tocó el registro de dependencias, que falla
+**en runtime, no al compilar**.
+
+Punto ciego conocido: `DependencyResolutionTests` cubre los controladores pero **no
+los 11 hosted services**, que desde el arreglo de D-03 ya no arrancan durante los
+tests. Al desplegar hay que **revisar los logs de arranque** buscando fallos de
+resolución en los jobs.
+
+Además sigue pendiente ejecutar `docs/sql/F0-registrar-migraciones.sql` en
+producción. Las migraciones son idempotentes, así que el deploy no debería
+romperse, pero conviene correrlo antes para que EF ni las intente.
+
+---
+
 ## F0 — Fase 0 (2026-08-20)
 
 ### 🔴 D-01 · Tres migraciones eran invisibles para EF Core — **CORREGIDO en F0.4**

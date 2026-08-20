@@ -1,3 +1,4 @@
+using TelecomBoliviaNet.Infrastructure.Data;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -32,7 +33,16 @@ public class ExpirePortReservationsJob : BackgroundService
 
         while (!ct.IsCancellationRequested)
         {
-            await RunAsync(ct);
+            // Expirar reservas es idempotente, así que el lease no evita ningún
+            // daño aquí: evita el trabajo duplicado y, sobre todo, que dos réplicas
+            // compitan por las mismas filas con SELECT … FOR UPDATE.
+            using (var scope = _scopeFactory.CreateScope())
+            {
+                var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+                await JobLease.TryRunExclusiveAsync(
+                    db, nameof(ExpirePortReservationsJob), () => RunAsync(ct), ct);
+            }
+
             await Task.Delay(Interval, ct);
         }
     }

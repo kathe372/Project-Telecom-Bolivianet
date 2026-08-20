@@ -28,7 +28,14 @@ public class AutoCloseTicketJob : BackgroundService
             var next = now.Date.AddDays(1).AddHours(AppConstants.Time.AutoCloseRunHour);
             if (next <= now) next = next.AddDays(1);
             try { await Task.Delay(next - now, ct); } catch (TaskCanceledException) { break; }
-            await RunAsync(ct);
+
+            // Cerrar un ticket ya resuelto es idempotente (el filtro por
+            // Status == Resuelto lo saca del conjunto), pero RunAsync publica
+            // notificaciones: sin lease, dos réplicas avisarían dos veces al mismo
+            // cliente de que su ticket se cerró.
+            using var scope = _scopeFactory.CreateScope();
+            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            await JobLease.TryRunExclusiveAsync(db, nameof(AutoCloseTicketJob), () => RunAsync(ct), ct);
         }
     }
 

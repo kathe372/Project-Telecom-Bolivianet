@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -25,7 +25,13 @@ public class SendInstallationRemindersJob : BackgroundService
             var now  = DateTime.UtcNow;
             var next = now.AddMinutes(60 - now.Minute).AddSeconds(-now.Second);
             try { await Task.Delay(next - now, ct); } catch (TaskCanceledException) { break; }
-            await RunAsync(ct);
+
+            // RunAsync marca inst.ReminderSentAt, pero es leer-decidir-escribir: sin lease,
+            // dos réplicas leen el flag a null a la vez y el cliente recibe dos
+            // recordatorios de la misma instalación.
+            using var scope = _scopeFactory.CreateScope();
+            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            await JobLease.TryRunExclusiveAsync(db, nameof(SendInstallationRemindersJob), () => RunAsync(ct), ct);
         }
     }
 

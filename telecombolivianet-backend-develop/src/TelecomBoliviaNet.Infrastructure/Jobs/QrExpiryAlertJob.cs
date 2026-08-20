@@ -1,3 +1,4 @@
+﻿using TelecomBoliviaNet.Infrastructure.Data;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -35,7 +36,18 @@ public class QrExpiryAlertJob : BackgroundService
                 && lastRunDate != today)
             {
                 lastRunDate = today;
-                await RunAsync();
+
+                // El lastRunDate de arriba vive EN MEMORIA: con dos réplicas cada una tiene
+                // el suyo, así que no impide nada entre procesos. Quien evita el aviso
+                // duplicado es la combinación de este lease (serializa) con
+                // MarkAlertSentAsync, que persiste por cliente: al entrar la segunda
+                // réplica, los clientes ya están marcados y no se les vuelve a avisar.
+                using (var leaseScope = _scopeFactory.CreateScope())
+                {
+                    var leaseDb = leaseScope.ServiceProvider.GetRequiredService<AppDbContext>();
+                    await JobLease.TryRunExclusiveAsync(leaseDb, nameof(QrExpiryAlertJob),
+                        () => RunAsync(), ct);
+                }
                 await Task.Delay(TimeSpan.FromMinutes(15), ct);
                 continue;
             }

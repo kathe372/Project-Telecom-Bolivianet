@@ -36,6 +36,23 @@ public class BillingBackgroundJob : BackgroundService
                 var year     = nowBolivia.Year;
                 var monthKey = JobSchedule.MonthKey(nowBolivia);
 
+                // Un ÚNICO lease para las tres tareas del tick (generación,
+                // recordatorios y vencimientos), no uno por bloque: así una sola
+                // réplica se ocupa de todo el ciclo de facturación del minuto y no
+                // pueden repartírselo dos.
+                //
+                // Es el job donde la exclusión más importa: sin ella, dos réplicas
+                // leen el mismo "último mes facturado" y ambas generan las facturas
+                // del mes. El índice único (ClientId, Year, Month, Type) evitaría el
+                // desastre en la base, pero la segunda corrida abortaría a medias y
+                // dejaría el crédito de los clientes ya descontado.
+                using var leaseScope = _services.CreateScope();
+                var leaseDb = leaseScope.ServiceProvider.GetRequiredService<AppDbContext>();
+
+                var ejecuto = await JobLease.TryRunExclusiveAsync(
+                    leaseDb, nameof(BillingBackgroundJob), async () =>
+                {
+
                 // GENERACIÓN mensual: día 1 a las 00:00, CON catch-up.
                 //
                 // Antes la condición era `day == 1 && hour == 0 && min entre 1 y 10`:
@@ -93,6 +110,12 @@ public class BillingBackgroundJob : BackgroundService
                             db, SystemConfigKeys.BillingLastOverdueDay, dayKey, stoppingToken);
                     }
                 }
+
+                }, stoppingToken);
+
+                if (!ejecuto)
+                    _logger.LogDebug("{Job}: otra instancia tiene el lease, se omite el tick.",
+                                     nameof(BillingBackgroundJob));
             }
             catch (Exception ex)
             {

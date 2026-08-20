@@ -50,18 +50,29 @@ public class ApplyScheduledPlanChangesJob : BackgroundService
                 using var scope = _scopeFactory.CreateScope();
                 var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
 
-                var lastRunDay = await JobRunTracker.ReadLastRunAsync(
-                    db, SystemConfigKeys.PlanChangeLastRunDay, ct);
-
-                // Con catch-up: si el contenedor estaba desplegando a la hora prevista, el
-                // cambio se aplica en el primer tick disponible en vez de quedar colgado un mes.
-                if (JobSchedule.ShouldRunDaily(DateTime.UtcNow, lastRunDay, RunHourUtc, RunMinuteUtc))
+                // El tracker se lee DENTRO del lease. Si se leyera fuera, dos
+                // réplicas verían "lastRun=ayer" antes de que ninguna tomara el
+                // lock y ambas aplicarían el mismo cambio de plan.
+                var ejecuto = await JobLease.TryRunExclusiveAsync(
+                    db, nameof(ApplyScheduledPlanChangesJob), async () =>
                 {
+                    var lastRunDay = await JobRunTracker.ReadLastRunAsync(
+                        db, SystemConfigKeys.PlanChangeLastRunDay, ct);
+
+                    // Con catch-up: si el contenedor estaba desplegando a la hora prevista, el
+                    // cambio se aplica en el primer tick disponible en vez de quedar colgado un mes.
+                    if (!JobSchedule.ShouldRunDaily(DateTime.UtcNow, lastRunDay, RunHourUtc, RunMinuteUtc))
+                        return;
+
                     await RunAsync(scope, db, ct);
                     await JobRunTracker.MarkRanAsync(
                         db, SystemConfigKeys.PlanChangeLastRunDay,
                         JobSchedule.DayKey(DateTime.UtcNow), ct);
-                }
+                }, ct);
+
+                if (!ejecuto)
+                    _logger.LogDebug("{Job}: otra instancia tiene el lease, se omite el tick.",
+                                     nameof(ApplyScheduledPlanChangesJob));
             }
             catch (Exception ex)
             {

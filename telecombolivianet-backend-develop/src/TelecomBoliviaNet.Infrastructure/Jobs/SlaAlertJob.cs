@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -28,7 +28,13 @@ public class SlaAlertJob : BackgroundService
             var now  = DateTime.UtcNow;
             var next = now.AddMinutes(60 - now.Minute).AddSeconds(-now.Second);
             try { await Task.Delay(next - now, ct); } catch (TaskCanceledException) { break; }
-            await RunAsync(ct);
+
+            // RunAsync marca ticket.SlaAlertSentAt, pero es leer-decidir-escribir: sin lease,
+            // dos réplicas leen el flag a null a la vez y el técnico recibe dos avisos
+            // del mismo SLA.
+            using var scope = _scopeFactory.CreateScope();
+            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            await JobLease.TryRunExclusiveAsync(db, nameof(SlaAlertJob), () => RunAsync(ct), ct);
         }
     }
 

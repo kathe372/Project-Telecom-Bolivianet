@@ -1,3 +1,4 @@
+using TelecomBoliviaNet.Infrastructure.Data;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -33,7 +34,13 @@ public class NapPortSyncJob : BackgroundService
             try
             {
                 using var scope = _scopeFactory.CreateScope();
-                await scope.ServiceProvider.GetRequiredService<INapPortService>().SyncAllAsync(ct);
+                var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+
+                // Reconciliar puertos es idempotente, pero que dos réplicas lo
+                // hagan a la vez sobre las mismas cajas es trabajo tirado y ruido
+                // en los contadores.
+                await JobLease.TryRunExclusiveAsync(db, nameof(NapPortSyncJob), () =>
+                    scope.ServiceProvider.GetRequiredService<INapPortService>().SyncAllAsync(ct), ct);
             }
             catch (OperationCanceledException) when (ct.IsCancellationRequested) { }
             catch (Exception ex)

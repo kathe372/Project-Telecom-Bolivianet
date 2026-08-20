@@ -48,19 +48,31 @@ public class AutoSuspendClientJob : BackgroundService
                 using (var scope = _scopeFactory.CreateScope())
                 {
                     var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-                    var lastRunDay = await JobRunTracker.ReadLastRunAsync(
-                        db, SystemConfigKeys.AutoSuspendLastRunDay, ct);
 
-                    if (JobSchedule.ShouldRunDaily(
-                            DateTime.UtcNow, lastRunDay,
-                            AppConstants.Time.AutoSuspendRunHour,
-                            AppConstants.Time.AutoSuspendRunMinute))
+                    // El tracker se lee DENTRO del lease: fuera, dos réplicas
+                    // verían "lastRun=ayer" a la vez y ambas suspenderían a los
+                    // mismos clientes, enviando dos veces el aviso de corte.
+                    var ejecuto = await JobLease.TryRunExclusiveAsync(
+                        db, nameof(AutoSuspendClientJob), async () =>
                     {
+                        var lastRunDay = await JobRunTracker.ReadLastRunAsync(
+                            db, SystemConfigKeys.AutoSuspendLastRunDay, ct);
+
+                        if (!JobSchedule.ShouldRunDaily(
+                                DateTime.UtcNow, lastRunDay,
+                                AppConstants.Time.AutoSuspendRunHour,
+                                AppConstants.Time.AutoSuspendRunMinute))
+                            return;
+
                         await RunAsync(ct);
                         await JobRunTracker.MarkRanAsync(
                             db, SystemConfigKeys.AutoSuspendLastRunDay,
                             JobSchedule.DayKey(DateTime.UtcNow), ct);
-                    }
+                    }, ct);
+
+                    if (!ejecuto)
+                        _logger.LogDebug("{Job}: otra instancia tiene el lease, se omite el tick.",
+                                         nameof(AutoSuspendClientJob));
                 }
             }
             catch (Exception ex)

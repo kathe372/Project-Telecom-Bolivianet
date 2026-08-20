@@ -8,6 +8,13 @@
     <ProjectReference Include="..\TelecomBoliviaNet.Domain\TelecomBoliviaNet.Domain.csproj" />
     <ProjectReference Include="..\TelecomBoliviaNet.Application\TelecomBoliviaNet.Application.csproj" />
   </ItemGroup>
+
+  <ItemGroup>
+    <!-- JobLease.StableHash es internal a propósito (no es API de la capa), pero
+         debe poder probarse: si alguien lo sustituyera por GetHashCode(), en
+         local funcionaría y en producción cada réplica tomaría un lock distinto. -->
+    <InternalsVisibleTo Include="TelecomBoliviaNet.IntegrationTests" />
+  </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.EntityFrameworkCore" Version="8.0.30" />
     <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="8.0.11" />
