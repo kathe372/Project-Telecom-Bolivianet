@@ -18,7 +18,7 @@
     <PackageReference Include="Serilog.Sinks.Console"                         Version="5.*" />
     <!-- Rate limiting: usa el middleware nativo de ASP.NET 8 (Microsoft.AspNetCore.RateLimiting) -->
     <!-- No requiere paquete NuGet adicional — incluido en el SDK de .NET 8 -->
-    <PackageReference Include="Microsoft.EntityFrameworkCore.Design"          Version="8.*">
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design"          Version="8.0.30">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
     </PackageReference>
