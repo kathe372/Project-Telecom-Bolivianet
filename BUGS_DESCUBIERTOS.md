@@ -78,6 +78,32 @@ Al unificar los cuatro servicios en un monorepo, los workflows quedaron en
 **Corrección:** creado `.github/workflows/backend-ci.yml` en la raíz, con filtro de
 rutas. **Pendiente:** hacer lo mismo para chatbot y frontend (fuera del alcance de F0).
 
+### 🟡 D-08 · Rama muerta en `BillingService`: el cliente sin plan no existe
+
+`GenerateMonthlyInvoicesAsync` trata `client.Plan is null` como error y lo cuenta
+en `BillingJobResultDto.Errors`:
+
+```csharp
+if (client.Plan is null)
+{
+    _logger.LogWarning("Cliente {TbnCode} sin plan, omitido", client.TbnCode);
+    errors++;
+    continue;
+}
+```
+
+Esa rama es **inalcanzable contra la base real**: existe la FK
+`FK_Clients_Plans_PlanId`, así que ningún cliente puede referenciar un plan que no
+exista. Se descubrió al intentar sembrar ese caso en
+`BillingCharacterizationTests` — PostgreSQL lo rechazó con `23503`.
+
+**Consecuencia:** `Errors` siempre vale 0 en esa rama, y el panel muestra un
+contador que nunca se moverá.
+
+**Qué hacer:** en **F5**, al partir `BillingService`, decidir entre eliminar la
+rama (y el contador) o convertirla en una aserción de invariante. No tocar antes:
+el test de caracterización congela `Errors == 0` y detectará el cambio.
+
 ### 🟡 D-07 · `appsettings.Production.json` con contraseña por defecto
 
 Contiene `Password=telecom_pass_2025`, el mismo default de `docker-compose.yml`.
