@@ -33,21 +33,47 @@ Una base reconstruida desde cero salía sin ellas.
 **Corrección:** nueva migración `20260820000001_BackfillCoverageSupportTables`,
 idempotente.
 
-### 🟠 D-03 · Un test de integración es flaky
+### 🟠 D-03 · Un test de integración es flaky — origen NO confirmado
 
-En 3 ejecuciones de la suite completa, una terminó con `Failed: 1, Passed: 94`; las
-otras dos con `95/95`. El fallo no se reprodujo al reejecutar, así que no quedó
-registrado el nombre del test.
+**Observado en local (Windows + Docker Desktop):**
 
-Coincide con el problema ya conocido de los **tests de slots sensibles a la hora del
-día** (candidatos: `RescheduleTicketVisitTests`, `ScheduleRepositoryTests`,
-`GetTicketVisitSlotsHandlerTests`).
+| Ejecución | Resultado |
+|---|---|
+| Línea base, antes de tocar nada | 91/91 ✅ (una sola ejecución) |
+| Tras añadir `SchemaParityTests` | 94/95 ❌ |
+| Reejecución inmediata | 95/95 ✅ |
+| Tras añadir `BillingCharacterizationTests` | 100/101 ❌ |
+| Reejecución inmediata | 101/101 ✅ |
+
+En CI (Linux, GitHub Actions) la suite pasó a la primera.
+
+**No está confirmado si el fallo es preexistente o lo introdujeron los tests
+nuevos.** La línea base solo se ejecutó una vez, así que no hay evidencia de que
+fuera estable antes. Sería deshonesto darlo por heredado.
+
+**Hipótesis principal (contención de contenedores).** `IClassFixture<T>` crea una
+instancia **por clase de test**, así que cada clase que usa
+`CustomWebApplicationFactory` levanta **su propio contenedor PostGIS**. Con
+`parallelizeTestCollections: false` van en serie, pero la Fase 0 pasó de 9 a 11
+contenedores por ejecución. En Docker Desktop sobre Windows eso aumenta la presión
+de arranque/parada y es una causa plausible de fallos intermitentes.
+
+**Hipótesis secundaria:** los tests de slots sensibles a la hora del día
+(`RescheduleTicketVisitTests`, `ScheduleRepositoryTests`), un problema ya conocido
+del proyecto.
 
 **Por qué importa:** un test flaky envenena la línea base — a partir de ahora, cada
-fallo obliga a preguntarse "¿rompí algo o es el flaky?". Debe arreglarse antes de F3.
+fallo obliga a preguntarse "¿rompí algo o es el flaky?". Debe resolverse **antes de
+F3**, que es cuando empiezan los refactors con riesgo.
 
-**Cómo arreglarlo:** inyectar el reloj (`IClock`/`TimeProvider`) en lugar de leer
-`DateTime.UtcNow` dentro de la lógica de slots, y fijarlo en los tests.
+**Cómo atacarlo, en este orden:**
+1. Ejecutar la suite 10 veces con `--logger trx` y quedarse con el nombre del test
+   que falla. Sin el nombre, todo lo demás es especular.
+2. Si es contención: pasar de `IClassFixture` a `ICollectionFixture` con una
+   `[CollectionDefinition]` compartida, para levantar **un** contenedor por
+   ejecución en vez de once.
+3. Si es la hora del día: inyectar `TimeProvider` en la lógica de slots y fijarlo
+   en los tests.
 
 ### 🟡 D-04 · Columnas huérfanas en la base
 
