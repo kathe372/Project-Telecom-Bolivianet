@@ -1,4 +1,4 @@
-using MediatR;
+﻿using MediatR;
 using Microsoft.EntityFrameworkCore;
 using TelecomBoliviaNet.Application.Interfaces;
 using TelecomBoliviaNet.Domain.Entities.Auth;
@@ -55,11 +55,11 @@ public class ResetPasswordHandler : IRequestHandler<ResetPasswordCommand, Result
         user.RequiresPasswordChange = false;
         user.FailedLoginAttempts    = 0;
         user.UpdatedAt              = DateTime.UtcNow;
-        await _repo.UpdateAsync(user);
-
+        _repo.Update(user);
+        await _repo.SaveChangesAsync();
         resetToken.Used = true;
-        await _resetRepo.UpdateAsync(resetToken);
-
+        _resetRepo.Update(resetToken);
+        await _resetRepo.SaveChangesAsync();
         await _email.SendPasswordChangedNotificationAsync(user.Email, user.FullName);
 
         return Result.Success();

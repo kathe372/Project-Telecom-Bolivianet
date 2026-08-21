@@ -1,4 +1,4 @@
-using MediatR;
+﻿using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using TelecomBoliviaNet.Application.Coverage.Services;
@@ -91,15 +91,16 @@ public class CancelInstallationHandler : IRequestHandler<CancelInstallationComma
         inst.CanceladoPor      = cmd.Dto.CanceladoPor;
         inst.CanceladoAt       = DateTime.UtcNow;
         inst.ActualizadoAt     = DateTime.UtcNow;
-        await _instRepo.UpdateAsync(inst);
-
+        _instRepo.Update(inst);
+        await _instRepo.SaveChangesAsync();
         if (inst.Ticket is not null &&
             inst.Ticket.Status is TicketStatus.Abierto or TicketStatus.EnProceso)
         {
             inst.Ticket.Status            = TicketStatus.Cerrado;
             inst.Ticket.ResolutionMessage = $"Instalación cancelada. Motivo: {cmd.Dto.MotivoCancelacion}";
             inst.Ticket.ClosedAt          = DateTime.UtcNow;
-            await _ticketRepo.UpdateAsync(inst.Ticket);
+            _ticketRepo.Update(inst.Ticket);
+            await _ticketRepo.SaveChangesAsync();
         }
 
         // F6 nivel comercial: si cancela la empresa, se avisa al cliente/prospecto

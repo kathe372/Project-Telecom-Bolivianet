@@ -1,4 +1,4 @@
-using FluentAssertions;
+﻿using FluentAssertions;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
@@ -245,7 +245,7 @@ public class AuthServiceTests
         // TEMPORAL (LockedUntil), no Status=Bloqueado. El permanente dejaba al
         // único Admin fuera del sistema hasta un RESET_ADMIN + redespliegue;
         // Bloqueado queda reservado para el bloqueo administrativo manual.
-        userRepo.Verify(r => r.UpdateAsync(
+        userRepo.Verify(r => r.Update(
             It.Is<UserSystem>(u =>
                 u.Status == UserStatus.Activo &&
                 u.LockedUntil != null && u.LockedUntil > DateTime.UtcNow)),
@@ -285,7 +285,7 @@ public class AuthServiceTests
             new LoginDto(ValidEmail, ValidPassword), "127.0.0.1");
 
         result.IsSuccess.Should().BeTrue();
-        userRepo.Verify(r => r.UpdateAsync(
+        userRepo.Verify(r => r.Update(
             It.Is<UserSystem>(u => u.LockedUntil == null && u.FailedLoginAttempts == 0)),
             Times.Once);
     }
@@ -307,7 +307,7 @@ public class AuthServiceTests
             new LoginDto(ValidEmail, "Mal!"), "127.0.0.1");
 
         result.IsSuccess.Should().BeFalse();
-        userRepo.Verify(r => r.UpdateAsync(
+        userRepo.Verify(r => r.Update(
             It.Is<UserSystem>(u => u.FailedLoginAttempts == 1 && u.LockedUntil == null)),
             Times.Once);
     }
@@ -358,7 +358,7 @@ public class AuthServiceTests
             new LoginDto(ValidEmail, ValidPassword), "127.0.0.1");
 
         result.IsSuccess.Should().BeTrue();
-        userRepo.Verify(r => r.UpdateAsync(
+        userRepo.Verify(r => r.Update(
             It.Is<UserSystem>(u => u.FailedLoginAttempts == 0)),
             Times.Once);
     }
@@ -424,7 +424,7 @@ public class AuthServiceTests
             new ChangePasswordDto("Actual123!", "Nueva456!", "Nueva456!"), "127.0.0.1");
 
         result.IsSuccess.Should().BeTrue();
-        userRepo.Verify(r => r.UpdateAsync(
+        userRepo.Verify(r => r.Update(
             It.Is<UserSystem>(u =>
                 u.PasswordHash             == "NUEVO_HASH" &&
                 u.RequiresPasswordChange   == false)),

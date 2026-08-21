@@ -1,4 +1,4 @@
-using MediatR;
+﻿using MediatR;
 using Microsoft.EntityFrameworkCore;
 using System.Text.Json;
 using TelecomBoliviaNet.Application.DTOs.Clients;
@@ -92,7 +92,8 @@ public class UpdateClientHandler : IRequestHandler<UpdateClientCommand, Result>
 
         try
         {
-            await _clientRepo.UpdateAsync(client);
+            _clientRepo.Update(client);
+            await _clientRepo.SaveChangesAsync();
         }
         catch (DbUpdateConcurrencyException)
         {

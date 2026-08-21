@@ -1,4 +1,4 @@
-using System.Linq.Expressions;
+﻿using System.Linq.Expressions;
 using MockQueryable;
 using MockQueryable.Moq;
 using Moq;
@@ -73,27 +73,19 @@ public static class RepoMock
         mock.Setup(r => r.SaveChangesAsync())
             .Returns(Task.CompletedTask);
 
-        // UpdateAsync — reemplaza el elemento por Id y simula SaveChanges implícito
-        mock.Setup(r => r.UpdateAsync(It.IsAny<T>()))
+        // ── Contrato nuevo (F3): marcar y confirmar por separado ─────────────
+        // Update/UpdateRange/Remove/RemoveRange son void y NO persisten. Aquí se
+        // aplican al listado igualmente: en un mock no hay un SaveChanges real que
+        // diferenciar, y lo que interesa es que el servicio vea el efecto.
+
+        mock.Setup(r => r.Update(It.IsAny<T>()))
             .Callback<T>(updated =>
             {
                 var idx = list.FindIndex(e => e.Id == updated.Id);
                 if (idx >= 0) list[idx] = updated;
-            })
-            .Returns(Task.CompletedTask);
+            });
 
-        // MarkModifiedAsync — igual que UpdateAsync en tests (sin SaveChanges real que diferenciar)
-        mock.Setup(r => r.MarkModifiedAsync(It.IsAny<T>()))
-            .Callback<T>(updated =>
-            {
-                var idx = list.FindIndex(e => e.Id == updated.Id);
-                if (idx >= 0) list[idx] = updated;
-            })
-            .Returns(Task.CompletedTask);
-
-        // BUG #4 FIX: UpdateRangeAsync faltaba — tests que llaman MarkOverdueInvoicesAsync
-        // o RevokeAllForUserAsync fallaban con NotSupportedException (método no mockeado).
-        mock.Setup(r => r.UpdateRangeAsync(It.IsAny<IEnumerable<T>>()))
+        mock.Setup(r => r.UpdateRange(It.IsAny<IEnumerable<T>>()))
             .Callback<IEnumerable<T>>(updates =>
             {
                 foreach (var updated in updates)
@@ -101,26 +93,18 @@ public static class RepoMock
                     var idx = list.FindIndex(e => e.Id == updated.Id);
                     if (idx >= 0) list[idx] = updated;
                 }
-            })
-            .Returns(Task.CompletedTask);
+            });
 
-        // DeleteRangeAsync — elimina múltiples entidades
-        mock.Setup(r => r.DeleteRangeAsync(It.IsAny<IEnumerable<T>>()))
+        mock.Setup(r => r.Remove(It.IsAny<T>()))
+            .Callback<T>(entity => list.Remove(entity));
+
+        mock.Setup(r => r.RemoveRange(It.IsAny<IEnumerable<T>>()))
             .Callback<IEnumerable<T>>(entities =>
             {
-                foreach (var e in entities.ToList())
-                    list.Remove(e);
-            })
-            .Returns(Task.CompletedTask);
+                foreach (var e in entities.ToList()) list.Remove(e);
+            });
 
-        // DeleteAsync — elimina por Id
-        mock.Setup(r => r.DeleteAsync(It.IsAny<Guid>()))
-            .Callback<Guid>(id =>
-            {
-                var item = list.FirstOrDefault(e => e.Id == id);
-                if (item != null) list.Remove(item);
-            })
-            .Returns(Task.CompletedTask);
+
 
         return mock;
     }

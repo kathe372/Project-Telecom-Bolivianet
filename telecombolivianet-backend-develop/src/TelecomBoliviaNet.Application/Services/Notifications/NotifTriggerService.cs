@@ -1,4 +1,4 @@
-#pragma warning disable CS8981
+﻿#pragma warning disable CS8981
 using r = TelecomBoliviaNet.Domain.Primitives.Result;
 #pragma warning restore CS8981
 using Microsoft.EntityFrameworkCore;
@@ -65,8 +65,8 @@ public class NotifTriggerService
         }
 
         if (configsToUpdate.Count > 0)
-            await _repo.UpdateRangeAsync(configsToUpdate);
-
+            _repo.UpdateRange(configsToUpdate);
+            await _repo.SaveChangesAsync();
         // SECUENCIAL, no Task.WhenAll: AuditService.LogAsync escribe sobre el DbContext scoped
         // que comparten todos los repositorios. Lanzarlos en paralelo provocaba "A second
         // operation was started on this context"; como LogAsync se traga sus propios errores,

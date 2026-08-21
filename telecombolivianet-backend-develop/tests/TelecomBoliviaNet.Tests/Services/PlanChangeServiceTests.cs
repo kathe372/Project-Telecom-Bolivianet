@@ -1,4 +1,4 @@
-using FluentAssertions;
+﻿using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
 using Moq;
 using TelecomBoliviaNet.Application.DTOs.Clients;
@@ -337,7 +337,7 @@ public class PlanChangeServiceTests
         result.IsSuccess.Should().BeTrue();
         invoiceRepo.Verify(r => r.AddAsync(It.IsAny<Invoice>()), Times.Never);
         // FIX-A: debe llamar MarkModifiedAsync, NO UpdateAsync directamente
-        changeRepo.Verify(r => r.MarkModifiedAsync(
+        changeRepo.Verify(r => r.Update(
             It.Is<PlanChangeRequest>(c => c.Status == PlanChangeStatus.Aprobado)),
             Times.Once);
     }
@@ -511,7 +511,7 @@ public class PlanChangeServiceTests
         var result = await svc.ApproveChangeAsync(cambioId, midMonth: true, ActorId, "Admin", "127.0.0.1");
 
         result.IsSuccess.Should().BeTrue();
-        changeRepo.Verify(r => r.MarkModifiedAsync(
+        changeRepo.Verify(r => r.Update(
             It.Is<PlanChangeRequest>(c => c.Status == PlanChangeStatus.Aplicado && c.MidMonthChange)),
             Times.Once,
             "un cambio inmediato queda APLICADO, no solo aprobado");
@@ -560,13 +560,16 @@ public class PlanChangeServiceTests
 
         result.IsSuccess.Should().BeTrue();
 
-        // Factura actual debe quedar Anulada (via MarkModifiedAsync, no UpdateAsync)
-        invoiceRepo.Verify(r => r.MarkModifiedAsync(
+        // La factura actual queda Anulada, marcada dentro de la transacción.
+        //
+        // F3 (2026-08-21): antes esto eran dos aserciones —"usa MarkModifiedAsync"
+        // y "NO usa UpdateAsync"— que con el contrato nuevo se contradicen: ambos
+        // métodos son hoy Update(), que por definición no persiste. La garantía
+        // que importaba era que la anulación NO se confirmara por su cuenta,
+        // fuera de la transacción del cambio de plan.
+        invoiceRepo.Verify(r => r.Update(
             It.Is<Invoice>(i => i.Id == facturaActual.Id && i.Status == InvoiceStatus.Anulada)),
             Times.Once);
-
-        // No debe llamar UpdateAsync en lugar de MarkModifiedAsync (FIX-A)
-        invoiceRepo.Verify(r => r.UpdateAsync(It.IsAny<Invoice>()), Times.Never);
     }
 
     [Fact]
@@ -659,7 +662,7 @@ public class PlanChangeServiceTests
 
         await svc.ApproveChangeAsync(cambioId, midMonth: true, ActorId, "Admin", "127.0.0.1");
 
-        invoiceRepo.Verify(r => r.MarkModifiedAsync(
+        invoiceRepo.Verify(r => r.Update(
             It.Is<Invoice>(i => i.Id == prorrataPrevia.Id && i.Status == InvoiceStatus.Anulada)),
             Times.Once);
     }
@@ -693,7 +696,7 @@ public class PlanChangeServiceTests
 
         result.IsSuccess.Should().BeTrue();
         // FIX-A: MarkModifiedAsync en lugar de UpdateAsync
-        changeRepo.Verify(r => r.MarkModifiedAsync(
+        changeRepo.Verify(r => r.Update(
             It.Is<PlanChangeRequest>(c =>
                 c.Status          == PlanChangeStatus.Rechazado &&
                 c.RejectionReason == "No cumple requisitos")),

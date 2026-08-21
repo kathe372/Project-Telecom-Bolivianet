@@ -1,4 +1,4 @@
-using MediatR;
+﻿using MediatR;
 using TelecomBoliviaNet.Application.DTOs.Tickets;
 using TelecomBoliviaNet.Application.Services.Auth;
 using TelecomBoliviaNet.Application.Tickets.Helpers;
@@ -63,7 +63,9 @@ public class UpdateTicketHandler : IRequestHandler<UpdateTicketCommand, Result<T
             });
         }
 
-        await _ticketRepo.UpdateAsync(ticket);
+        _ticketRepo.Update(ticket);
+
+        await _ticketRepo.SaveChangesAsync();
         await _audit.LogAsync("Tickets", "TICKET_UPDATED",
             $"Ticket '{ticket.Subject}' actualizado.",
             cmd.ActorId, cmd.ActorName, cmd.ClientIp, cmd.UserAgent, entityId: ticket.Id);

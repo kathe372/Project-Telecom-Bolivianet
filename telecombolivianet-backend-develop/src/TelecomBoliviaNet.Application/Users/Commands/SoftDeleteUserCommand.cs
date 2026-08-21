@@ -1,4 +1,4 @@
-using MediatR;
+﻿using MediatR;
 using TelecomBoliviaNet.Application.Services.Auth;
 using TelecomBoliviaNet.Domain.Entities.Auth;
 using TelecomBoliviaNet.Domain.Interfaces;
@@ -33,8 +33,8 @@ public class SoftDeleteUserHandler : IRequestHandler<SoftDeleteUserCommand, Resu
         user.IsDeleted = true;
         user.DeletedAt = DateTime.UtcNow;
         user.Status    = UserStatus.Inactivo;
-        await _repo.UpdateAsync(user);
-
+        _repo.Update(user);
+        await _repo.SaveChangesAsync();
         await _audit.LogAsync("Usuarios", "USER_SOFT_DELETED",
             $"Usuario dado de baja: {user.Email} razón={cmd.Justificacion}",
             userId: cmd.ActorId, userName: cmd.ActorName, ip: cmd.ClientIp);

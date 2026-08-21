@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using TelecomBoliviaNet.Application.DTOs.Notifications;
 using TelecomBoliviaNet.Application.Services.Auth;
 using TelecomBoliviaNet.Domain.Entities.Admin;
@@ -72,8 +72,8 @@ public class NotifTemplateService
         actual.MetaParamOrder    = dto.MetaParamOrder;
         actual.CreadoPorId       = actorId;
         actual.CreadoAt          = DateTime.UtcNow;
-        await _repo.UpdateAsync(actual);
-
+        _repo.Update(actual);
+        await _repo.SaveChangesAsync();
         await _audit.LogAsync("Notificaciones", "NOTIF_PLANTILLA_UPDATED",
             $"Plantilla actualizada: {tipo}",
             userId: actorId, userName: actorName, ip: ip,
@@ -91,8 +91,8 @@ public class NotifTemplateService
 
         var prev = actual.HsmStatus.ToString();
         actual.HsmStatus = nuevoStatus;
-        await _repo.UpdateAsync(actual);
-
+        _repo.Update(actual);
+        await _repo.SaveChangesAsync();
         await _audit.LogAsync("Notificaciones", "NOTIF_HSM_UPDATED",
             $"HSM status actualizado: {tipo} → {nuevoStatus}",
             userId: actorId, userName: actorName, ip: ip,

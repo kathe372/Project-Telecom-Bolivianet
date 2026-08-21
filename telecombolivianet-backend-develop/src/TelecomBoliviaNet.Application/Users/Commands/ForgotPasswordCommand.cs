@@ -1,4 +1,4 @@
-using MediatR;
+﻿using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
@@ -59,7 +59,8 @@ public class ForgotPasswordHandler : IRequestHandler<ForgotPasswordCommand, Resu
         foreach (var pt in prevTokens)
         {
             pt.Used = true;
-            await _resetRepo.UpdateAsync(pt);
+            _resetRepo.Update(pt);
+            await _resetRepo.SaveChangesAsync();
         }
 
         var token = Guid.NewGuid().ToString("N");

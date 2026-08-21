@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using System.Linq.Expressions;
 using TelecomBoliviaNet.Domain.Interfaces;
 using TelecomBoliviaNet.Domain.Primitives;
@@ -16,6 +16,8 @@ public class GenericRepository<T> : IGenericRepository<T> where T : Entity
         _context = context;
         _set     = context.Set<T>();
     }
+
+    // ── Lectura ──────────────────────────────────────────────────────────────
 
     public async Task<T?> GetByIdAsync(Guid id)
         => await _set.FindAsync(id);
@@ -41,103 +43,56 @@ public class GenericRepository<T> : IGenericRepository<T> where T : Entity
         return await query.ToListAsync();
     }
 
-    public async Task AddAsync(T entity)
-    {
-        await _set.AddAsync(entity);
-    }
-
-    public async Task AddRangeAsync(IEnumerable<T> entities)
-    {
-        await _set.AddRangeAsync(entities);
-    }
-
-    public async Task SaveChangesAsync()
-    {
-        await _context.SaveChangesAsync();
-    }
-
-    public Task MarkModifiedAsync(T entity)
-    {
-        var tracked = _context.ChangeTracker.Entries<T>()
-            .FirstOrDefault(e => e.Entity.Id == entity.Id);
-
-        if (tracked is not null)
-        {
-            tracked.CurrentValues.SetValues(entity);
-            if (tracked.State != EntityState.Added)
-                tracked.State = EntityState.Modified;
-        }
-        else
-        {
-            _context.Entry(entity).State = EntityState.Modified;
-        }
-
-        return Task.CompletedTask;
-    }
-
-    public async Task UpdateAsync(T entity)
-    {
-        var tracked = _context.ChangeTracker.Entries<T>()
-            .FirstOrDefault(e => e.Entity.Id == entity.Id);
-
-        if (tracked is not null)
-        {
-            tracked.CurrentValues.SetValues(entity);
-            if (tracked.State != EntityState.Added)
-                tracked.State = EntityState.Modified;
-        }
-        else
-        {
-            var exists = await _set.AnyAsync(e => e.Id == entity.Id);
-            if (!exists)
-                throw new KeyNotFoundException("Registro no encontrado.");
-
-            _context.Entry(entity).State = EntityState.Modified;
-        }
-
-        await _context.SaveChangesAsync();
-    }
-
-    public async Task UpdateRangeAsync(IEnumerable<T> entities)
-    {
-        foreach (var entity in entities)
-        {
-            var tracked = _context.ChangeTracker.Entries<T>()
-                .FirstOrDefault(e => e.Entity.Id == entity.Id);
-
-            if (tracked is not null)
-            {
-                tracked.CurrentValues.SetValues(entity);
-                tracked.State = EntityState.Modified;
-            }
-            else
-            {
-                _context.Entry(entity).State = EntityState.Modified;
-            }
-        }
-
-        await _context.SaveChangesAsync();
-    }
-
-    public async Task DeleteRangeAsync(IEnumerable<T> entities)
-    {
-        _set.RemoveRange(entities);
-        await _context.SaveChangesAsync();
-    }
-
-    public async Task DeleteAsync(Guid id)
-    {
-        var entity = await _set.FindAsync(id);
-        if (entity is not null)
-        {
-            _set.Remove(entity);
-            await _context.SaveChangesAsync();
-        }
-    }
-
     public async Task<T?> FirstOrDefaultAsync(Expression<Func<T, bool>> predicate)
         => await _set.FirstOrDefaultAsync(predicate);
 
     public async Task<bool> AnyAsync(Expression<Func<T, bool>> predicate)
         => await _set.AnyAsync(predicate);
+
+    // ── Escritura (no persiste) ──────────────────────────────────────────────
+
+    public async Task AddAsync(T entity)
+        => await _set.AddAsync(entity);
+
+    public async Task AddRangeAsync(IEnumerable<T> entities)
+        => await _set.AddRangeAsync(entities);
+
+    public void Update(T entity) => MarkAsModified(entity);
+
+    public void UpdateRange(IEnumerable<T> entities)
+    {
+        foreach (var entity in entities) MarkAsModified(entity);
+    }
+
+    public void Remove(T entity) => _set.Remove(entity);
+
+    public void RemoveRange(IEnumerable<T> entities) => _set.RemoveRange(entities);
+
+    public async Task SaveChangesAsync() => await _context.SaveChangesAsync();
+
+    /// <summary>
+    /// Si el contexto ya sigue una instancia con ese Id, se copian los valores
+    /// sobre la seguida en vez de adjuntar una segunda: adjuntar dos instancias
+    /// del mismo Id hace que EF lance.
+    ///
+    /// El estado Added se respeta a propósito: una entidad recién añadida y aún
+    /// no persistida no debe degradarse a Modified, o el INSERT se convertiría en
+    /// un UPDATE de una fila que no existe.
+    /// </summary>
+    private void MarkAsModified(T entity)
+    {
+        var tracked = _context.ChangeTracker.Entries<T>()
+            .FirstOrDefault(e => e.Entity.Id == entity.Id);
+
+        if (tracked is not null)
+        {
+            tracked.CurrentValues.SetValues(entity);
+            if (tracked.State != EntityState.Added)
+                tracked.State = EntityState.Modified;
+        }
+        else
+        {
+            _context.Entry(entity).State = EntityState.Modified;
+        }
+    }
 }

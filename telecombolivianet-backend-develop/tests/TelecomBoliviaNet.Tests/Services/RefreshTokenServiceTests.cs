@@ -1,4 +1,4 @@
-using FluentAssertions;
+﻿using FluentAssertions;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
@@ -97,7 +97,7 @@ public class RefreshTokenServiceTests
         newRaw.Should().NotBe(rawToken);
 
         // El token anterior debe haber sido revocado
-        repo.Verify(r => r.UpdateAsync(It.Is<RefreshToken>(t =>
+        repo.Verify(r => r.Update(It.Is<RefreshToken>(t =>
             t.Id         == stored.Id &&
             t.RevokedAt  != null
         )), Times.Once);
@@ -157,7 +157,7 @@ public class RefreshTokenServiceTests
         newRaw.Should().BeNull();
 
         // El token activo debe haber sido revocado también (toda la sesión)
-        repo.Verify(r => r.UpdateRangeAsync(It.Is<IEnumerable<RefreshToken>>(tokens =>
+        repo.Verify(r => r.UpdateRange(It.Is<IEnumerable<RefreshToken>>(tokens =>
             tokens.Any(t => t.Id == activeToken.Id && t.RevokedAt != null)
         )), Times.Once);
     }

@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using TelecomBoliviaNet.Application.DTOs.Clients;
 using TelecomBoliviaNet.Application.Interfaces;
@@ -189,14 +189,13 @@ public class PlanChangeService : IPlanChangeService
                 // pagado el mes completo del plan superior. Los diferidos los aplica
                 // ApplyScheduledPlanChangesJob cuando llega EffectiveDate.
                 client.ChangePlan(newPlan.Id);
-                await _clientRepo.MarkModifiedAsync(client);
+                _clientRepo.Update(client);
             }
 
             cambio.Status        = midMonth ? PlanChangeStatus.Aplicado : PlanChangeStatus.Aprobado;
             cambio.ProcessedAt   = hoy;
             cambio.ProcessedById = actorId;
-            await _changeRepo.MarkModifiedAsync(cambio);
-
+            _changeRepo.Update(cambio);
             if (ticket is not null)
             {
                 ticket.Status            = TicketStatus.Resuelto;
@@ -204,7 +203,7 @@ public class PlanChangeService : IPlanChangeService
                     ? "Cambio de plan aprobado y ejecutado inmediatamente. Facturas proporcionales generadas."
                     : $"Cambio de plan aprobado. Efectivo el {cambio.EffectiveDate:dd/MM/yyyy}.";
                 ticket.ResolvedAt = hoy;
-                await _ticketRepo.MarkModifiedAsync(ticket);
+                _ticketRepo.Update(ticket);
             }
 
             await _changeRepo.SaveChangesAsync();
@@ -292,14 +291,13 @@ public class PlanChangeService : IPlanChangeService
             cambio.RejectionReason = motivo;
             cambio.ProcessedAt     = ahora;
             cambio.ProcessedById   = actorId;
-            await _changeRepo.MarkModifiedAsync(cambio);
-
+            _changeRepo.Update(cambio);
             if (ticket is not null)
             {
                 ticket.Status            = TicketStatus.Cerrado;
                 ticket.ResolutionMessage = $"Cambio de plan rechazado. Motivo: {motivo}";
                 ticket.ClosedAt          = ahora;
-                await _ticketRepo.MarkModifiedAsync(ticket);
+                _ticketRepo.Update(ticket);
             }
 
             await _changeRepo.SaveChangesAsync();

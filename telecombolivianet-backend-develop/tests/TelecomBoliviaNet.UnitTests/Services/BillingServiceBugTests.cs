@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using Moq;
 using TelecomBoliviaNet.Application.Interfaces;
 using TelecomBoliviaNet.Application.Services.Auth;
@@ -50,8 +50,7 @@ public class BillingServiceBugTests : ServiceTestBase
             .Setup(s => s.NextInvoiceNumberAsync(It.IsAny<bool>()))
             .ReturnsAsync("F-2026-0001");
 
-        _clientRepoMock.Setup(r => r.UpdateRangeAsync(It.IsAny<IEnumerable<Client>>()))
-            .Returns(Task.CompletedTask);
+        _clientRepoMock.Setup(r => r.UpdateRange(It.IsAny<IEnumerable<Client>>()));
         _invoiceRepoMock.Setup(r => r.AddRangeAsync(It.IsAny<IEnumerable<Invoice>>()))
             .Returns(Task.CompletedTask);
         _invoiceRepoMock.Setup(r => r.SaveChangesAsync())
@@ -62,13 +61,13 @@ public class BillingServiceBugTests : ServiceTestBase
 
         // UpdateRangeAsync must be called exactly once (batch), not N times
         _clientRepoMock.Verify(
-            r => r.UpdateRangeAsync(It.IsAny<IEnumerable<Client>>()),
+            r => r.UpdateRange(It.IsAny<IEnumerable<Client>>()),
             Times.Once,
             "créditos deben actualizarse en un único batch, no N veces");
 
         // UpdateAsync (individual) must NOT be called at all
         _clientRepoMock.Verify(
-            r => r.UpdateAsync(It.IsAny<Client>()),
+            r => r.Update(It.IsAny<Client>()),
             Times.Never,
             "UpdateAsync individual no debe llamarse — usar UpdateRangeAsync");
     }

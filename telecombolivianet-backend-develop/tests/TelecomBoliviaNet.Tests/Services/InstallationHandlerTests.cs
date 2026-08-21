@@ -1,4 +1,4 @@
-using FluentAssertions;
+﻿using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
 using TelecomBoliviaNet.Application.Coverage.Services;
@@ -127,7 +127,17 @@ public class InstallationHandlerTests
             scheduleRepo.Object, planRepo.Object, userRepo.Object,
             configRepo.Object, slotCalc.Object);
 
-        var slots = await handler.Handle(new GetInstallationSlotsQuery(2), CancellationToken.None);
+        // Ventana de 7 días (el valor por defecto), no de 2.
+        //
+        // Con 2 días el test dependía del DÍA DE LA SEMANA: el handler recorre de
+        // hoy a hoy+N y el horario de respaldo es L-V, así que ejecutado un jueves
+        // o un viernes la ventana caía en fin de semana y no había ni un slot que
+        // ofrecer. Falló al cruzar la medianoche del 2026-08-20 al 21 sin que
+        // nadie tocara ese código. Siete días siempre contienen un día laborable.
+        //
+        // El arreglo de fondo es inyectar el reloj en el handler, que hoy lee
+        // DateTime.UtcNow directamente — anotado como D-12 en BUGS_DESCUBIERTOS.md.
+        var slots = await handler.Handle(new GetInstallationSlotsQuery(7), CancellationToken.None);
 
         slots.Should().NotBeEmpty();
         slots.Should().OnlyContain(s => s.Disponible);
@@ -309,10 +319,10 @@ public class InstallationHandlerTests
             CancellationToken.None);
 
         result.IsSuccess.Should().BeTrue();
-        instRepo.Verify(r => r.UpdateAsync(
+        instRepo.Verify(r => r.Update(
             It.Is<Installation>(i => i.Status == InstallationStatus.Cancelada)),
             Times.Once);
-        ticketRepo.Verify(r => r.UpdateAsync(
+        ticketRepo.Verify(r => r.Update(
             It.Is<SupportTicket>(t => t.Status == TicketStatus.Cerrado)),
             Times.Once);
     }
@@ -356,7 +366,9 @@ public class InstallationHandlerTests
         var ticketRepo = RepoMock.Of(ticket);
         var handler    = new CompleteInstallationHandler(
             instRepo.Object, ticketRepo.Object,
-            RepoMock.Empty<DistributionBox>().Object, MakeAudit());
+            RepoMock.Empty<DistributionBox>().Object, MakeAudit(),
+            new Mock<IUnitOfWork>().Object,
+            NullLogger<CompleteInstallationHandler>.Instance);
 
         var result = await handler.Handle(
             new CompleteInstallationCommand(
@@ -366,7 +378,7 @@ public class InstallationHandlerTests
             CancellationToken.None);
 
         result.IsSuccess.Should().BeTrue();
-        ticketRepo.Verify(r => r.UpdateAsync(
+        ticketRepo.Verify(r => r.Update(
             It.Is<SupportTicket>(t => t.Status == TicketStatus.Resuelto)),
             Times.Once);
     }

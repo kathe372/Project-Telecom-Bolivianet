@@ -1,4 +1,4 @@
-using MediatR;
+﻿using MediatR;
 using Microsoft.EntityFrameworkCore;
 using TelecomBoliviaNet.Domain.Entities.Coverage;
 using TelecomBoliviaNet.Domain.Interfaces;
@@ -35,7 +35,8 @@ public class DeleteCoverageZoneHandler : IRequestHandler<DeleteCoverageZoneComma
                 "Cambie el estado de las cajas a Mantenimiento primero.");
 
         zone.Estado = CoverageZoneStatus.Inactiva;
-        await _zoneRepo.UpdateAsync(zone);
+        _zoneRepo.Update(zone);
+        await _zoneRepo.SaveChangesAsync();
         return Result.Success();
     }
 }

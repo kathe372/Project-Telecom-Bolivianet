@@ -1,4 +1,4 @@
-using MediatR;
+﻿using MediatR;
 using TelecomBoliviaNet.Application.Constants;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
@@ -129,7 +129,8 @@ public class RegisterClientHandler : IRequestHandler<RegisterClientCommand, Resu
             {
                 instalacionOrigen.ClientId      = client.Id;
                 instalacionOrigen.ActualizadoAt = DateTime.UtcNow;
-                await _instRepo.UpdateAsync(instalacionOrigen);
+                _instRepo.Update(instalacionOrigen);
+                await _instRepo.SaveChangesAsync();
             }
 
             var instInvoice = new Invoice
@@ -164,7 +165,8 @@ public class RegisterClientHandler : IRequestHandler<RegisterClientCommand, Resu
                 {
                     firstMonthInvoice.Status    = InvoiceStatus.Pagada;
                     firstMonthInvoice.UpdatedAt = DateTime.UtcNow;
-                    await _invoiceRepo.UpdateAsync(firstMonthInvoice);
+                    _invoiceRepo.Update(firstMonthInvoice);
+                    await _invoiceRepo.SaveChangesAsync();
                     invoiceIds.Add(firstMonthInvoice.Id);
                 }
             }

@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using TelecomBoliviaNet.Application.Interfaces;
 using TelecomBoliviaNet.Application.Services.Auth;
@@ -98,7 +98,8 @@ public class TicketAttachmentService
         if (att is null || att.IsDeleted) return Result.Failure("Adjunto no encontrado.");
         att.IsDeleted = true;
         att.DeletedAt = DateTime.UtcNow;
-        await _repo.UpdateAsync(att);
+        _repo.Update(att);
+        await _repo.SaveChangesAsync();
         try { await _storage.DeleteAsync(att.StoragePath); }
         catch (Exception ex) { _logger.LogWarning(ex, "Storage delete falló para {Path} — el registro ya está soft-deleted", att.StoragePath); }
         await _audit.LogAsync("Tickets", "TICKET_ATTACHMENT_DELETED",

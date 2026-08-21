@@ -1,4 +1,4 @@
-using FluentAssertions;
+﻿using FluentAssertions;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging.Abstractions;
 using MockQueryable;
@@ -30,7 +30,7 @@ public class ForgotPasswordCommandTests
         _resetRepo.Setup(r => r.GetAll())
             .Returns(new List<PasswordResetToken>().AsQueryable().BuildMock());
         _resetRepo.Setup(r => r.AddAsync(It.IsAny<PasswordResetToken>())).Returns(Task.CompletedTask);
-        _resetRepo.Setup(r => r.UpdateAsync(It.IsAny<PasswordResetToken>())).Returns(Task.CompletedTask);
+        _resetRepo.Setup(r => r.Update(It.IsAny<PasswordResetToken>()));
         _resetRepo.Setup(r => r.SaveChangesAsync()).Returns(Task.CompletedTask);
     }
 
@@ -118,7 +118,7 @@ public class ForgotPasswordCommandTests
         await MakeHandler().Handle(new ForgotPasswordCommand(user.Email), CancellationToken.None);
 
         oldToken.Used.Should().BeTrue();
-        _resetRepo.Verify(r => r.UpdateAsync(It.Is<PasswordResetToken>(t => t.Id == oldToken.Id)), Times.Once);
+        _resetRepo.Verify(r => r.Update(It.Is<PasswordResetToken>(t => t.Id == oldToken.Id)), Times.Once);
     }
 
     // TC-05: Usuario con teléfono → canal siempre es Email (no WhatsApp)

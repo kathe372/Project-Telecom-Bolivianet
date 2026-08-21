@@ -1,4 +1,4 @@
-using MediatR;
+﻿using MediatR;
 using Microsoft.EntityFrameworkCore;
 using TelecomBoliviaNet.Application.Interfaces;
 using TelecomBoliviaNet.Application.Services.Auth;
@@ -42,8 +42,8 @@ public class ReactivateClientHandler : IRequestHandler<ReactivateClientCommand, 
             return Result.Failure("El cliente ya está activo.");
 
         client.Reactivate();
-        await _clientRepo.UpdateAsync(client);
-
+        _clientRepo.Update(client);
+        await _clientRepo.SaveChangesAsync();
         await _audit.LogAsync("Clientes", "CLIENT_REACTIVATED",
             $"Servicio reactivado: {client.TbnCode} — {client.FullName}",
             userId: cmd.ActorId, userName: cmd.ActorName, ip: cmd.ClientIp, entityId: client.Id);

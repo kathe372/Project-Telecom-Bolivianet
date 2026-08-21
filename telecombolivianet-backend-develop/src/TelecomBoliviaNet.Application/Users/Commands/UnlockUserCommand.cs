@@ -1,4 +1,4 @@
-using MediatR;
+﻿using MediatR;
 using TelecomBoliviaNet.Application.Services.Auth;
 using TelecomBoliviaNet.Domain.Entities.Auth;
 using TelecomBoliviaNet.Domain.Interfaces;
@@ -39,8 +39,8 @@ public class UnlockUserHandler : IRequestHandler<UnlockUserCommand, Result>
         user.LockedUntil         = null;
         user.FailedLoginAttempts = 0;
         user.UpdatedAt           = DateTime.UtcNow;
-        await _repo.UpdateAsync(user);
-
+        _repo.Update(user);
+        await _repo.SaveChangesAsync();
         await _audit.LogAsync("Usuarios", "ACCOUNT_UNLOCKED",
             $"Cuenta desbloqueada por admin: {user.Email}.",
             userId: cmd.ActorId, userName: cmd.ActorName, ip: cmd.ClientIp,

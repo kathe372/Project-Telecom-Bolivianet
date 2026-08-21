@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using System.Text.Json;
 using TelecomBoliviaNet.Application.Interfaces;
@@ -63,8 +63,8 @@ public class ReceiptImageService : IReceiptImageService
         }
 
         payment.ReceiptImageUrl = url;
-        await _paymentRepo.UpdateAsync(payment);
-
+        _paymentRepo.Update(payment);
+        await _paymentRepo.SaveChangesAsync();
         await _audit.LogAsync("Pagos", "RECEIPT_ATTACHED",
             $"Comprobante adjuntado al pago de {tbn}",
             userId: actorId, userName: actorName, ip: ip,

@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using System.Text.Json;
 using TelecomBoliviaNet.Application.Constants;
@@ -225,8 +225,8 @@ public class PaymentService : IPaymentService
         await _uow.BeginTransactionAsync();
         try
         {
-            await _invoiceRepo.UpdateRangeAsync(invoicesToRevert);
-
+            _invoiceRepo.UpdateRange(invoicesToRevert);
+            await _invoiceRepo.SaveChangesAsync();
             // El saldo a favor vuelve al estado previo al pago DENTRO de la misma transacción
             // que reabre las facturas: o se deshace todo el pago, o no se deshace nada.
             if (creditReversal.HasEffect && payment.Client is not null)
@@ -235,10 +235,12 @@ public class PaymentService : IPaymentService
                     payment.Client, creditReversal.Amount, CreditMovementType.Reversion,
                     paymentId: payment.Id, createdByUserId: actorId,
                     notes: $"Reversión por anulación del pago de Bs. {payment.Amount:F2}");
-                await _clientRepo.MarkModifiedAsync(payment.Client);
+                _clientRepo.Update(payment.Client);
             }
 
-            await _paymentRepo.UpdateAsync(payment);
+            _paymentRepo.Update(payment);
+
+            await _paymentRepo.SaveChangesAsync();
             await _uow.CommitAsync();
         }
         catch (Exception ex)

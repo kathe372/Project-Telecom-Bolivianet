@@ -1,4 +1,4 @@
-using Microsoft.AspNetCore.Http;
+﻿using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using TelecomBoliviaNet.Application.DTOs.Clients;
@@ -66,7 +66,8 @@ public class ClientQrService
         {
             anterior.IsActive           = false;
             anterior.DeactivatedReason  = "Reemplazado por nuevo QR";
-            await _qrRepo.UpdateAsync(anterior);
+            _qrRepo.Update(anterior);
+            await _qrRepo.SaveChangesAsync();
         }
 
         using var stream = file.OpenReadStream();
@@ -140,7 +141,8 @@ public class ClientQrService
         {
             qr.IsActive          = false;
             qr.DeactivatedReason = "Expirado automáticamente";
-            await _qrRepo.UpdateAsync(qr);
+            _qrRepo.Update(qr);
+            await _qrRepo.SaveChangesAsync();
         }
 
         if (expired.Count > 0)
@@ -196,7 +198,8 @@ public class ClientQrService
         if (qr is not null)
         {
             qr.AlertSent = true;
-            await _qrRepo.UpdateAsync(qr);
+            _qrRepo.Update(qr);
+            await _qrRepo.SaveChangesAsync();
         }
     }
 

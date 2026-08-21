@@ -1,4 +1,4 @@
-#pragma warning disable CS8981
+﻿#pragma warning disable CS8981
 using r = TelecomBoliviaNet.Domain.Primitives.Result;
 #pragma warning restore CS8981
 using Microsoft.EntityFrameworkCore;
@@ -91,8 +91,8 @@ public class NotifSegmentService
         seg.ReglasJson  = JsonSerializer.Serialize(dto.Reglas);
         seg.ActualizadoAt    = DateTime.UtcNow;
         seg.ActualizadoPorId = actorId;
-        await _repo.UpdateAsync(seg);
-
+        _repo.Update(seg);
+        await _repo.SaveChangesAsync();
         await _audit.LogAsync("Notificaciones", "NOTIF_SEGMENT_UPDATED",
             $"Segmento actualizado: {dto.Nombre}",
             userId: actorId, userName: actorName, ip: ip,
@@ -107,7 +107,8 @@ public class NotifSegmentService
         var seg = await _repo.GetByIdAsync(id);
         if (seg is null) return Result.Failure("Segmento no encontrado.");
 
-        await _repo.DeleteAsync(seg.Id);
+        _repo.Remove(seg);
+        await _repo.SaveChangesAsync();
         await _audit.LogAsync("Notificaciones", "NOTIF_SEGMENT_DELETED",
             $"Segmento eliminado: {seg.Nombre}",
             userId: actorId, userName: actorName, ip: ip);

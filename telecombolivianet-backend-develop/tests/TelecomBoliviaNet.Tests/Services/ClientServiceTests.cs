@@ -1,4 +1,4 @@
-using FluentAssertions;
+﻿using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
 using TelecomBoliviaNet.Application.Clients.Commands;
@@ -111,7 +111,7 @@ public class ClientServiceTests
             CancellationToken.None);
 
         result.IsSuccess.Should().BeTrue();
-        clientRepo.Verify(r => r.UpdateAsync(
+        clientRepo.Verify(r => r.Update(
             It.Is<Client>(c =>
                 c.Status      == ClientStatus.Suspendido &&
                 c.SuspendedAt != null)),
@@ -136,7 +136,7 @@ public class ClientServiceTests
 
         result.IsSuccess.Should().BeFalse();
         result.ErrorMessage.Should().Contain("suspendido");
-        clientRepo.Verify(r => r.UpdateAsync(It.IsAny<Client>()), Times.Never);
+        clientRepo.Verify(r => r.Update(It.IsAny<Client>()), Times.Never);
     }
 
     // ── TC-CLI-03 · Suspender cliente dado de baja → Failure ─────────────────
@@ -168,7 +168,7 @@ public class ClientServiceTests
             CancellationToken.None);
 
         result.IsSuccess.Should().BeTrue();
-        clientRepo.Verify(r => r.UpdateAsync(
+        clientRepo.Verify(r => r.Update(
             It.Is<Client>(c =>
                 c.Status      == ClientStatus.Activo &&
                 c.SuspendedAt == null)),
@@ -193,7 +193,7 @@ public class ClientServiceTests
 
         result.IsSuccess.Should().BeFalse();
         result.ErrorMessage.Should().Contain("activo");
-        clientRepo.Verify(r => r.UpdateAsync(It.IsAny<Client>()), Times.Never);
+        clientRepo.Verify(r => r.Update(It.IsAny<Client>()), Times.Never);
     }
 
     // ── TC-CLI-06 · Dar de baja sin deuda → marca DadoDeBaja ─────────────────
@@ -209,7 +209,7 @@ public class ClientServiceTests
             CancellationToken.None);
 
         result.IsSuccess.Should().BeTrue();
-        clientRepo.Verify(r => r.UpdateAsync(
+        clientRepo.Verify(r => r.Update(
             It.Is<Client>(c =>
                 c.Status    == ClientStatus.DadoDeBaja &&
                 c.IsDeleted == true)),
@@ -242,7 +242,7 @@ public class ClientServiceTests
 
         result.IsSuccess.Should().BeTrue();
         result.Value.Should().Be("needs_confirmation");
-        clientRepo.Verify(r => r.UpdateAsync(It.IsAny<Client>()), Times.Never);
+        clientRepo.Verify(r => r.Update(It.IsAny<Client>()), Times.Never);
     }
 
     // ── TC-CLI-08 · Dar de baja con deuda y confirmed=true → procede ─────────
@@ -271,7 +271,7 @@ public class ClientServiceTests
 
         result.IsSuccess.Should().BeTrue();
         result.Value.Should().NotBe("needs_confirmation");
-        clientRepo.Verify(r => r.UpdateAsync(
+        clientRepo.Verify(r => r.Update(
             It.Is<Client>(c => c.Status == ClientStatus.DadoDeBaja)),
             Times.Once);
     }

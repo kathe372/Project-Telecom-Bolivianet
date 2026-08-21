@@ -1,4 +1,4 @@
-using MediatR;
+﻿using MediatR;
 using TelecomBoliviaNet.Application.DTOs.Installations;
 using TelecomBoliviaNet.Application.Services.Auth;
 using TelecomBoliviaNet.Domain.Entities.Auth;
@@ -44,8 +44,8 @@ public class AssignTechnicianHandler : IRequestHandler<AssignTechnicianCommand, 
         inst.TecnicoId     = cmd.Dto.TecnicoId;
         inst.Status        = InstallationStatus.EnProceso;
         inst.ActualizadoAt = DateTime.UtcNow;
-        await _instRepo.UpdateAsync(inst);
-
+        _instRepo.Update(inst);
+        await _instRepo.SaveChangesAsync();
         await _audit.LogAsync("Instalaciones", "INSTALACION_TECNICO_ASIGNADO",
             $"Técnico {tecnico.FullName} asignado a instalación {cmd.InstalacionId}",
             cmd.ActorId, cmd.ActorName, cmd.ClientIp);

@@ -1,4 +1,4 @@
-using TelecomBoliviaNet.Application.DTOs.Tickets;
+﻿using TelecomBoliviaNet.Application.DTOs.Tickets;
 using TelecomBoliviaNet.Application.Interfaces;
 using TelecomBoliviaNet.Application.Tickets.Commands;
 using TelecomBoliviaNet.Domain.Entities.Auth;
@@ -69,7 +69,7 @@ public class RescheduleTicketVisitHandlerTests
         result.IsSuccess.Should().BeTrue();
         // Reprograma la visita existente en sitio → NO crea una nueva.
         _visitRepo.Verify(r => r.AddAsync(It.IsAny<TicketVisit>()), Times.Never);
-        _visitRepo.Verify(r => r.UpdateAsync(visit), Times.Once);
+        _visitRepo.Verify(r => r.Update(visit), Times.Once);
     }
 
     [Fact]

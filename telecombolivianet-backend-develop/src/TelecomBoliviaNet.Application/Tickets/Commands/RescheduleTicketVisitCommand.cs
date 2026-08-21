@@ -1,4 +1,4 @@
-using MediatR;
+﻿using MediatR;
 using Microsoft.EntityFrameworkCore;
 using TelecomBoliviaNet.Application.DTOs.Tickets;
 using TelecomBoliviaNet.Application.Interfaces;
@@ -102,7 +102,8 @@ public class RescheduleTicketVisitHandler
             visit.Observations = motivo;
             if (visit.TechnicianId.HasValue)
                 tech = await _userRepo.GetByIdAsync(visit.TechnicianId.Value);
-            await _visitRepo.UpdateAsync(visit);
+            _visitRepo.Update(visit);
+            await _visitRepo.SaveChangesAsync();
         }
 
         if (ticket.Status is TicketStatus.Abierto or TicketStatus.EnProceso)

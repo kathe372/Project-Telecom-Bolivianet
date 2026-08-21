@@ -1,4 +1,4 @@
-using MediatR;
+﻿using MediatR;
 using TelecomBoliviaNet.Application.Constants;
 using Microsoft.EntityFrameworkCore;
 using TelecomBoliviaNet.Application.Clients.Helpers;
@@ -56,8 +56,9 @@ public class CancelClientHandler : IRequestHandler<CancelClientCommand, Result<s
         client.DeletedAt   = DateTime.UtcNow;
         client.DeletedById = cmd.ActorId;
 
-        await _clientRepo.UpdateAsync(client);
+        _clientRepo.Update(client);
 
+        await _clientRepo.SaveChangesAsync();
         await _audit.LogAsync("Clientes", "CLIENT_CANCELLED",
             $"Cliente dado de baja: {client.TbnCode} — {client.FullName}" +
             (debt > 0 ? $" (con deuda: Bs. {debt:N2})" : ""),

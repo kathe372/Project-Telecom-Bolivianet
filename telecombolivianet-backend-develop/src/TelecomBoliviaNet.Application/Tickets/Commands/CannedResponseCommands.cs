@@ -1,4 +1,4 @@
-using MediatR;
+﻿using MediatR;
 using TelecomBoliviaNet.Application.DTOs.Tickets;
 using TelecomBoliviaNet.Domain.Entities.Tickets;
 using TelecomBoliviaNet.Domain.Interfaces;
@@ -63,7 +63,9 @@ public class UpdateCannedResponseHandler
         if (cmd.Dto.IsActive is not null) entity.IsActive = cmd.Dto.IsActive.Value;
         entity.UpdatedAt = DateTime.UtcNow;
 
-        await _repo.UpdateAsync(entity);
+        _repo.Update(entity);
+
+        await _repo.SaveChangesAsync();
         await _repo.SaveChangesAsync();
         return Result<CannedResponseDto>.Success(new CannedResponseDto(
             entity.Id, entity.Title, entity.Body, entity.Category, entity.IsActive, entity.CreatedAt));
@@ -86,7 +88,7 @@ public class DeleteCannedResponseHandler
     {
         var entity = await _repo.GetByIdAsync(cmd.Id);
         if (entity is null) return Result<bool>.Failure("Plantilla no encontrada.");
-        await _repo.DeleteAsync(cmd.Id);
+        _repo.Remove(entity);
         await _repo.SaveChangesAsync();
         return Result<bool>.Success(true);
     }

@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using TelecomBoliviaNet.Application.Interfaces;
 using TelecomBoliviaNet.Application.Services.Auth;
@@ -105,7 +105,8 @@ public class AdminSettingsService : IAdminSettingsService
                 record.Value       = value;
                 record.UpdatedAt   = DateTime.UtcNow;
                 record.UpdatedById = actorId;
-                await _configRepo.UpdateAsync(record);
+                _configRepo.Update(record);
+                await _configRepo.SaveChangesAsync();
             }
             else
             {

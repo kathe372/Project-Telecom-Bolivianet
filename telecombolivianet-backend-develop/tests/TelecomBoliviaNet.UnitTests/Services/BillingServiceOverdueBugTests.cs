@@ -1,4 +1,4 @@
-using TelecomBoliviaNet.Application.Interfaces;
+﻿using TelecomBoliviaNet.Application.Interfaces;
 using TelecomBoliviaNet.Application.Services.Auth;
 using TelecomBoliviaNet.Application.Services.Invoices;
 using TelecomBoliviaNet.Domain.Entities.Clients;
@@ -69,9 +69,8 @@ public class BillingServiceOverdueBugTests
             .Returns(clients.AsQueryable().BuildMock());
 
         var updated = new List<Invoice>();
-        _invoiceRepoMock.Setup(r => r.UpdateRangeAsync(It.IsAny<IEnumerable<Invoice>>()))
-            .Callback<IEnumerable<Invoice>>(inv => updated.AddRange(inv))
-            .Returns(Task.CompletedTask);
+        _invoiceRepoMock.Setup(r => r.UpdateRange(It.IsAny<IEnumerable<Invoice>>()))
+            .Callback<IEnumerable<Invoice>>(inv => updated.AddRange(inv));
         _notifMock.Setup(n => n.PublishAsync(
                 It.IsAny<NotifType>(), It.IsAny<Guid>(), It.IsAny<string>(),
                 It.IsAny<Dictionary<string, string>>(), It.IsAny<Guid?>()))
@@ -103,8 +102,7 @@ public class BillingServiceOverdueBugTests
             .Returns(new[] { client }.AsQueryable().BuildMock());
 
         Dictionary<string, string>? capturedVars = null;
-        _invoiceRepoMock.Setup(r => r.UpdateRangeAsync(It.IsAny<IEnumerable<Invoice>>()))
-            .Returns(Task.CompletedTask);
+        _invoiceRepoMock.Setup(r => r.UpdateRange(It.IsAny<IEnumerable<Invoice>>()));
         _notifMock.Setup(n => n.PublishAsync(
                 It.IsAny<NotifType>(), It.IsAny<Guid>(), It.IsAny<string>(),
                 It.IsAny<Dictionary<string, string>>(), It.IsAny<Guid?>()))

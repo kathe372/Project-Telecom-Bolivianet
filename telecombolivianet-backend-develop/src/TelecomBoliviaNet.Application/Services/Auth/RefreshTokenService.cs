@@ -1,4 +1,4 @@
-using System.Security.Cryptography;
+﻿using System.Security.Cryptography;
 using System.Text;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -87,8 +87,8 @@ public class RefreshTokenService
 
         stored.RevokedAt           = DateTime.UtcNow;
         stored.ReplacedByTokenHash = newTokenHash;
-        await _tokenRepo.UpdateAsync(stored);
-
+        _tokenRepo.Update(stored);
+        await _tokenRepo.SaveChangesAsync();
         var newEntity = new RefreshToken
         {
             TokenHash   = newTokenHash,
@@ -116,8 +116,9 @@ public class RefreshTokenService
         foreach (var token in activeTokens)
             token.RevokedAt = DateTime.UtcNow;
 
-        await _tokenRepo.UpdateRangeAsync(activeTokens);
+        _tokenRepo.UpdateRange(activeTokens);
 
+        await _tokenRepo.SaveChangesAsync();
         _logger.LogInformation(
             "RefreshTokens revocados para usuario {UserId}: {Count} tokens. Razón: {Reason}",
             userId, activeTokens.Count, reason);
@@ -132,8 +133,8 @@ public class RefreshTokenService
             .ToListAsync();
 
         if (expired.Count > 0)
-            await _tokenRepo.DeleteRangeAsync(expired);
-
+            _tokenRepo.RemoveRange(expired);
+            await _tokenRepo.SaveChangesAsync();
         if (expired.Count > 0)
             _logger.LogInformation("RefreshTokens expirados eliminados: {Count}", expired.Count);
 

@@ -1,4 +1,4 @@
-using Microsoft.Extensions.Configuration;
+﻿using Microsoft.Extensions.Configuration;
 using TelecomBoliviaNet.Application.Constants;
 using TelecomBoliviaNet.Application.DTOs.Auth;
 using TelecomBoliviaNet.Domain.Entities.Auth;
@@ -133,7 +133,9 @@ public class AuthService
                     newData: $"{{\"lockedUntil\":\"{user.LockedUntil:O}\"}}");
             }
 
-            await _userRepo.UpdateAsync(user);
+            _userRepo.Update(user);
+
+            await _userRepo.SaveChangesAsync();
             await _audit.LogAsync("Auth", "LOGIN_FAILED",
                 $"Contrasena incorrecta. Intento #{user.FailedLoginAttempts}.",
                 userId: user.Id, userName: user.FullName, ip: ip);
@@ -145,8 +147,8 @@ public class AuthService
         user.FailedLoginAttempts = 0;
         user.LockedUntil         = null;
         user.LastLoginAt         = DateTime.UtcNow;
-        await _userRepo.UpdateAsync(user);
-
+        _userRepo.Update(user);
+        await _userRepo.SaveChangesAsync();
         var accessToken  = _jwtService.GenerateToken(user);
         var refreshToken = await _refreshService.GenerateAsync(user.Id, ip);
 
@@ -238,8 +240,8 @@ public class AuthService
         user.PasswordHash           = _hasher.Hash(dto.NewPassword);
         user.RequiresPasswordChange = false;
         user.UpdatedAt              = DateTime.UtcNow;
-        await _userRepo.UpdateAsync(user);
-
+        _userRepo.Update(user);
+        await _userRepo.SaveChangesAsync();
         // Cambiar la contraseña debe cerrar las sesiones abiertas: si se cambia
         // por sospecha de robo, antes el atacante conservaba acceso hasta 30 días
         // porque su refresh token seguía siendo válido.

@@ -1,4 +1,4 @@
-using FluentAssertions;
+﻿using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
 using TelecomBoliviaNet.Application.DTOs.Installations;
@@ -224,7 +224,7 @@ public class RescheduleInstallationHandlerTests
 
         var esperado = DateTime.SpecifyKind(DateTime.Parse(NuevaFecha).Date.AddHours(14), DateTimeKind.Utc);
         visit.ScheduledAt.Should().Be(esperado);
-        visitRepo.Verify(r => r.UpdateAsync(visit), Times.Once);
+        visitRepo.Verify(r => r.Update(visit), Times.Once);
     }
 
     // ── TC-REPROG-10: visita ya Completada/Cancelada no se toca ───────────────

@@ -1,4 +1,4 @@
-using System.Text.Json;
+﻿using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using TelecomBoliviaNet.Application.DTOs.Admin;
@@ -99,7 +99,8 @@ public class CompanyProfileService : ICompanyProfileService
             cfg.Value       = json;
             cfg.UpdatedAt   = DateTime.UtcNow;
             cfg.UpdatedById = actorId;
-            await _sysRepo.UpdateAsync(cfg);
+            _sysRepo.Update(cfg);
+            await _sysRepo.SaveChangesAsync();
         }
 
         // El logo en base64 hincha el log de auditoría sin aportar nada legible.

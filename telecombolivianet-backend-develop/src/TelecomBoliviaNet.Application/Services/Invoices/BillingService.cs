@@ -1,4 +1,4 @@
-using System.Globalization;
+﻿using System.Globalization;
 using Microsoft.EntityFrameworkCore;
 
 using Microsoft.Extensions.Logging;
@@ -275,8 +275,8 @@ public class BillingService : IBillingService
                 }
 
                 if (clientsToUpdate.Count > 0)
-                    await _clientRepo.UpdateRangeAsync(clientsToUpdate);
-
+                    _clientRepo.UpdateRange(clientsToUpdate);
+                    await _clientRepo.SaveChangesAsync();
                 if (invoicesToCreate.Count > 0)
                 {
                     await _invoiceRepo.AddRangeAsync(invoicesToCreate);
@@ -329,8 +329,9 @@ public class BillingService : IBillingService
             invoice.UpdatedAt = now;
         }
 
-        await _invoiceRepo.UpdateRangeAsync(overdue);
+        _invoiceRepo.UpdateRange(overdue);
 
+        await _invoiceRepo.SaveChangesAsync();
         var clientIds = porCliente.Select(g => g.Key).ToList();
         var clientsById = await _clientRepo.GetAll()
             .Include(c => c.Plan)
@@ -396,8 +397,8 @@ public class BillingService : IBillingService
             ? anulacionNote
             : $"{invoice.Notes}\n{anulacionNote}";
         invoice.UpdatedAt = DateTime.UtcNow;
-        await _invoiceRepo.UpdateAsync(invoice);
-
+        _invoiceRepo.Update(invoice);
+        await _invoiceRepo.SaveChangesAsync();
         await _audit.LogAsync(
             "Facturación", "INVOICE_VOIDED",
             $"Factura anulada: {invoice.Client?.TbnCode} — {MonthName(invoice.Month)} {invoice.Year}",

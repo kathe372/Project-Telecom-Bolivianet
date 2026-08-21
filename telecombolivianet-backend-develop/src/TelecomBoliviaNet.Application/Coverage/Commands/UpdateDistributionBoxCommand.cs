@@ -1,4 +1,4 @@
-using MediatR;
+﻿using MediatR;
 using TelecomBoliviaNet.Application.DTOs.Coverage;
 using TelecomBoliviaNet.Domain.Entities.Coverage;
 using TelecomBoliviaNet.Domain.Interfaces;
@@ -43,7 +43,9 @@ public class UpdateDistributionBoxHandler
         if (cmd.Request is { Lat: double lat, Lng: double lng })
             box.Location = new NetTopologySuite.Geometries.Point(lng, lat) { SRID = 4326 };
 
-        await _boxRepo.UpdateAsync(box);
+        _boxRepo.Update(box);
+
+        await _boxRepo.SaveChangesAsync();
         return Result<DistributionBoxDto>.Success(new DistributionBoxDto(
             box.Id, box.Codigo, box.DireccionReferencia, box.ZoneId, string.Empty,
             box.Location.Y, box.Location.X,

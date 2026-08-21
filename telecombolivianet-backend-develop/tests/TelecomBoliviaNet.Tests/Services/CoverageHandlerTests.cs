@@ -1,4 +1,4 @@
-using FluentAssertions;
+﻿using FluentAssertions;
 using Moq;
 using NetTopologySuite.Geometries;
 using TelecomBoliviaNet.Application.Coverage;
@@ -376,10 +376,10 @@ public class CoverageHandlerTests
             new CompleteInstallationWithBoxCommand(inst.Id, box.Id), CancellationToken.None);
 
         result.IsSuccess.Should().BeTrue();
-        boxRepo.Verify(r => r.UpdateAsync(
+        boxRepo.Verify(r => r.Update(
             It.Is<DistributionBox>(b =>
                 b.PuertosOcupados == 5 && b.PuertosReservados == 2)), Times.Once);
-        instRepo.Verify(r => r.UpdateAsync(
+        instRepo.Verify(r => r.Update(
             It.Is<Installation>(i =>
                 i.Status == InstallationStatus.EnProceso &&
                 i.DistributionBoxId == box.Id)), Times.Once);

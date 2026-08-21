@@ -1,4 +1,4 @@
-using Microsoft.Extensions.Logging;
+﻿using Microsoft.Extensions.Logging;
 using TelecomBoliviaNet.Application.Interfaces;
 using TelecomBoliviaNet.Domain.Services;
 using Microsoft.EntityFrameworkCore;
@@ -112,8 +112,8 @@ public class InvoiceOperationsService
         var prevStatus = invoice.Status;
         invoice.Status    = nuevoEstado;
         invoice.UpdatedAt = DateTime.UtcNow;
-        await _invoiceRepo.UpdateAsync(invoice);
-
+        _invoiceRepo.Update(invoice);
+        await _invoiceRepo.SaveChangesAsync();
         if (nuevoEstado == InvoiceStatus.Enviada && invoice.Client is not null)
         {
             try
@@ -161,8 +161,8 @@ public class InvoiceOperationsService
             inv.Status    = InvoiceStatus.Enviada;
             inv.UpdatedAt = DateTime.UtcNow;
         }
-        await _invoiceRepo.UpdateRangeAsync(facturas);
-
+        _invoiceRepo.UpdateRange(facturas);
+        await _invoiceRepo.SaveChangesAsync();
         foreach (var inv in facturas.Where(i => i.Client is not null))
         {
             try
@@ -226,9 +226,11 @@ public class InvoiceOperationsService
             invoiceId: invoice.Id, createdByUserId: actorId,
             notes: $"Crédito aplicado a la factura {invoice.InvoiceNumber ?? invoice.Id.ToString()}");
 
-        await _invoiceRepo.UpdateAsync(invoice);
-        await _clientRepo.UpdateAsync(invoice.Client);
+        _invoiceRepo.Update(invoice);
 
+        await _invoiceRepo.SaveChangesAsync();
+        _clientRepo.Update(invoice.Client);
+        await _clientRepo.SaveChangesAsync();
         await _audit.LogAsync("Facturación", "CREDIT_APPLIED_TO_INVOICE",
             $"Crédito aplicado: factura {invoice.InvoiceNumber} Bs.{aplicar:F2}",
             userId: actorId, userName: actorName, ip: ip,

@@ -1,4 +1,4 @@
-using FluentAssertions;
+﻿using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
 using TelecomBoliviaNet.Application.Coverage.Services;
@@ -185,7 +185,7 @@ public class CancelInstallationHandlerTests
 
         await handler.Handle(Cmd(inst.Id, "ADMIN"), CancellationToken.None);
 
-        ticketRepo.Verify(r => r.UpdateAsync(
+        ticketRepo.Verify(r => r.Update(
             It.Is<SupportTicket>(t => t.Status == TicketStatus.Cerrado)),
             Times.Once);
     }

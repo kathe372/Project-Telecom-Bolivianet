@@ -1,4 +1,4 @@
-using MediatR;
+﻿using MediatR;
 using Microsoft.EntityFrameworkCore;
 using TelecomBoliviaNet.Application.DTOs.Installations;
 using TelecomBoliviaNet.Application.Services.Auth;
@@ -79,13 +79,13 @@ public class RescheduleInstallationHandler : IRequestHandler<RescheduleInstallat
         inst.Status         = InstallationStatus.Pendiente;
         inst.ReminderSentAt = null;
         inst.ActualizadoAt  = DateTime.UtcNow;
-        await _instRepo.UpdateAsync(inst);
-
+        _instRepo.Update(inst);
+        await _instRepo.SaveChangesAsync();
         if (inst.Ticket is not null)
         {
             InstallationTicketSync.SyncSchedule(inst.Ticket, inst);
-            await _ticketRepo.UpdateAsync(inst.Ticket);
-
+            _ticketRepo.Update(inst.Ticket);
+            await _ticketRepo.SaveChangesAsync();
             // La visita creada al agendar (ver CreateInstallationCommand) debe
             // moverse junto con la instalación, si no la tab "Visitas" del
             // ticket sigue mostrando la cita vieja.
@@ -96,7 +96,8 @@ public class RescheduleInstallationHandler : IRequestHandler<RescheduleInstallat
             if (visit is not null)
             {
                 InstallationTicketSync.SyncVisit(visit, inst);
-                await _visitRepo.UpdateAsync(visit);
+                _visitRepo.Update(visit);
+                await _visitRepo.SaveChangesAsync();
             }
         }
 

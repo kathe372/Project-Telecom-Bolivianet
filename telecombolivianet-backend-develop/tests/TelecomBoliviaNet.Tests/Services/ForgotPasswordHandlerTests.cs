@@ -1,4 +1,4 @@
-using FluentAssertions;
+﻿using FluentAssertions;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging.Abstractions;
 using MockQueryable;
@@ -174,7 +174,7 @@ public class ForgotPasswordHandlerTests
             .Returns(new List<UserSystem> { user }.BuildMock());
         _resetRepo.Setup(r => r.GetAll())
             .Returns(new List<PasswordResetToken> { tokenViejo }.BuildMock());
-        _resetRepo.Setup(r => r.UpdateAsync(It.IsAny<PasswordResetToken>())).Returns(Task.CompletedTask);
+        _resetRepo.Setup(r => r.Update(It.IsAny<PasswordResetToken>()));
         _resetRepo.Setup(r => r.AddAsync(It.IsAny<PasswordResetToken>())).Returns(Task.CompletedTask);
         _resetRepo.Setup(r => r.SaveChangesAsync()).Returns(Task.CompletedTask);
         _email.Setup(e => e.SendPasswordResetAsync(

@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using TelecomBoliviaNet.Application.Constants;
 using TelecomBoliviaNet.Application.Interfaces;
 using TelecomBoliviaNet.Domain.Entities.Clients;
@@ -67,7 +67,7 @@ public class InvoiceProrationService
             inv.Status    = InvoiceStatus.Anulada;
             inv.Notes     = string.IsNullOrWhiteSpace(inv.Notes) ? nota : $"{inv.Notes}\n{nota}";
             inv.UpdatedAt = hoy;
-            await _invoiceRepo.MarkModifiedAsync(inv);
+            _invoiceRepo.Update(inv);
         }
 
         var dueDate = new DateTime(hoy.Year, hoy.Month, 5, 0, 0, 0, DateTimeKind.Utc);

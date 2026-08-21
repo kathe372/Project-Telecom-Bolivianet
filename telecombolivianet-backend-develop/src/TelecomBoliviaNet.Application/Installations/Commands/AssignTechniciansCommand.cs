@@ -1,4 +1,4 @@
-using MediatR;
+﻿using MediatR;
 using Microsoft.EntityFrameworkCore;
 using TelecomBoliviaNet.Application.DTOs.Installations;
 using TelecomBoliviaNet.Application.Services.Auth;
@@ -50,7 +50,8 @@ public class AssignTechniciansHandler : IRequestHandler<AssignTechniciansCommand
         inst.TecnicoId     = cmd.Dto.TecnicoLeadId;
         inst.Status        = InstallationStatus.EnProceso;
         inst.ActualizadoAt = DateTime.UtcNow;
-        await _instRepo.UpdateAsync(inst);
+        _instRepo.Update(inst);
+        await _instRepo.SaveChangesAsync();
         await _instRepo.SaveChangesAsync();
 
         await _audit.LogAsync(

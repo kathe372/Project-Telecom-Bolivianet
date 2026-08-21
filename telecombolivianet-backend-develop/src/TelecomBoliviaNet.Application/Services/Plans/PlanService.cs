@@ -1,4 +1,4 @@
-using TelecomBoliviaNet.Application.DTOs.Plans;
+﻿using TelecomBoliviaNet.Application.DTOs.Plans;
 using TelecomBoliviaNet.Application.Interfaces;
 using TelecomBoliviaNet.Application.Services.Auth;
 using TelecomBoliviaNet.Domain.Entities.Clients;
@@ -119,7 +119,9 @@ public class PlanService : IPlanService
         plan.IsActive     = dto.IsActive;
         plan.UpdatedAt    = DateTime.UtcNow;
 
-        await _repo.UpdateAsync(plan);
+        _repo.Update(plan);
+
+        await _repo.SaveChangesAsync();
         await _audit.LogAsync("Planes", "PLAN_UPDATED",
             $"Plan actualizado: {prev} → {plan.DisplayLabel}",
             userId: adminId, userName: adminName, ip: ip,

@@ -1,4 +1,4 @@
-using MediatR;
+﻿using MediatR;
 using Microsoft.EntityFrameworkCore;
 using TelecomBoliviaNet.Application.Services.Auth;
 using TelecomBoliviaNet.Domain.Entities.Auth;
@@ -47,8 +47,11 @@ public class ConfirmEmailHandler : IRequestHandler<ConfirmEmailCommand, Result>
         user.UpdatedAt = DateTime.UtcNow;
         token.Used     = true;
 
-        await _userRepo.UpdateAsync(user);
-        await _activationRepo.UpdateAsync(token);
+        _userRepo.Update(user);
+
+        await _userRepo.SaveChangesAsync();
+        _activationRepo.Update(token);
+        await _activationRepo.SaveChangesAsync();
         await _userRepo.SaveChangesAsync();
 
         await _audit.LogAsync("Usuarios", "EMAIL_CONFIRMED",

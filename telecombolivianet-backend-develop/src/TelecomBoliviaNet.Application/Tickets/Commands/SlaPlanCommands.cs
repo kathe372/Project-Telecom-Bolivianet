@@ -1,4 +1,4 @@
-using MediatR;
+﻿using MediatR;
 using TelecomBoliviaNet.Application.DTOs.Tickets;
 using TelecomBoliviaNet.Application.Tickets.Helpers;
 using TelecomBoliviaNet.Domain.Entities.Tickets;
@@ -64,7 +64,8 @@ public class UpdateSlaPlanHandler : IRequestHandler<UpdateSlaPlanCommand, Result
                 return Result<SlaPlanDto>.Failure("Horario inválido.");
             plan.Schedule = sched;
         }
-        await _slaPlanRepo.UpdateAsync(plan);
+        _slaPlanRepo.Update(plan);
+        await _slaPlanRepo.SaveChangesAsync();
         return Result<SlaPlanDto>.Success(TicketHelper.MapSlaPlan(plan));
     }
 }
@@ -82,7 +83,8 @@ public class DeleteSlaPlanHandler : IRequestHandler<DeleteSlaPlanCommand, Result
     {
         var plan = await _slaPlanRepo.GetByIdAsync(cmd.Id);
         if (plan is null) return Result<bool>.Failure("Plan SLA no encontrado.");
-        await _slaPlanRepo.DeleteAsync(plan.Id);
+        _slaPlanRepo.Remove(plan);
+        await _slaPlanRepo.SaveChangesAsync();
         return Result<bool>.Success(true);
     }
 }

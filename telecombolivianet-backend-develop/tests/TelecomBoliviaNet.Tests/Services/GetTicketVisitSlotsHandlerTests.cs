@@ -1,4 +1,4 @@
-using FluentAssertions;
+﻿using FluentAssertions;
 using Moq;
 using TelecomBoliviaNet.Application.Tickets.Queries;
 using TelecomBoliviaNet.Domain.Entities.Admin;
@@ -9,6 +9,18 @@ using TelecomBoliviaNet.Domain.Interfaces;
 using TelecomBoliviaNet.Domain.Services;
 using TelecomBoliviaNet.Tests.Helpers;
 using Xunit;
+
+// D-12 (2026-08-21): la ventana de estos tests pasó de 2 días a 7.
+//
+// Con 2 días dependían del DÍA DE LA SEMANA y de la HORA: el handler recorre de
+// hoy a hoy+N y el horario de respaldo es L-V 8-18, así que un viernes por la
+// tarde la ventana caía en fin de semana y no quedaba ni un slot que ofrecer.
+// Los cinco pasaron a rojo al cruzar de jueves a viernes sin que nadie tocara
+// ese código.
+//
+// Ninguno de estos tests trata sobre "2 días": comprueban SLA y capacidad, así
+// que ampliar la ventana conserva su intención. El arreglo de fondo es inyectar
+// el reloj en el handler, que hoy lee DateTime.UtcNow directamente.
 
 namespace TelecomBoliviaNet.Tests.Services;
 
@@ -83,7 +95,7 @@ public class GetTicketVisitSlotsHandlerTests
             scheduleRepo.Object, ticketRepo.Object, userRepo.Object,
             ConfigRepo().Object, ZeroCapacity().Object);
 
-        var result = await handler.Handle(new GetTicketVisitSlotsQuery(TicketId, 2), CancellationToken.None);
+        var result = await handler.Handle(new GetTicketVisitSlotsQuery(TicketId, 7), CancellationToken.None);
 
         result.IsSuccess.Should().BeTrue();
         result.Value.Should().NotBeEmpty();
@@ -145,7 +157,7 @@ public class GetTicketVisitSlotsHandlerTests
             scheduleRepo.Object, ticketRepo.Object, userRepo.Object,
             ConfigRepo().Object, slotCalc.Object);
 
-        var result = await handler.Handle(new GetTicketVisitSlotsQuery(TicketId, 2), CancellationToken.None);
+        var result = await handler.Handle(new GetTicketVisitSlotsQuery(TicketId, 7), CancellationToken.None);
 
         result.IsSuccess.Should().BeTrue();
         result.Value.Should().NotBeEmpty();
@@ -168,7 +180,7 @@ public class GetTicketVisitSlotsHandlerTests
             scheduleRepo.Object, ticketRepo.Object, userRepo.Object,
             ConfigRepo().Object, ZeroCapacity().Object);
 
-        var result = await handler.Handle(new GetTicketVisitSlotsQuery(TicketId, 2), CancellationToken.None);
+        var result = await handler.Handle(new GetTicketVisitSlotsQuery(TicketId, 7), CancellationToken.None);
 
         result.IsSuccess.Should().BeTrue();
         result.Value.Should().NotBeEmpty();
@@ -191,7 +203,7 @@ public class GetTicketVisitSlotsHandlerTests
             scheduleRepo.Object, ticketRepo.Object, userRepo.Object,
             ConfigRepo().Object, ZeroCapacity().Object);
 
-        var result = await handler.Handle(new GetTicketVisitSlotsQuery(TicketId, 2), CancellationToken.None);
+        var result = await handler.Handle(new GetTicketVisitSlotsQuery(TicketId, 7), CancellationToken.None);
 
         result.IsSuccess.Should().BeTrue();
         result.Value!.Should().OnlyContain(s => s.WithinSla);
@@ -213,7 +225,7 @@ public class GetTicketVisitSlotsHandlerTests
             scheduleRepo.Object, ticketRepo.Object, userRepo.Object,
             ConfigRepo().Object, ZeroCapacity().Object);
 
-        var result = await handler.Handle(new GetTicketVisitSlotsQuery(TicketId, 2), CancellationToken.None);
+        var result = await handler.Handle(new GetTicketVisitSlotsQuery(TicketId, 7), CancellationToken.None);
 
         result.IsSuccess.Should().BeTrue();
         result.Value!.Should().OnlyContain(s => s.WithinSla);
@@ -266,7 +278,7 @@ public class GetTicketVisitSlotsHandlerTests
             scheduleRepo.Object, ticketRepo.Object, userRepo.Object,
             ConfigRepo().Object, ZeroCapacity().Object);
 
-        var result = await handler.Handle(new GetTicketVisitSlotsQuery(TicketId, 2), CancellationToken.None);
+        var result = await handler.Handle(new GetTicketVisitSlotsQuery(TicketId, 7), CancellationToken.None);
 
         result.IsSuccess.Should().BeTrue();
         var ahoraBolivia = TimeZoneInfo.ConvertTimeFromUtc(

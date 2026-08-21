@@ -1,4 +1,4 @@
-using Microsoft.Extensions.Logging.Abstractions;
+﻿using Microsoft.Extensions.Logging.Abstractions;
 using TelecomBoliviaNet.Application.Interfaces;
 using TelecomBoliviaNet.Application.Services.Payments;
 using TelecomBoliviaNet.Domain.Entities.Clients;
@@ -38,7 +38,7 @@ public class ReceiptImageServiceTests
     {
         var mock = new Mock<IGenericRepository<Payment>>(MockBehavior.Loose);
         mock.Setup(r => r.GetAll()).Returns(new[] { payment }.AsQueryable().BuildMock());
-        mock.Setup(r => r.UpdateAsync(It.IsAny<Payment>())).Returns(Task.CompletedTask);
+        mock.Setup(r => r.Update(It.IsAny<Payment>()));
         return mock;
     }
 

@@ -1,4 +1,4 @@
-using MediatR;
+﻿using MediatR;
 using System.Text.Json;
 using TelecomBoliviaNet.Application.DTOs.Auth;
 using TelecomBoliviaNet.Application.Services.Auth;
@@ -47,8 +47,8 @@ public class UpdateUserHandler : IRequestHandler<UpdateUserCommand, Result<UserS
             user.Phone = string.IsNullOrWhiteSpace(cmd.Dto.Phone) ? null : cmd.Dto.Phone.Trim();
         user.Role      = role;
         user.UpdatedAt = DateTime.UtcNow;
-        await _repo.UpdateAsync(user);
-
+        _repo.Update(user);
+        await _repo.SaveChangesAsync();
         await _audit.LogAsync("Usuarios", "USER_UPDATED",
             $"Usuario actualizado: {user.Email}.",
             userId: cmd.ActorId, userName: cmd.ActorName, ip: cmd.ClientIp,

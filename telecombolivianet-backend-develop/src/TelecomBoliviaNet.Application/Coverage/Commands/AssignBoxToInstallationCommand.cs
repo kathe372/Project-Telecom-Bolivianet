@@ -1,4 +1,4 @@
-using MediatR;
+﻿using MediatR;
 using TelecomBoliviaNet.Domain.Entities.Coverage;
 using TelecomBoliviaNet.Domain.Entities.Installations;
 using TelecomBoliviaNet.Domain.Interfaces;
@@ -56,7 +56,8 @@ public class AssignBoxToInstallationHandler
             if (oldBox is not null)
             {
                 oldBox.LiberarPuertoOcupado();
-                await _boxRepo.UpdateAsync(oldBox);
+                _boxRepo.Update(oldBox);
+                await _boxRepo.SaveChangesAsync();
             }
         }
 
@@ -64,8 +65,11 @@ public class AssignBoxToInstallationHandler
         installation.DistributionBoxId = newBox.Id;
         installation.ActualizadoAt     = DateTime.UtcNow;
 
-        await _boxRepo.UpdateAsync(newBox);
-        await _instRepo.UpdateAsync(installation);
+        _boxRepo.Update(newBox);
+
+        await _boxRepo.SaveChangesAsync();
+        _instRepo.Update(installation);
+        await _instRepo.SaveChangesAsync();
         return Result.Success();
     }
 }

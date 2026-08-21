@@ -1,4 +1,4 @@
-using MediatR;
+﻿using MediatR;
 using TelecomBoliviaNet.Application.DTOs.Tickets;
 using TelecomBoliviaNet.Application.Services.Auth;
 using TelecomBoliviaNet.Application.Tickets.Helpers;
@@ -56,8 +56,9 @@ public class AssignTicketHandler : IRequestHandler<AssignTicketCommand, Result<T
         if (ticket.Status == TicketStatus.Abierto)
             ticket.Status = TicketStatus.EnProceso;
 
-        await _ticketRepo.UpdateAsync(ticket);
+        _ticketRepo.Update(ticket);
 
+        await _ticketRepo.SaveChangesAsync();
         await _commentRepo.AddAsync(new TicketComment
         {
             TicketId = ticket.Id, AuthorId = cmd.ActorId,

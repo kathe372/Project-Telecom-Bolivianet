@@ -1,4 +1,4 @@
-using MediatR;
+﻿using MediatR;
 using TelecomBoliviaNet.Application.Constants;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -58,7 +58,8 @@ public class ResendActivationHandler : IRequestHandler<ResendActivationCommand, 
         foreach (var pt in prevTokens)
         {
             pt.Used = true;
-            await _activationRepo.UpdateAsync(pt);
+            _activationRepo.Update(pt);
+            await _activationRepo.SaveChangesAsync();
         }
 
         var token = Guid.NewGuid().ToString("N");

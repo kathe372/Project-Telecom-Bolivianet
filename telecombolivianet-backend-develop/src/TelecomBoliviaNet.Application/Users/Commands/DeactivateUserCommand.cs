@@ -1,4 +1,4 @@
-using MediatR;
+﻿using MediatR;
 using TelecomBoliviaNet.Application.Services.Auth;
 using TelecomBoliviaNet.Domain.Entities.Auth;
 using TelecomBoliviaNet.Domain.Interfaces;
@@ -33,8 +33,8 @@ public class DeactivateUserHandler : IRequestHandler<DeactivateUserCommand, Resu
         var prev       = user.Status.ToString();
         user.Status    = UserStatus.Inactivo;
         user.UpdatedAt = DateTime.UtcNow;
-        await _repo.UpdateAsync(user);
-
+        _repo.Update(user);
+        await _repo.SaveChangesAsync();
         await _audit.LogAsync("Usuarios", "USER_DEACTIVATED",
             $"Cuenta desactivada: {user.Email}.",
             userId: cmd.ActorId, userName: cmd.ActorName, ip: cmd.ClientIp,

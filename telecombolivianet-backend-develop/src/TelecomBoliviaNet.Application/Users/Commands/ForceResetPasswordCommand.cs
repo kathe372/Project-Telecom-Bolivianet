@@ -1,4 +1,4 @@
-using MediatR;
+﻿using MediatR;
 using TelecomBoliviaNet.Application.Interfaces;
 using TelecomBoliviaNet.Application.Services.Auth;
 using TelecomBoliviaNet.Domain.Entities.Auth;
@@ -39,8 +39,8 @@ public class ForceResetPasswordHandler : IRequestHandler<ForceResetPasswordComma
         user.RequiresPasswordChange = true;
         user.FailedLoginAttempts    = 0;
         user.UpdatedAt              = DateTime.UtcNow;
-        await _repo.UpdateAsync(user);
-
+        _repo.Update(user);
+        await _repo.SaveChangesAsync();
         await _audit.LogAsync("Usuarios", "USER_PASSWORD_FORCE_RESET",
             $"Contraseña reseteada por admin: {user.Email}",
             userId: cmd.ActorId, userName: cmd.ActorName, ip: cmd.ClientIp);

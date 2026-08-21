@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using TelecomBoliviaNet.Application.DTOs.Tickets;
 using TelecomBoliviaNet.Domain.Entities.Tickets;
 using TelecomBoliviaNet.Domain.Interfaces;
@@ -114,7 +114,8 @@ public class BusinessScheduleService
         if (validation is not null) return Result<BusinessScheduleDto>.Failure(validation);
 
         schedule.UpdatedAt = DateTime.UtcNow;
-        await _scheduleRepo.UpdateAsync(schedule);
+        _scheduleRepo.Update(schedule);
+        await _scheduleRepo.SaveChangesAsync();
         await _scheduleRepo.SaveChangesAsync();
 
         return Result<BusinessScheduleDto>.Success(ToDto(schedule));
@@ -152,7 +153,9 @@ public class BusinessScheduleService
             h => h.Id == holidayId && h.BusinessScheduleId == scheduleId);
         if (holiday is null) return Result.Failure("Feriado no encontrado.");
 
-        await _holidayRepo.DeleteAsync(holidayId);
+        // La entidad ya está cargada arriba: se borra esa instancia en vez de
+        // volver a buscarla por Id, que es lo que hacía DeleteAsync.
+        _holidayRepo.Remove(holiday);
         await _holidayRepo.SaveChangesAsync();
         return Result.Success();
     }
@@ -165,7 +168,8 @@ public class BusinessScheduleService
             .ToListAsync();
         foreach (var s in current) s.IsDefault = false;
         if (current.Count > 0)
-            await _scheduleRepo.UpdateRangeAsync(current);
+            _scheduleRepo.UpdateRange(current);
+            await _scheduleRepo.SaveChangesAsync();
     }
 
     private static string? ValidateDto(int startHour, int endHour, int mask, bool is24x7)

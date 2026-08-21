@@ -1,4 +1,4 @@
-using MediatR;
+﻿using MediatR;
 using NetTopologySuite.Geometries;
 using NetTopologySuite.IO.Converters;
 using System.Text.Json;
@@ -52,7 +52,9 @@ public class UpdateCoverageZoneHandler
             zone.Geom = geom;
         }
 
-        await _zoneRepo.UpdateAsync(zone);
+        _zoneRepo.Update(zone);
+
+        await _zoneRepo.SaveChangesAsync();
         return Result<CoverageZoneSummaryDto>.Success(
             new CoverageZoneSummaryDto(zone.Id, zone.Nombre, zone.Estado.ToString()));
     }

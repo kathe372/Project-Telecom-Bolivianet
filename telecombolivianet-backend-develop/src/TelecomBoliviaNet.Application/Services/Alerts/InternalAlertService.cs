@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using TelecomBoliviaNet.Application.DTOs.Alerts;
 using TelecomBoliviaNet.Application.Interfaces;
 using TelecomBoliviaNet.Domain.Entities.Alerts;
@@ -42,7 +42,8 @@ public class InternalAlertService : IInternalAlertService
         var alert = await _repo.GetByIdAsync(alertId);
         if (alert is null) return;
         alert.IsRead = true;
-        await _repo.UpdateAsync(alert);
+        _repo.Update(alert);
+        await _repo.SaveChangesAsync();
     }
 
     public async Task MarkAllReadAsync(Guid userId, string role)

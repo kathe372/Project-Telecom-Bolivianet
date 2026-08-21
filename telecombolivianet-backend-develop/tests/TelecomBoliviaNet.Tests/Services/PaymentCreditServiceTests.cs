@@ -1,4 +1,4 @@
-using FluentAssertions;
+﻿using FluentAssertions;
 using MediatR;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
@@ -196,10 +196,17 @@ public class PaymentCreditServiceTests
     }
 
     [Fact]
-    public async Task PagoQueCubreVariasFacturas_UsaMarkModifiedEnVezDeUpdateAsync()
+    public async Task PagoQueCubreVariasFacturas_MarcaEnElBucle_YGuardaUnaSolaVez()
     {
         // REGRESIÓN: antes cada factura del bucle llamaba UpdateAsync (que
         // confirma), generando un round-trip de SaveChanges POR FACTURA.
+        //
+        // F3 (2026-08-21): el invariante se expresa ahora en el vocabulario del
+        // contrato nuevo. Antes se comprobaba "usa MarkModifiedAsync y NO
+        // UpdateAsync"; hoy los dos son Update(), que por contrato no persiste,
+        // así que esa pareja de aserciones se contradecía. Lo que de verdad
+        // importaba —y sigue importando— es que el guardado ocurra UNA vez para
+        // todo el lote, no una por factura.
         var client = MakeClient();
         var inv1   = MakeInvoice(amount: 50m);
         var inv2   = MakeInvoice(amount: 50m);
@@ -211,11 +218,11 @@ public class PaymentCreditServiceTests
 
         result.IsSuccess.Should().BeTrue();
 
-        h.InvoiceRepo.Verify(r => r.MarkModifiedAsync(It.IsAny<Invoice>()), Times.Exactly(3));
-        h.InvoiceRepo.Verify(r => r.UpdateAsync(It.IsAny<Invoice>()), Times.Never,
-            "el fix reemplaza UpdateAsync por MarkModifiedAsync dentro del bucle");
+        // Las tres facturas se MARCAN…
+        h.InvoiceRepo.Verify(r => r.Update(It.IsAny<Invoice>()), Times.Exactly(3));
 
-        // El guardado real ocurre UNA sola vez para todo el lote, no una por factura.
+        // …y el guardado real ocurre UNA sola vez para todo el lote, no una por
+        // factura. Ésta es la aserción que protege contra la regresión.
         h.InvoiceRepo.Verify(r => r.SaveChangesAsync(), Times.Once);
     }
 

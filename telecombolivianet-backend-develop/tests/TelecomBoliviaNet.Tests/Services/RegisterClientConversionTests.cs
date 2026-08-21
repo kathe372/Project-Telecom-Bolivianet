@@ -1,4 +1,4 @@
-using FluentAssertions;
+﻿using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
 using TelecomBoliviaNet.Application.Clients.Commands;
@@ -166,6 +166,6 @@ public class RegisterClientConversionTests
         var result = await handler.Handle(Cmd(MakeDto(null)), CancellationToken.None);
 
         result.IsSuccess.Should().BeTrue(result.ErrorMessage);
-        instRepo.Verify(r => r.UpdateAsync(It.IsAny<Installation>()), Times.Never);
+        instRepo.Verify(r => r.Update(It.IsAny<Installation>()), Times.Never);
     }
 }

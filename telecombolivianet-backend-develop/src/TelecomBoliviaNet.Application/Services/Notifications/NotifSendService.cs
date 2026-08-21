@@ -1,4 +1,4 @@
-#pragma warning disable CS8981
+﻿#pragma warning disable CS8981
 using r = TelecomBoliviaNet.Domain.Primitives.Result;
 #pragma warning restore CS8981
 using Microsoft.EntityFrameworkCore;
@@ -148,8 +148,8 @@ public class NotifSendService
         outbox.EstadoFinal = NotifEstadoFinal.CANCELADO;
         outbox.Publicado   = true;
         outbox.ProcesadoAt = DateTime.UtcNow;
-        await _outboxRepo.UpdateAsync(outbox);
-
+        _outboxRepo.Update(outbox);
+        await _outboxRepo.SaveChangesAsync();
         await _logRepo.AddAsync(new NotifLog
         {
             OutboxId     = outbox.Id,
@@ -200,7 +200,9 @@ public class NotifSendService
             });
         }
 
-        await _outboxRepo.UpdateRangeAsync(pendientes);
+        _outboxRepo.UpdateRange(pendientes);
+
+        await _outboxRepo.SaveChangesAsync();
         await _logRepo.AddRangeAsync(logBatch);
         await _logRepo.SaveChangesAsync();
 

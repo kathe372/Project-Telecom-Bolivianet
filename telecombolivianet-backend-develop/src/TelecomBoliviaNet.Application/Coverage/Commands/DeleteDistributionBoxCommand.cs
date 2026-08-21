@@ -1,4 +1,4 @@
-using MediatR;
+﻿using MediatR;
 using TelecomBoliviaNet.Domain.Entities.Coverage;
 using TelecomBoliviaNet.Domain.Interfaces;
 using TelecomBoliviaNet.Domain.Primitives;
@@ -26,7 +26,8 @@ public class DeleteDistributionBoxHandler : IRequestHandler<DeleteDistributionBo
                 "Cancele las instalaciones pendientes antes de eliminar la caja.");
 
         box.Estado = DistributionBoxStatus.Mantenimiento;
-        await _boxRepo.UpdateAsync(box);
+        _boxRepo.Update(box);
+        await _boxRepo.SaveChangesAsync();
         return Result.Success();
     }
 }

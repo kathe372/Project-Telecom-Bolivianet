@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using Moq;
 using TelecomBoliviaNet.Application.Interfaces;
 using TelecomBoliviaNet.Application.Services.Auth;
@@ -51,8 +51,7 @@ public class BillingServicePerfTests
             .Setup(r => r.GetAll())
             .Returns(overdueInvoices.AsQueryable().BuildMock());
 
-        _invoiceRepoMock.Setup(r => r.UpdateRangeAsync(It.IsAny<IEnumerable<Invoice>>()))
-            .Returns(Task.CompletedTask);
+        _invoiceRepoMock.Setup(r => r.UpdateRange(It.IsAny<IEnumerable<Invoice>>()));
 
         _clientRepoMock
             .Setup(r => r.GetAll())

@@ -40,6 +40,85 @@ romperse, pero conviene correrlo antes para que EF ni las intente.
 
 ---
 
+## F3 — Fase 3 (2026-08-21)
+
+### 🟠 D-12 · Seis tests de slots dependían del día de la semana
+
+Se destaparon solos al cruzar la medianoche del **jueves 20 al viernes 21**, sin que
+nadie tocara ese código:
+
+| Test | Cuándo falla |
+|---|---|
+| `InstallationHandlerTests.GetSlots_NoActiveInstallations_AllSlotsAvailable` | Jue/vie |
+| `GetTicketVisitSlotsHandlerTests` (5 tests) | Vie por la tarde |
+
+**Causa:** los handlers recorren de **hoy** a `hoy + DiasAdelante` y el horario de
+respaldo es **L-V 8-18**. Los tests pedían una ventana de **2 días**, así que
+ejecutados un viernes la ventana caía en fin de semana y no había ni un slot que
+ofrecer. `GetTicketVisitSlots` además depende de la HORA: a las 17:21 ya casi no
+quedan huecos hoy.
+
+**Arreglo aplicado:** ventana de 7 días. Ninguno de los seis trata sobre "2 días"
+—comprueban disponibilidad, SLA y capacidad—, así que ampliarla conserva su
+intención y elimina la dependencia del calendario.
+
+**Arreglo de fondo, pendiente:** los handlers leen `DateTime.UtcNow`
+directamente. Inyectar `TimeProvider` permitiría fijar la fecha en los tests y
+probar de verdad los casos de borde (viernes por la tarde, feriados) en vez de
+esquivarlos. Candidato natural para **F5**, al tocar esos handlers.
+
+> Es la segunda vez que la suite falla por dependencia temporal, tras D-03. La
+> diferencia: D-03 eran los jobs de producción corriendo contra la base de test;
+> ésta es el propio test atado al calendario. Misma familia, causas distintas.
+
+### 🟠 D-13 · 27 métodos con varias escrituras y sin transacción
+
+`CompleteInstallationCommand` (corregido en F3.3) no era un caso aislado. La
+auditoría de F3.4 encontró **27 métodos** con más de un `SaveChangesAsync()` y sin
+`IUnitOfWork`:
+
+**Prioridad alta** — mismo patrón exacto que el ya corregido (caja + instalación +
+ticket), así que comparten el mismo modo de fallo:
+
+```
+Coverage/Commands/AssignBoxToInstallationCommand.cs      3 escrituras
+Coverage/Commands/CompleteInstallationWithBoxCommand.cs  3 escrituras
+Installations/Commands/RescheduleInstallationCommand.cs  3 escrituras
+Tickets/Commands/RescheduleTicketVisitCommand.cs         3 escrituras
+Users/Commands/ConfirmEmailCommand.cs                    3 escrituras
+```
+
+**Prioridad media** — 2 escrituras cada uno:
+
+```
+Installations/Commands/AssignTechniciansCommand.cs · CancelInstallationCommand.cs
+Tickets/Commands/AssignTicketCommand.cs · ChangeTicketStatusCommand.cs
+                 CloseTicketCommand.cs · ScheduleVisitCommand.cs
+                 CannedResponseCommands.cs
+Users/Commands/ForgotPasswordCommand.cs · ResendActivationCommand.cs
+               ResetPasswordCommand.cs
+Services/Admin/AdminSettingsService.cs · CompanyProfileService.cs
+Services/Auth/AuthService.cs (LoginAsync) · RefreshTokenService.cs
+Services/Bot/BotConfigService.cs
+Services/Clients/ClientQrService.cs
+Services/Invoices/InvoiceOperationsService.cs (ApplyCreditAsync)
+Services/Notifications/NotifPublisher.cs · NotifSendService.cs (x2)
+Services/Plans/PlanService.cs
+Services/Tickets/BusinessScheduleService.cs
+```
+
+**No se corrigieron en F3.** Cada uno exige decidir si *necesita* atomicidad —
+algunos no: `AuthService.LoginAsync` escribe el contador de intentos fallidos y el
+token, y que uno sobreviva sin el otro es tolerable. Aplicar transacciones a los 27
+a ciegas sería tan irresponsable como no aplicarlas.
+
+**Cómo abordarlo:** empezar por los cinco de prioridad alta, uno por PR, con un test
+de rollback como el de `InstallationEvidenceTests.Completar_SiFallaElCierreDelTicket_RevierteTodoYNoConfirma`.
+Para los que se decida NO envolver, dejar un comentario explicando por qué —
+la regla 5 de `CONVENCIONES.md`.
+
+---
+
 ## F0 — Fase 0 (2026-08-20)
 
 ### 🔴 D-01 · Tres migraciones eran invisibles para EF Core — **CORREGIDO en F0.4**

@@ -1,4 +1,4 @@
-using System.Text.Json;
+﻿using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using TelecomBoliviaNet.Application.DTOs.Bot;
@@ -110,7 +110,8 @@ public class BotConfigService : IBotConfigService
         {
             cfg.Value     = json;
             cfg.UpdatedAt = DateTime.UtcNow;
-            await _sysRepo.UpdateAsync(cfg);
+            _sysRepo.Update(cfg);
+            await _sysRepo.SaveChangesAsync();
         }
 
         await _audit.LogAsync("Chatbot", "BOT_CONFIG_UPDATED",

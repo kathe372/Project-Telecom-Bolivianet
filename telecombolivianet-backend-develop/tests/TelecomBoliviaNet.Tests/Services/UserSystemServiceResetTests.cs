@@ -1,4 +1,4 @@
-using FluentAssertions;
+﻿using FluentAssertions;
 using MockQueryable;
 using Moq;
 using TelecomBoliviaNet.Application.Interfaces;
@@ -39,8 +39,8 @@ public class UserSystemServiceResetTests
         _resetRepo.Setup(r => r.GetAll())
             .Returns(new List<PasswordResetToken> { token }.BuildMock());
         _userRepo.Setup(r => r.GetByIdAsync(userId)).ReturnsAsync(user);
-        _userRepo.Setup(r => r.UpdateAsync(It.IsAny<UserSystem>())).Returns(Task.CompletedTask);
-        _resetRepo.Setup(r => r.UpdateAsync(It.IsAny<PasswordResetToken>())).Returns(Task.CompletedTask);
+        _userRepo.Setup(r => r.Update(It.IsAny<UserSystem>()));
+        _resetRepo.Setup(r => r.Update(It.IsAny<PasswordResetToken>()));
         _hasher.Setup(h => h.Hash("NuevaPass123!")).Returns("new_hashed_password");
         _email.Setup(e => e.SendPasswordChangedNotificationAsync(
             It.IsAny<string>(), It.IsAny<string>())).Returns(Task.CompletedTask);
@@ -70,7 +70,7 @@ public class UserSystemServiceResetTests
 
         result.IsSuccess.Should().BeFalse();
         result.ErrorMessage.Should().Contain("coinciden");
-        _userRepo.Verify(r => r.UpdateAsync(It.IsAny<UserSystem>()), Times.Never);
+        _userRepo.Verify(r => r.Update(It.IsAny<UserSystem>()), Times.Never);
         _email.Verify(e => e.SendPasswordChangedNotificationAsync(
             It.IsAny<string>(), It.IsAny<string>()), Times.Never);
     }
@@ -145,7 +145,7 @@ public class UserSystemServiceResetTests
             CancellationToken.None);
 
         result.IsSuccess.Should().BeFalse();
-        _userRepo.Verify(r => r.UpdateAsync(It.IsAny<UserSystem>()), Times.Never);
+        _userRepo.Verify(r => r.Update(It.IsAny<UserSystem>()), Times.Never);
     }
 
     // ── TC-RP-07 · Reset exitoso resetea intentos fallidos a 0 ───────────────
@@ -166,8 +166,8 @@ public class UserSystemServiceResetTests
 
         _resetRepo.Setup(r => r.GetAll()).Returns(new List<PasswordResetToken> { token }.BuildMock());
         _userRepo.Setup(r => r.GetByIdAsync(userId)).ReturnsAsync(user);
-        _userRepo.Setup(r => r.UpdateAsync(It.IsAny<UserSystem>())).Returns(Task.CompletedTask);
-        _resetRepo.Setup(r => r.UpdateAsync(It.IsAny<PasswordResetToken>())).Returns(Task.CompletedTask);
+        _userRepo.Setup(r => r.Update(It.IsAny<UserSystem>()));
+        _resetRepo.Setup(r => r.Update(It.IsAny<PasswordResetToken>()));
         _hasher.Setup(h => h.Hash(It.IsAny<string>())).Returns("hashed");
         _email.Setup(e => e.SendPasswordChangedNotificationAsync(
             It.IsAny<string>(), It.IsAny<string>())).Returns(Task.CompletedTask);

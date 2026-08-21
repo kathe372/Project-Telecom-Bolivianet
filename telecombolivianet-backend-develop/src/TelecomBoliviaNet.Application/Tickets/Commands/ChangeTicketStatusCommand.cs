@@ -1,4 +1,4 @@
-using MediatR;
+﻿using MediatR;
 using TelecomBoliviaNet.Application.DTOs.Tickets;
 using TelecomBoliviaNet.Application.Interfaces;
 using TelecomBoliviaNet.Application.Services.Auth;
@@ -133,8 +133,9 @@ public class ChangeTicketStatusHandler : IRequestHandler<ChangeTicketStatusComma
                 ticket.DueDate = ticket.DueDate.Value.AddMinutes(pausedMinutes);
         }
 
-        await _ticketRepo.UpdateAsync(ticket);
+        _ticketRepo.Update(ticket);
 
+        await _ticketRepo.SaveChangesAsync();
         var pauseInfo = ticket.SlaTotalPausedMinutes > 0
             ? $" ({ticket.SlaTotalPausedMinutes}min acumulados en espera)" : string.Empty;
         var historyText = (newStatus, prevStatus) switch

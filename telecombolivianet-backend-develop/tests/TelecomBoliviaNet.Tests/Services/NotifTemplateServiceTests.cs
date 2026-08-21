@@ -1,4 +1,4 @@
-using FluentAssertions;
+﻿using FluentAssertions;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
@@ -138,7 +138,7 @@ public class NotifTemplateServiceTests
             NotifType.RECORDATORIO_R1, dto, ActorId, ActorName, Ip);
 
         result.IsSuccess.Should().BeTrue();
-        repo.Verify(r => r.UpdateAsync(It.Is<NotifTemplate>(p =>
+        repo.Verify(r => r.Update(It.Is<NotifTemplate>(p =>
             p.MetaTemplateName == "aviso_pago_pendiente"
          && p.MetaLanguageCode == "es"
          && p.MetaParamOrder   == @"[""nombre"",""meses_deuda_detalle"",""deuda""]"
@@ -159,7 +159,7 @@ public class NotifTemplateServiceTests
         await svc.UpdatePlantillaAsync(
             NotifType.RECORDATORIO_R1, dto, ActorId, ActorName, Ip);
 
-        repo.Verify(r => r.UpdateAsync(It.Is<NotifTemplate>(
+        repo.Verify(r => r.Update(It.Is<NotifTemplate>(
             p => p.MetaLanguageCode == "es")), Times.Once);
     }
 
@@ -175,7 +175,7 @@ public class NotifTemplateServiceTests
             new UpdateNotifTemplateDto("Texto completamente nuevo"),
             ActorId, ActorName, Ip);
 
-        repo.Verify(r => r.UpdateAsync(It.Is<NotifTemplate>(
+        repo.Verify(r => r.Update(It.Is<NotifTemplate>(
             p => p.Texto == "Texto completamente nuevo")), Times.Once);
     }
 
@@ -192,7 +192,7 @@ public class NotifTemplateServiceTests
             NotifType.RECORDATORIO_R1, HsmStatus.Aprobada, ActorId, ActorName, Ip);
 
         result.IsSuccess.Should().BeTrue();
-        repo.Verify(r => r.UpdateAsync(It.Is<NotifTemplate>(
+        repo.Verify(r => r.Update(It.Is<NotifTemplate>(
             p => p.HsmStatus == HsmStatus.Aprobada)), Times.Once);
     }
 
@@ -207,7 +207,7 @@ public class NotifTemplateServiceTests
             NotifType.RECORDATORIO_R1, HsmStatus.Rechazada, ActorId, ActorName, Ip);
 
         result.IsSuccess.Should().BeTrue();
-        repo.Verify(r => r.UpdateAsync(It.Is<NotifTemplate>(
+        repo.Verify(r => r.Update(It.Is<NotifTemplate>(
             p => p.HsmStatus == HsmStatus.Rechazada)), Times.Once);
     }
 
@@ -236,7 +236,7 @@ public class NotifTemplateServiceTests
 
         result.IsSuccess.Should().BeTrue();
         var expectedText = NotifShared.DefaultTextos[NotifType.RECORDATORIO_R1];
-        repo.Verify(r => r.UpdateAsync(It.Is<NotifTemplate>(
+        repo.Verify(r => r.Update(It.Is<NotifTemplate>(
             p => p.Texto == expectedText)), Times.Once);
     }
 

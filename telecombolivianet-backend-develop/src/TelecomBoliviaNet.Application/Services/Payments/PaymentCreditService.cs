@@ -1,4 +1,4 @@
-using System.Globalization;
+﻿using System.Globalization;
 using MediatR;
 using Microsoft.Extensions.Logging;
 using TelecomBoliviaNet.Application.Interfaces;
@@ -121,8 +121,9 @@ public class PaymentCreditService : IPaymentCreditService
                     notes: $"Excedente del pago de Bs. {dto.Amount:F2}");
             }
 
-            await _clientRepo.UpdateAsync(client);
+            _clientRepo.Update(client);
 
+            await _clientRepo.SaveChangesAsync();
             var receiptNumber = await _seqGen.NextReceiptNumberAsync();
             await _receiptRepo.AddAsync(new PaymentReceipt
             {
@@ -257,8 +258,7 @@ public class PaymentCreditService : IPaymentCreditService
             // de SaveChanges POR FACTURA. El guardado real ocurre una sola vez, al
             // final de RegisterPaymentWithCreditAsync, dentro de la misma
             // transacción que ya envuelve todo este método.
-            await _invoiceRepo.MarkModifiedAsync(inv);
-
+            _invoiceRepo.Update(inv);
             // Se registra CUÁNTO se aplicó a esta factura: es lo que permite
             // revertir la anulación con exactitud cuando varios pagos la cubren.
             await _piRepo.AddAsync(new PaymentInvoice
@@ -310,8 +310,9 @@ public class PaymentCreditService : IPaymentCreditService
             createdByUserId: actorId,
             notes: $"Reembolso al cliente. Justificación: {justificacion}");
 
-        await _clientRepo.UpdateAsync(client);
+        _clientRepo.Update(client);
 
+        await _clientRepo.SaveChangesAsync();
         await _audit.LogAsync("Pagos", "CREDIT_REIMBURSED",
             $"Crédito reembolsado: {client.TbnCode} monto={prev:F2} razón={justificacion}",
             userId: actorId, userName: actorName, ip: ip,

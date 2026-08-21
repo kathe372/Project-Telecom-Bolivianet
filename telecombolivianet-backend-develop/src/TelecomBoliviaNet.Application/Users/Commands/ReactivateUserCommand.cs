@@ -1,4 +1,4 @@
-using MediatR;
+﻿using MediatR;
 using TelecomBoliviaNet.Application.Services.Auth;
 using TelecomBoliviaNet.Domain.Entities.Auth;
 using TelecomBoliviaNet.Domain.Interfaces;
@@ -33,8 +33,8 @@ public class ReactivateUserHandler : IRequestHandler<ReactivateUserCommand, Resu
 
         user.Status    = UserStatus.Activo;
         user.UpdatedAt = DateTime.UtcNow;
-        await _repo.UpdateAsync(user);
-
+        _repo.Update(user);
+        await _repo.SaveChangesAsync();
         await _audit.LogAsync("Usuarios", "USER_REACTIVATED",
             $"Cuenta reactivada: {user.Email}.",
             userId: cmd.ActorId, userName: cmd.ActorName, ip: cmd.ClientIp);

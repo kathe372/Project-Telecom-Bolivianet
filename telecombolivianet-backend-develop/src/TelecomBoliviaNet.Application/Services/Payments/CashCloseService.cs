@@ -1,4 +1,4 @@
-using System.Text.Json;
+﻿using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using TelecomBoliviaNet.Application.DTOs.Payments;
@@ -73,8 +73,8 @@ public class CashCloseService : ICashCloseService
         turno.DetailJson     = JsonSerializer.Serialize(detalle);
         turno.PagosValidados = pagos.Count;
         turno.ClosedAt       = DateTime.UtcNow;
-        await _cashCloseRepo.UpdateAsync(turno);
-
+        _cashCloseRepo.Update(turno);
+        await _cashCloseRepo.SaveChangesAsync();
         await _audit.LogAsync("Pagos", "CASH_TURN_CLOSED",
             $"Turno cerrado: usuario={userName} total={turno.TotalAmount:F2}",
             userId: userId, userName: userName, ip: ip,

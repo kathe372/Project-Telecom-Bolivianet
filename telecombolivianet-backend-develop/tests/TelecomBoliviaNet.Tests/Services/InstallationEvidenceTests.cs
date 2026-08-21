@@ -1,3 +1,4 @@
+﻿using TelecomBoliviaNet.Domain.Interfaces;
 using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
@@ -42,7 +43,9 @@ public class InstallationEvidenceTests
         => new(RepoMock.Of(inst).Object,
                RepoMock.Empty<SupportTicket>().Object,
                RepoMock.Empty<DistributionBox>().Object,
-               MakeAudit());
+               MakeAudit(),
+               new Mock<IUnitOfWork>().Object,
+               NullLogger<CompleteInstallationHandler>.Instance);
 
     // ── TC-EVID-01: completar persiste equipo, metros, checklist y fotos ─────
     [Fact]
@@ -123,5 +126,80 @@ public class InstallationEvidenceTests
         result.Value.Should().Contain("instalaciones");
         storage.Verify(s => s.SaveAsync(
             It.IsAny<Stream>(), "foto.jpg", $"instalaciones/{inst.Id}"), Times.Once);
+    }
+
+    // ── F3.3 · Atomicidad al completar ──────────────────────────────────────────
+
+    [Fact]
+    public async Task Completar_SiFallaElCierreDelTicket_RevierteTodoYNoConfirma()
+    {
+        // Antes de F3.3 las tres escrituras (caja, instalación, ticket) confirmaban
+        // por separado: si fallaba la tercera, el puerto quedaba consumido y la
+        // instalación completada, pero el ticket abierto PARA SIEMPRE — nadie
+        // volvería a mirarlo porque la instalación ya figuraba cerrada.
+        var ticket = new SupportTicket
+        {
+            Id = Guid.NewGuid(), Subject = "Instalación", Description = "x",
+            Status = TicketStatus.Abierto, Type = TicketType.InstalacionNueva,
+            Priority = TicketPriority.Media, Origin = TicketOrigin.Manual,
+            CreatedByUserId = Guid.NewGuid(), CreatedAt = DateTime.UtcNow,
+        };
+        var inst = MakeInstallation(InstallationStatus.Pendiente);
+        inst.Ticket = ticket;
+
+        var ticketRepo = RepoMock.Of(ticket);
+        ticketRepo.Setup(r => r.Update(It.IsAny<SupportTicket>()))
+                  .Throws(new InvalidOperationException("fallo simulado al cerrar el ticket"));
+
+        var uow = new Mock<IUnitOfWork>();
+
+        var handler = new CompleteInstallationHandler(
+            RepoMock.Of(inst).Object,
+            ticketRepo.Object,
+            RepoMock.Empty<DistributionBox>().Object,
+            MakeAudit(),
+            uow.Object,
+            NullLogger<CompleteInstallationHandler>.Instance);
+
+        var result = await handler.Handle(
+            new CompleteInstallationCommand(
+                inst.Id, new CompleteInstallationDto { NotasTecnico = "ok" },
+                Guid.NewGuid(), "Técnico", "::1"),
+            CancellationToken.None);
+
+        // El fallo se convierte en un Result fallido, no en una excepción que suba
+        // al controlador.
+        result.IsSuccess.Should().BeFalse();
+        result.ErrorMessage.Should().Contain("No se aplicó ningún cambio");
+
+        // Y lo esencial: se revierte y NO se confirma.
+        uow.Verify(u => u.RollbackAsync(It.IsAny<CancellationToken>()), Times.Once);
+        uow.Verify(u => u.CommitAsync(It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task Completar_EnElCaminoFeliz_ConfirmaUnaSolaVez()
+    {
+        var inst = MakeInstallation(InstallationStatus.Pendiente);
+        var uow  = new Mock<IUnitOfWork>();
+
+        var handler = new CompleteInstallationHandler(
+            RepoMock.Of(inst).Object,
+            RepoMock.Empty<SupportTicket>().Object,
+            RepoMock.Empty<DistributionBox>().Object,
+            MakeAudit(),
+            uow.Object,
+            NullLogger<CompleteInstallationHandler>.Instance);
+
+        var result = await handler.Handle(
+            new CompleteInstallationCommand(
+                inst.Id, new CompleteInstallationDto { NotasTecnico = "ok" },
+                Guid.NewGuid(), "Técnico", "::1"),
+            CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+        uow.Verify(u => u.BeginTransactionAsync(It.IsAny<CancellationToken>()), Times.Once);
+        uow.Verify(u => u.CommitAsync(It.IsAny<CancellationToken>()), Times.Once);
+        uow.Verify(u => u.RollbackAsync(It.IsAny<CancellationToken>()), Times.Never);
     }
 }

@@ -1,4 +1,4 @@
-using FluentAssertions;
+﻿using FluentAssertions;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
@@ -200,7 +200,7 @@ public class UserHandlerTests
             CancellationToken.None);
 
         result.IsSuccess.Should().BeTrue();
-        repo.Verify(r => r.UpdateAsync(
+        repo.Verify(r => r.Update(
             It.Is<UserSystem>(u => u.Status == UserStatus.Inactivo)), Times.Once);
     }
 
@@ -234,7 +234,7 @@ public class UserHandlerTests
             CancellationToken.None);
 
         result.IsSuccess.Should().BeTrue();
-        repo.Verify(r => r.UpdateAsync(
+        repo.Verify(r => r.Update(
             It.Is<UserSystem>(u =>
                 u.Status == UserStatus.Activo &&
                 u.FailedLoginAttempts == 0)), Times.Once);
@@ -270,7 +270,7 @@ public class UserHandlerTests
             CancellationToken.None);
 
         result.IsSuccess.Should().BeTrue();
-        repo.Verify(r => r.UpdateAsync(
+        repo.Verify(r => r.Update(
             It.Is<UserSystem>(u => u.IsDeleted && u.Status == UserStatus.Inactivo)), Times.Once);
     }
 
@@ -303,7 +303,7 @@ public class UserHandlerTests
             CancellationToken.None);
 
         result.IsSuccess.Should().BeTrue();
-        repo.Verify(r => r.UpdateAsync(
+        repo.Verify(r => r.Update(
             It.Is<UserSystem>(u =>
                 u.RequiresPasswordChange &&
                 u.FailedLoginAttempts == 0)), Times.Once);

@@ -1,4 +1,4 @@
-using MediatR;
+﻿using MediatR;
 using TelecomBoliviaNet.Application.Coverage.Services;
 using TelecomBoliviaNet.Application.Services.Auth;
 using TelecomBoliviaNet.Domain.Entities.Installations;
@@ -58,8 +58,8 @@ public class MarkInstallationNoShowHandler
         inst.CanceladoPor      = "NO_SHOW";
         inst.CanceladoAt       = DateTime.UtcNow;
         inst.ActualizadoAt     = DateTime.UtcNow;
-        await _instRepo.UpdateAsync(inst);
-
+        _instRepo.Update(inst);
+        await _instRepo.SaveChangesAsync();
         await _audit.LogAsync("Instalaciones", "INSTALACION_NO_REALIZADA",
             $"Instalación no realizada: {cmd.InstalacionId} — {cmd.Motivo}",
             cmd.ActorId, cmd.ActorName, cmd.ClientIp);

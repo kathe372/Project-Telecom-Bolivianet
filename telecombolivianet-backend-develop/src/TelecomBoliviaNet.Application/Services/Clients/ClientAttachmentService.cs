@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using TelecomBoliviaNet.Application.DTOs.Clients;
 using TelecomBoliviaNet.Application.Interfaces;
@@ -118,8 +118,8 @@ public class ClientAttachmentService : IClientAttachmentService
         att.IsDeleted   = true;
         att.DeletedAt   = DateTime.UtcNow;
         att.DeletedById = actorId;
-        await _repo.UpdateAsync(att);
-
+        _repo.Update(att);
+        await _repo.SaveChangesAsync();
         try { await _storage.DeleteAsync(att.StoragePath); }
         catch (Exception ex) { _logger.LogWarning(ex, "Storage delete falló para {Path} — el registro ya está soft-deleted", att.StoragePath); }
 
