@@ -1,4 +1,5 @@
-﻿using FluentAssertions;
+﻿using System.Linq.Expressions;
+using FluentAssertions;
 using MockQueryable;
 using Moq;
 using TelecomBoliviaNet.Application.Interfaces;
@@ -38,6 +39,12 @@ public class UserSystemServiceResetTests
 
         _resetRepo.Setup(r => r.GetAll())
             .Returns(new List<PasswordResetToken> { token }.BuildMock());
+        // F4: el código llama ahora a los métodos del repositorio, no a GetAll().
+        _resetRepo.Setup(r => r.FirstOrDefaultAsync(It.IsAny<Expression<Func<PasswordResetToken, bool>>>()))
+            .ReturnsAsync((Expression<Func<PasswordResetToken, bool>> p) => (new List<PasswordResetToken> { token }).AsQueryable().FirstOrDefault(p));
+        _resetRepo.Setup(r => r.ListAsync(It.IsAny<Expression<Func<PasswordResetToken, bool>>?>()))
+            .ReturnsAsync((Expression<Func<PasswordResetToken, bool>>? p) =>
+                p is null ? (new List<PasswordResetToken> { token }).ToList() : (new List<PasswordResetToken> { token }).AsQueryable().Where(p).ToList());
         _userRepo.Setup(r => r.GetByIdAsync(userId)).ReturnsAsync(user);
         _userRepo.Setup(r => r.Update(It.IsAny<UserSystem>()));
         _resetRepo.Setup(r => r.Update(It.IsAny<PasswordResetToken>()));
@@ -100,6 +107,12 @@ public class UserSystemServiceResetTests
         };
         _resetRepo.Setup(r => r.GetAll())
             .Returns(new List<PasswordResetToken> { token }.BuildMock());
+        // F4: el código llama ahora a los métodos del repositorio, no a GetAll().
+        _resetRepo.Setup(r => r.FirstOrDefaultAsync(It.IsAny<Expression<Func<PasswordResetToken, bool>>>()))
+            .ReturnsAsync((Expression<Func<PasswordResetToken, bool>> p) => (new List<PasswordResetToken> { token }).AsQueryable().FirstOrDefault(p));
+        _resetRepo.Setup(r => r.ListAsync(It.IsAny<Expression<Func<PasswordResetToken, bool>>?>()))
+            .ReturnsAsync((Expression<Func<PasswordResetToken, bool>>? p) =>
+                p is null ? (new List<PasswordResetToken> { token }).ToList() : (new List<PasswordResetToken> { token }).AsQueryable().Where(p).ToList());
 
         var result = await MakeHandler().Handle(
             new ResetPasswordCommand("expired", "Password123!", "Password123!"),
@@ -123,6 +136,12 @@ public class UserSystemServiceResetTests
         };
         _resetRepo.Setup(r => r.GetAll())
             .Returns(new List<PasswordResetToken> { token }.BuildMock());
+        // F4: el código llama ahora a los métodos del repositorio, no a GetAll().
+        _resetRepo.Setup(r => r.FirstOrDefaultAsync(It.IsAny<Expression<Func<PasswordResetToken, bool>>>()))
+            .ReturnsAsync((Expression<Func<PasswordResetToken, bool>> p) => (new List<PasswordResetToken> { token }).AsQueryable().FirstOrDefault(p));
+        _resetRepo.Setup(r => r.ListAsync(It.IsAny<Expression<Func<PasswordResetToken, bool>>?>()))
+            .ReturnsAsync((Expression<Func<PasswordResetToken, bool>>? p) =>
+                p is null ? (new List<PasswordResetToken> { token }).ToList() : (new List<PasswordResetToken> { token }).AsQueryable().Where(p).ToList());
 
         var result = await MakeHandler().Handle(
             new ResetPasswordCommand("used_token", "Password123!", "Password123!"),
@@ -139,6 +158,12 @@ public class UserSystemServiceResetTests
     {
         _resetRepo.Setup(r => r.GetAll())
             .Returns(new List<PasswordResetToken>().BuildMock());
+        // F4: el código llama ahora a los métodos del repositorio, no a GetAll().
+        _resetRepo.Setup(r => r.FirstOrDefaultAsync(It.IsAny<Expression<Func<PasswordResetToken, bool>>>()))
+            .ReturnsAsync((Expression<Func<PasswordResetToken, bool>> p) => (new List<PasswordResetToken>()).AsQueryable().FirstOrDefault(p));
+        _resetRepo.Setup(r => r.ListAsync(It.IsAny<Expression<Func<PasswordResetToken, bool>>?>()))
+            .ReturnsAsync((Expression<Func<PasswordResetToken, bool>>? p) =>
+                p is null ? (new List<PasswordResetToken>()).ToList() : (new List<PasswordResetToken>()).AsQueryable().Where(p).ToList());
 
         var result = await MakeHandler().Handle(
             new ResetPasswordCommand("token_falso", "Password123!", "Password123!"),
@@ -165,6 +190,9 @@ public class UserSystemServiceResetTests
         };
 
         _resetRepo.Setup(r => r.GetAll()).Returns(new List<PasswordResetToken> { token }.BuildMock());
+        // F4: el codigo llama ahora a los metodos del repositorio, no a GetAll().
+        _resetRepo.Setup(r => r.FirstOrDefaultAsync(It.IsAny<Expression<Func<PasswordResetToken, bool>>>()))
+            .ReturnsAsync((Expression<Func<PasswordResetToken, bool>> pr) => (new List<PasswordResetToken> { token }).AsQueryable().FirstOrDefault(pr));
         _userRepo.Setup(r => r.GetByIdAsync(userId)).ReturnsAsync(user);
         _userRepo.Setup(r => r.Update(It.IsAny<UserSystem>()));
         _resetRepo.Setup(r => r.Update(It.IsAny<PasswordResetToken>()));

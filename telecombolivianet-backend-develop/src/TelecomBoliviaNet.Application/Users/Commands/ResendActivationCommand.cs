@@ -1,6 +1,5 @@
 ﻿using MediatR;
 using TelecomBoliviaNet.Application.Constants;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using TelecomBoliviaNet.Application.Interfaces;
@@ -51,9 +50,8 @@ public class ResendActivationHandler : IRequestHandler<ResendActivationCommand, 
         if (user.Status != UserStatus.PendienteActivacion)
             return Result.Failure("Esta cuenta ya está activa o fue desactivada. No se puede reenviar la activación.");
 
-        var prevTokens = await _activationRepo.GetAll()
-            .Where(t => t.UserId == cmd.UserId && !t.Used && t.ExpiresAt > DateTime.UtcNow)
-            .ToListAsync(ct);
+        var prevTokens = await _activationRepo.ListAsync(
+            t => t.UserId == cmd.UserId && !t.Used && t.ExpiresAt > DateTime.UtcNow);
 
         foreach (var pt in prevTokens)
         {

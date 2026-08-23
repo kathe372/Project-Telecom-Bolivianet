@@ -1,5 +1,4 @@
 ﻿using MediatR;
-using Microsoft.EntityFrameworkCore;
 using TelecomBoliviaNet.Application.Services.Auth;
 using TelecomBoliviaNet.Domain.Entities.Auth;
 using TelecomBoliviaNet.Domain.Interfaces;
@@ -27,8 +26,7 @@ public class ConfirmEmailHandler : IRequestHandler<ConfirmEmailCommand, Result>
 
     public async Task<Result> Handle(ConfirmEmailCommand cmd, CancellationToken ct)
     {
-        var token = await _activationRepo.GetAll()
-            .FirstOrDefaultAsync(t => t.Token == cmd.Token, ct);
+        var token = await _activationRepo.FirstOrDefaultAsync(t => t.Token == cmd.Token);
 
         if (token is null || token.Used)
             return Result.Failure("El enlace de activación no es válido o ya fue utilizado.");

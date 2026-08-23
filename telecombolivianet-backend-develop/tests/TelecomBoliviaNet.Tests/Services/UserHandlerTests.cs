@@ -1,3 +1,4 @@
+using TelecomBoliviaNet.Domain.Interfaces;
 ﻿using FluentAssertions;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -84,13 +85,36 @@ public class UserHandlerTests
     [Fact]
     public async Task GetUsersList_ExcludesBotEmail()
     {
+        // F4: el filtrado por email del bot se movió al repositorio
+        // (IUserRepository.GetPagedAsync), donde se resuelve en SQL. Con eso, la
+        // responsabilidad del handler pasó a ser OTRA: leer el email del bot de
+        // la configuración y pasárselo al repositorio.
+        //
+        // Este test comprueba justamente eso. Que la exclusión funcione de verdad
+        // es ahora cosa del repositorio, y se prueba contra PostgreSQL real: aquí
+        // solo se estaría verificando el mock.
         var bot     = MakeUser(id: Guid.NewGuid());
-        bot.Email   = "bot@bo.com";  // set email to match bot filter
+        bot.Email   = "bot@bo.com";
         var normal  = MakeUser(id: Guid.NewGuid());
-        var repo    = RepoMock.Of(bot, normal);
+
+        var repo = new Mock<IUserRepository>();
+        repo.Setup(r => r.GetPagedAsync(
+                It.IsAny<string>(), It.IsAny<UserRole?>(), It.IsAny<string?>(),
+                It.IsAny<int>(), It.IsAny<int>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((string excluir, UserRole? _, string? __, int ___, int ____, CancellationToken _____) =>
+            {
+                var items = new[] { bot, normal }.Where(u => u.Email != excluir).ToList();
+                return (items, items.Count);
+            });
+
         var handler = new GetUsersListHandler(repo.Object, MakeConfig());
 
         var result = await handler.Handle(new GetUsersListQuery(), CancellationToken.None);
+
+        // El handler le pasó al repositorio el email del bot que salió de la config.
+        repo.Verify(r => r.GetPagedAsync(
+            "bot@bo.com", It.IsAny<UserRole?>(), It.IsAny<string?>(),
+            It.IsAny<int>(), It.IsAny<int>(), It.IsAny<CancellationToken>()), Times.Once);
 
         result.Items.Should().HaveCount(1);
         result.Items.First().Email.Should().Be(normal.Email);

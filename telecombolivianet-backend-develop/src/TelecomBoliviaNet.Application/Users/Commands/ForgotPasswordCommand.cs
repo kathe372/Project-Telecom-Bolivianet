@@ -1,5 +1,4 @@
 ﻿using MediatR;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using TelecomBoliviaNet.Application.DTOs.Auth;
@@ -37,8 +36,7 @@ public class ForgotPasswordHandler : IRequestHandler<ForgotPasswordCommand, Resu
     public async Task<Result<ForgotPasswordResultDto>> Handle(
         ForgotPasswordCommand cmd, CancellationToken ct)
     {
-        var user = await _repo.GetAll()
-            .FirstOrDefaultAsync(u => u.Email.ToLower() == cmd.Email.ToLower(), ct);
+        var user = await _repo.FirstOrDefaultAsync(u => u.Email.ToLower() == cmd.Email.ToLower());
 
         if (user is null)
             return Result<ForgotPasswordResultDto>.Failure(
@@ -52,9 +50,8 @@ public class ForgotPasswordHandler : IRequestHandler<ForgotPasswordCommand, Resu
             return Result<ForgotPasswordResultDto>.Failure(
                 "Esta cuenta aún no ha sido activada. Revisa tu correo para el enlace de activación.");
 
-        var prevTokens = await _resetRepo.GetAll()
-            .Where(t => t.UserId == user.Id && !t.Used && t.ExpiresAt > DateTime.UtcNow)
-            .ToListAsync(ct);
+        var prevTokens = await _resetRepo.ListAsync(
+            t => t.UserId == user.Id && !t.Used && t.ExpiresAt > DateTime.UtcNow);
 
         foreach (var pt in prevTokens)
         {

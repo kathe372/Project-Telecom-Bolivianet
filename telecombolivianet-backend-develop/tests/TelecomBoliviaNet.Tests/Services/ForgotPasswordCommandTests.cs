@@ -1,4 +1,5 @@
-﻿using FluentAssertions;
+﻿using System.Linq.Expressions;
+using FluentAssertions;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging.Abstractions;
 using MockQueryable;
@@ -29,6 +30,12 @@ public class ForgotPasswordCommandTests
               .Returns(Task.CompletedTask);
         _resetRepo.Setup(r => r.GetAll())
             .Returns(new List<PasswordResetToken>().AsQueryable().BuildMock());
+        // F4: el código llama ahora a los métodos del repositorio, no a GetAll().
+        _resetRepo.Setup(r => r.FirstOrDefaultAsync(It.IsAny<Expression<Func<PasswordResetToken, bool>>>()))
+            .ReturnsAsync((Expression<Func<PasswordResetToken, bool>> p) => (new List<PasswordResetToken>().AsQueryable()).AsQueryable().FirstOrDefault(p));
+        _resetRepo.Setup(r => r.ListAsync(It.IsAny<Expression<Func<PasswordResetToken, bool>>?>()))
+            .ReturnsAsync((Expression<Func<PasswordResetToken, bool>>? p) =>
+                p is null ? (new List<PasswordResetToken>().AsQueryable()).ToList() : (new List<PasswordResetToken>().AsQueryable()).AsQueryable().Where(p).ToList());
         _resetRepo.Setup(r => r.AddAsync(It.IsAny<PasswordResetToken>())).Returns(Task.CompletedTask);
         _resetRepo.Setup(r => r.Update(It.IsAny<PasswordResetToken>()));
         _resetRepo.Setup(r => r.SaveChangesAsync()).Returns(Task.CompletedTask);
@@ -52,6 +59,12 @@ public class ForgotPasswordCommandTests
     {
         _userRepo.Setup(r => r.GetAll())
             .Returns(new List<UserSystem>().AsQueryable().BuildMock());
+        // F4: el código llama ahora a los métodos del repositorio, no a GetAll().
+        _userRepo.Setup(r => r.FirstOrDefaultAsync(It.IsAny<Expression<Func<UserSystem, bool>>>()))
+            .ReturnsAsync((Expression<Func<UserSystem, bool>> p) => (new List<UserSystem>().AsQueryable()).AsQueryable().FirstOrDefault(p));
+        _userRepo.Setup(r => r.ListAsync(It.IsAny<Expression<Func<UserSystem, bool>>?>()))
+            .ReturnsAsync((Expression<Func<UserSystem, bool>>? p) =>
+                p is null ? (new List<UserSystem>().AsQueryable()).ToList() : (new List<UserSystem>().AsQueryable()).AsQueryable().Where(p).ToList());
 
         var result = await MakeHandler().Handle(
             new ForgotPasswordCommand("noexiste@bo.com"), CancellationToken.None);
@@ -69,6 +82,12 @@ public class ForgotPasswordCommandTests
         var user = MakeUser(status: UserStatus.Inactivo);
         _userRepo.Setup(r => r.GetAll())
             .Returns(new List<UserSystem> { user }.AsQueryable().BuildMock());
+        // F4: el código llama ahora a los métodos del repositorio, no a GetAll().
+        _userRepo.Setup(r => r.FirstOrDefaultAsync(It.IsAny<Expression<Func<UserSystem, bool>>>()))
+            .ReturnsAsync((Expression<Func<UserSystem, bool>> p) => (new List<UserSystem> { user }.AsQueryable()).AsQueryable().FirstOrDefault(p));
+        _userRepo.Setup(r => r.ListAsync(It.IsAny<Expression<Func<UserSystem, bool>>?>()))
+            .ReturnsAsync((Expression<Func<UserSystem, bool>>? p) =>
+                p is null ? (new List<UserSystem> { user }.AsQueryable()).ToList() : (new List<UserSystem> { user }.AsQueryable()).AsQueryable().Where(p).ToList());
 
         var result = await MakeHandler().Handle(
             new ForgotPasswordCommand(user.Email), CancellationToken.None);
@@ -86,6 +105,12 @@ public class ForgotPasswordCommandTests
         var user = MakeUser();
         _userRepo.Setup(r => r.GetAll())
             .Returns(new List<UserSystem> { user }.AsQueryable().BuildMock());
+        // F4: el código llama ahora a los métodos del repositorio, no a GetAll().
+        _userRepo.Setup(r => r.FirstOrDefaultAsync(It.IsAny<Expression<Func<UserSystem, bool>>>()))
+            .ReturnsAsync((Expression<Func<UserSystem, bool>> p) => (new List<UserSystem> { user }.AsQueryable()).AsQueryable().FirstOrDefault(p));
+        _userRepo.Setup(r => r.ListAsync(It.IsAny<Expression<Func<UserSystem, bool>>?>()))
+            .ReturnsAsync((Expression<Func<UserSystem, bool>>? p) =>
+                p is null ? (new List<UserSystem> { user }.AsQueryable()).ToList() : (new List<UserSystem> { user }.AsQueryable()).AsQueryable().Where(p).ToList());
 
         var result = await MakeHandler().Handle(
             new ForgotPasswordCommand(user.Email), CancellationToken.None);
@@ -112,8 +137,20 @@ public class ForgotPasswordCommandTests
 
         _userRepo.Setup(r => r.GetAll())
             .Returns(new List<UserSystem> { user }.AsQueryable().BuildMock());
+        // F4: el código llama ahora a los métodos del repositorio, no a GetAll().
+        _userRepo.Setup(r => r.FirstOrDefaultAsync(It.IsAny<Expression<Func<UserSystem, bool>>>()))
+            .ReturnsAsync((Expression<Func<UserSystem, bool>> p) => (new List<UserSystem> { user }.AsQueryable()).AsQueryable().FirstOrDefault(p));
+        _userRepo.Setup(r => r.ListAsync(It.IsAny<Expression<Func<UserSystem, bool>>?>()))
+            .ReturnsAsync((Expression<Func<UserSystem, bool>>? p) =>
+                p is null ? (new List<UserSystem> { user }.AsQueryable()).ToList() : (new List<UserSystem> { user }.AsQueryable()).AsQueryable().Where(p).ToList());
         _resetRepo.Setup(r => r.GetAll())
             .Returns(new List<PasswordResetToken> { oldToken }.AsQueryable().BuildMock());
+        // F4: el código llama ahora a los métodos del repositorio, no a GetAll().
+        _resetRepo.Setup(r => r.FirstOrDefaultAsync(It.IsAny<Expression<Func<PasswordResetToken, bool>>>()))
+            .ReturnsAsync((Expression<Func<PasswordResetToken, bool>> p) => (new List<PasswordResetToken> { oldToken }.AsQueryable()).AsQueryable().FirstOrDefault(p));
+        _resetRepo.Setup(r => r.ListAsync(It.IsAny<Expression<Func<PasswordResetToken, bool>>?>()))
+            .ReturnsAsync((Expression<Func<PasswordResetToken, bool>>? p) =>
+                p is null ? (new List<PasswordResetToken> { oldToken }.AsQueryable()).ToList() : (new List<PasswordResetToken> { oldToken }.AsQueryable()).AsQueryable().Where(p).ToList());
 
         await MakeHandler().Handle(new ForgotPasswordCommand(user.Email), CancellationToken.None);
 
@@ -128,6 +165,12 @@ public class ForgotPasswordCommandTests
         var user = MakeUser(phone: "59170000000");
         _userRepo.Setup(r => r.GetAll())
             .Returns(new List<UserSystem> { user }.AsQueryable().BuildMock());
+        // F4: el código llama ahora a los métodos del repositorio, no a GetAll().
+        _userRepo.Setup(r => r.FirstOrDefaultAsync(It.IsAny<Expression<Func<UserSystem, bool>>>()))
+            .ReturnsAsync((Expression<Func<UserSystem, bool>> p) => (new List<UserSystem> { user }.AsQueryable()).AsQueryable().FirstOrDefault(p));
+        _userRepo.Setup(r => r.ListAsync(It.IsAny<Expression<Func<UserSystem, bool>>?>()))
+            .ReturnsAsync((Expression<Func<UserSystem, bool>>? p) =>
+                p is null ? (new List<UserSystem> { user }.AsQueryable()).ToList() : (new List<UserSystem> { user }.AsQueryable()).AsQueryable().Where(p).ToList());
 
         var result = await MakeHandler().Handle(
             new ForgotPasswordCommand(user.Email), CancellationToken.None);
@@ -145,6 +188,12 @@ public class ForgotPasswordCommandTests
         var user = MakeUser();
         _userRepo.Setup(r => r.GetAll())
             .Returns(new List<UserSystem> { user }.AsQueryable().BuildMock());
+        // F4: el código llama ahora a los métodos del repositorio, no a GetAll().
+        _userRepo.Setup(r => r.FirstOrDefaultAsync(It.IsAny<Expression<Func<UserSystem, bool>>>()))
+            .ReturnsAsync((Expression<Func<UserSystem, bool>> p) => (new List<UserSystem> { user }.AsQueryable()).AsQueryable().FirstOrDefault(p));
+        _userRepo.Setup(r => r.ListAsync(It.IsAny<Expression<Func<UserSystem, bool>>?>()))
+            .ReturnsAsync((Expression<Func<UserSystem, bool>>? p) =>
+                p is null ? (new List<UserSystem> { user }.AsQueryable()).ToList() : (new List<UserSystem> { user }.AsQueryable()).AsQueryable().Where(p).ToList());
         _email.Setup(e => e.SendPasswordResetAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()))
               .ThrowsAsync(new HttpRequestException("Resend API unreachable"));
 

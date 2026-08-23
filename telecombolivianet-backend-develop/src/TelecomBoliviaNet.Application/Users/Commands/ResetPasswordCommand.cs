@@ -1,5 +1,4 @@
 ﻿using MediatR;
-using Microsoft.EntityFrameworkCore;
 using TelecomBoliviaNet.Application.Interfaces;
 using TelecomBoliviaNet.Domain.Entities.Auth;
 using TelecomBoliviaNet.Domain.Interfaces;
@@ -39,8 +38,7 @@ public class ResetPasswordHandler : IRequestHandler<ResetPasswordCommand, Result
         if (cmd.NewPassword.Length < 8)
             return Result.Failure("La contraseña debe tener al menos 8 caracteres.");
 
-        var resetToken = await _resetRepo.GetAll()
-            .FirstOrDefaultAsync(t => t.Token == cmd.Token, ct);
+        var resetToken = await _resetRepo.FirstOrDefaultAsync(t => t.Token == cmd.Token);
 
         if (resetToken is null || resetToken.Used)
             return Result.Failure("Token inválido o ya utilizado.");

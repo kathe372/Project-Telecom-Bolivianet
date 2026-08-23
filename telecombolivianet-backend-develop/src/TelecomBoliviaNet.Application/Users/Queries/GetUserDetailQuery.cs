@@ -1,5 +1,4 @@
-using MediatR;
-using Microsoft.EntityFrameworkCore;
+﻿using MediatR;
 using TelecomBoliviaNet.Application.DTOs.Auth;
 using TelecomBoliviaNet.Domain.Entities.Auth;
 using TelecomBoliviaNet.Domain.Interfaces;
@@ -10,15 +9,16 @@ public record GetUserDetailQuery(Guid Id) : IRequest<UserSystemDetailDto?>;
 
 public class GetUserDetailHandler : IRequestHandler<GetUserDetailQuery, UserSystemDetailDto?>
 {
-    private readonly IGenericRepository<UserSystem> _repo;
+    private readonly IUserRepository _repo;
 
-    public GetUserDetailHandler(IGenericRepository<UserSystem> repo) => _repo = repo;
+    public GetUserDetailHandler(IUserRepository repo) => _repo = repo;
 
     public async Task<UserSystemDetailDto?> Handle(GetUserDetailQuery q, CancellationToken ct)
     {
-        var user = await _repo.GetAll()
-            .IgnoreQueryFilters()
-            .FirstOrDefaultAsync(u => u.Id == q.Id, ct);
+        // Incluye borrados a propósito: la ficha debe poder mostrar un usuario
+        // dado de baja. Antes eso obligaba a llamar a IgnoreQueryFilters(), una
+        // extensión de EF Core, desde el caso de uso.
+        var user = await _repo.GetByIdIncludingDeletedAsync(q.Id, ct);
 
         return user is null ? null : UserMapper.ToDetailDto(user);
     }

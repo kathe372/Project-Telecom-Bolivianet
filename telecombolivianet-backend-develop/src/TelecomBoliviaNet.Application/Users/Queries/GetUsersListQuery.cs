@@ -1,5 +1,4 @@
-using MediatR;
-using Microsoft.EntityFrameworkCore;
+﻿using MediatR;
 using Microsoft.Extensions.Configuration;
 using TelecomBoliviaNet.Application.DTOs.Auth;
 using TelecomBoliviaNet.Application.DTOs.Common;
@@ -16,12 +15,12 @@ public record GetUsersListQuery(
 
 public class GetUsersListHandler : IRequestHandler<GetUsersListQuery, PagedResult<UserSystemDto>>
 {
-    private readonly IGenericRepository<UserSystem> _repo;
-    private readonly string                         _botEmail;
+    private readonly IUserRepository _repo;
+    private readonly string          _botEmail;
 
     public GetUsersListHandler(
-        IGenericRepository<UserSystem> repo,
-        IConfiguration                 config)
+        IUserRepository repo,
+        IConfiguration  config)
     {
         _repo     = repo;
         _botEmail = (config["SISTEMA_BOT_EMAIL"] ?? "bot@telecombolivianet.bo").ToLower();
@@ -30,27 +29,16 @@ public class GetUsersListHandler : IRequestHandler<GetUsersListQuery, PagedResul
     public async Task<PagedResult<UserSystemDto>> Handle(
         GetUsersListQuery q, CancellationToken ct)
     {
-        var query = _repo.GetAll().Where(u => u.Email != _botEmail);
-
+        UserRole? role = null;
         if (!string.IsNullOrWhiteSpace(q.RoleFilter) &&
-            Enum.TryParse<UserRole>(q.RoleFilter, out var role))
-            query = query.Where(u => u.Role == role);
+            Enum.TryParse<UserRole>(q.RoleFilter, out var parsed))
+            role = parsed;
 
-        if (!string.IsNullOrWhiteSpace(q.Search))
-        {
-            var s = q.Search.ToLower();
-            query = query.Where(u =>
-                u.FullName.ToLower().Contains(s) ||
-                u.Email.ToLower().Contains(s));
-        }
-
-        query = query.OrderBy(u => u.FullName);
-
-        var total = await query.CountAsync(ct);
-        var items = await query
-            .Skip((q.Page - 1) * q.PageSize)
-            .Take(q.PageSize)
-            .ToListAsync(ct);
+        // El filtrado, el conteo y el Skip/Take se resuelven en SQL dentro del
+        // repositorio. Antes el handler componía el IQueryable, lo que obligaba a
+        // referenciar EF Core desde la capa de casos de uso.
+        var (items, total) = await _repo.GetPagedAsync(
+            _botEmail, role, q.Search, q.Page, q.PageSize, ct);
 
         return new PagedResult<UserSystemDto>(items.Select(UserMapper.ToDto), total, q.Page, q.PageSize);
     }
