@@ -101,8 +101,19 @@ public static class DependencyInjection
         // recorre el modelo de EF en vez de fiarse de una lista escrita a mano.
         services.AddScoped(typeof(IGenericRepository<>), typeof(GenericRepository<>));
 
-        // Repositorios específicos (no genéricos) siguen explícitos.
-        services.AddScoped<IScheduleRepository, ScheduleRepository>();
+        // Repositorios ESPECÍFICOS por agregado (F4 · ADR-001).
+        //
+        // Exponen las consultas con nombre de negocio en vez de obligar a la capa
+        // Application a encadenar GetAll().Include(...).Where(...), que es lo que
+        // arrastraba EF Core hasta los casos de uso.
+        //
+        // Van DESPUÉS del registro abierto a propósito: el último registro para un
+        // mismo tipo de servicio es el que gana, así que estos ganan sobre el
+        // genérico cuando alguien pide la interfaz específica.
+        services.AddScoped<IScheduleRepository,          ScheduleRepository>();
+        services.AddScoped<IClientRepository,            ClientRepository>();
+        services.AddScoped<IInstallationRepository,      InstallationRepository>();
+        services.AddScoped<IDistributionBoxRepository,   DistributionBoxRepository>();
 
         return services;
     }

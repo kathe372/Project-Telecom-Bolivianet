@@ -1,5 +1,4 @@
 using MediatR;
-using Microsoft.EntityFrameworkCore;
 using TelecomBoliviaNet.Application.DTOs.Coverage;
 using TelecomBoliviaNet.Domain.Entities.Coverage;
 using TelecomBoliviaNet.Domain.Interfaces;
@@ -13,22 +12,17 @@ public record GetDistributionBoxesQuery(
 public class GetDistributionBoxesQueryHandler
     : IRequestHandler<GetDistributionBoxesQuery, List<DistributionBoxDto>>
 {
-    private readonly IGenericRepository<DistributionBox> _boxRepo;
+    private readonly IDistributionBoxRepository _boxRepo;
 
-    public GetDistributionBoxesQueryHandler(IGenericRepository<DistributionBox> boxRepo)
+    public GetDistributionBoxesQueryHandler(IDistributionBoxRepository boxRepo)
         => _boxRepo = boxRepo;
 
     public async Task<List<DistributionBoxDto>> Handle(
         GetDistributionBoxesQuery query, CancellationToken ct)
     {
-        IQueryable<DistributionBox> q = _boxRepo.GetAllReadOnly().Include(b => b.Zone);
-
-        if (query.ZoneId.HasValue)
-            q = q.Where(b => b.ZoneId == query.ZoneId.Value);
-        if (query.Status.HasValue)
-            q = q.Where(b => b.Estado == query.Status.Value);
-
-        var boxes = await q.ToListAsync(ct);
+        // El filtrado y el Include viven ahora en el repositorio: este handler
+        // dice QUÉ necesita, no CÓMO se consulta.
+        var boxes = await _boxRepo.GetWithZoneAsync(query.ZoneId, query.Status, ct);
 
         return boxes.Select(b => new DistributionBoxDto(
             b.Id,

@@ -1,5 +1,4 @@
-using MediatR;
-using Microsoft.EntityFrameworkCore;
+﻿using MediatR;
 using NetTopologySuite.IO.Converters;
 using System.Text.Json;
 using TelecomBoliviaNet.Application.DTOs.Coverage;
@@ -18,12 +17,12 @@ public class GetCoverageZonesQueryHandler
         Converters = { new GeoJsonConverterFactory() }
     };
 
-    private readonly IGenericRepository<CoverageZone>    _zoneRepo;
-    private readonly IGenericRepository<DistributionBox> _boxRepo;
+    private readonly IGenericRepository<CoverageZone> _zoneRepo;
+    private readonly IDistributionBoxRepository       _boxRepo;
 
     public GetCoverageZonesQueryHandler(
-        IGenericRepository<CoverageZone>    zoneRepo,
-        IGenericRepository<DistributionBox> boxRepo)
+        IGenericRepository<CoverageZone> zoneRepo,
+        IDistributionBoxRepository       boxRepo)
     {
         _zoneRepo = zoneRepo;
         _boxRepo  = boxRepo;
@@ -32,15 +31,12 @@ public class GetCoverageZonesQueryHandler
     public async Task<List<CoverageZoneDto>> Handle(
         GetCoverageZonesQuery query, CancellationToken ct)
     {
-        var zones = await _zoneRepo.GetAllReadOnly().ToListAsync(ct);
+        // ListReadOnlyAsync ya existía en IGenericRepository: no hacía falta EF
+        // para esto, solo usarlo.
+        var zones = await _zoneRepo.ListReadOnlyAsync();
 
-        var boxCounts = await _boxRepo.GetAllReadOnly()
-            .Where(b => b.Estado == DistributionBoxStatus.Activo)
-            .GroupBy(b => b.ZoneId)
-            .Select(g => new { ZoneId = g.Key, Count = g.Count() })
-            .ToListAsync(ct);
-
-        var countMap = boxCounts.ToDictionary(x => x.ZoneId, x => x.Count);
+        // El conteo por zona se sigue agregando en SQL; ahora vive en el repositorio.
+        var countMap = await _boxRepo.CountActiveByZoneAsync(ct);
 
         return zones.Select(z => new CoverageZoneDto(
             z.Id,

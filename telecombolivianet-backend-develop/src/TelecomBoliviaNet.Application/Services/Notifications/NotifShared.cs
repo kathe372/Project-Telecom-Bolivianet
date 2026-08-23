@@ -1,4 +1,3 @@
-using Microsoft.EntityFrameworkCore;
 using System.Text.Json;
 using TelecomBoliviaNet.Application.DTOs.Notifications;
 using TelecomBoliviaNet.Application.Utils;

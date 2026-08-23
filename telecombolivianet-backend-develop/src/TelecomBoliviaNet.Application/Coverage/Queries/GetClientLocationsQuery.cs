@@ -1,8 +1,5 @@
-using MediatR;
-using Microsoft.EntityFrameworkCore;
+﻿using MediatR;
 using TelecomBoliviaNet.Application.DTOs.Coverage;
-using TelecomBoliviaNet.Domain.Entities.Clients;
-using TelecomBoliviaNet.Domain.Entities.Installations;
 using TelecomBoliviaNet.Domain.Interfaces;
 
 namespace TelecomBoliviaNet.Application.Coverage.Queries;
@@ -16,12 +13,12 @@ public record GetClientLocationsQuery : IRequest<IReadOnlyList<ClientLocationDto
 public class GetClientLocationsHandler
     : IRequestHandler<GetClientLocationsQuery, IReadOnlyList<ClientLocationDto>>
 {
-    private readonly IGenericRepository<Client>       _clientRepo;
-    private readonly IGenericRepository<Installation> _instRepo;
+    private readonly IClientRepository       _clientRepo;
+    private readonly IInstallationRepository _instRepo;
 
     public GetClientLocationsHandler(
-        IGenericRepository<Client>       clientRepo,
-        IGenericRepository<Installation> instRepo)
+        IClientRepository       clientRepo,
+        IInstallationRepository instRepo)
     {
         _clientRepo = clientRepo;
         _instRepo   = instRepo;
@@ -30,25 +27,11 @@ public class GetClientLocationsHandler
     public async Task<IReadOnlyList<ClientLocationDto>> Handle(
         GetClientLocationsQuery req, CancellationToken ct)
     {
-        var clients = await _clientRepo.GetAllReadOnly()
-            .Where(c => c.GpsLatitude != null && c.GpsLongitude != null)
-            .Select(c => new { c.Id, c.TbnCode, c.FullName, c.Status, c.GpsLatitude, c.GpsLongitude })
-            .ToListAsync(ct);
-
-        var boxByClient = await _instRepo.GetAllReadOnly()
-            .Where(i => i.Status == InstallationStatus.Completada
-                     && i.DistributionBoxId != null
-                     && i.ClientId != null)
-            .Include(i => i.DistributionBox)
-            .GroupBy(i => i.ClientId!.Value)
-            .Select(g => new
-            {
-                ClientId  = g.Key,
-                BoxCodigo = g.OrderByDescending(i => i.CreadoAt)
-                             .Select(i => i.DistributionBox!.Codigo)
-                             .First(),
-            })
-            .ToDictionaryAsync(x => x.ClientId, x => x.BoxCodigo, ct);
+        // Las dos consultas viven ahora en sus repositorios: la proyección de
+        // clientes con GPS y el "código de caja de la instalación más reciente".
+        // El handler solo compone el DTO.
+        var clients     = await _clientRepo.GetWithGpsAsync(ct);
+        var boxByClient = await _instRepo.GetLatestBoxCodeByClientAsync(ct);
 
         return clients.Select(c => new ClientLocationDto(
             c.Id,
