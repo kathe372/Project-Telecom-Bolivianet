@@ -331,7 +331,39 @@ public class BillingService : IBillingService
 
         _invoiceRepo.UpdateRange(overdue);
 
-        await _invoiceRepo.SaveChangesAsync();
+        try
+        {
+            await _invoiceRepo.SaveChangesAsync();
+        }
+        catch (DbUpdateConcurrencyException ex)
+        {
+            // D-14: desde que Invoice lleva token de concurrencia, este lote puede
+            // chocar con un cobro que se registró mientras el job leía. Antes el
+            // choque no existía porque el job simplemente PISABA el cobro.
+            //
+            // Se recargan las filas en conflicto desde la base y se descarta el
+            // marcado de esas: si alguien acaba de pagarlas, no corresponde
+            // marcarlas vencidas. El resto del lote sí se confirma — un cobro
+            // simultáneo no debe impedir que se marquen las otras mil facturas.
+            var enConflicto = ex.Entries.Select(e => e.Entity).OfType<Invoice>().ToList();
+
+            foreach (var entry in ex.Entries)
+                await entry.ReloadAsync();
+
+            // Las recargadas vuelven a su estado real en base; se sacan del lote.
+            var idsEnConflicto = enConflicto.Select(i => i.Id).ToHashSet();
+            overdue    = overdue.Where(i => !idsEnConflicto.Contains(i.Id)).ToList();
+            porCliente = overdue.GroupBy(i => i.ClientId).ToList();
+
+            _logger.LogWarning(
+                "MarkOverdueInvoicesAsync: {Count} factura(s) cambiaron mientras se " +
+                "marcaban (probablemente un cobro simultáneo). Se omiten y se " +
+                "reintentarán en la próxima corrida: {Ids}",
+                idsEnConflicto.Count, string.Join(", ", idsEnConflicto));
+
+            await _invoiceRepo.SaveChangesAsync();
+        }
+
         var clientIds = porCliente.Select(g => g.Key).ToList();
         var clientsById = await _clientRepo.GetAll()
             .Include(c => c.Plan)

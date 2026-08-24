@@ -1,4 +1,4 @@
-using TelecomBoliviaNet.Domain.Entities.Clients;
+﻿using TelecomBoliviaNet.Domain.Entities.Clients;
 
 namespace TelecomBoliviaNet.Domain.Services;
 
@@ -18,6 +18,13 @@ public static class InvoiceDomainService
 
     public static InvoiceStatus CalculateStatus(decimal amount, decimal amountPaid)
     {
+        // D-17: una factura sin importe no tiene nada que cobrar, así que está
+        // saldada. Antes la primera comprobación era `amountPaid <= 0`, de modo
+        // que una factura de importe 0 quedaba Emitida para siempre — y Emitida
+        // está en OverdueEligible, así que el job de vencimiento acababa
+        // marcándola Vencida con deuda 0.
+        if (amount <= 0)          return InvoiceStatus.Pagada;
+
         if (amountPaid <= 0)      return InvoiceStatus.Emitida;
         if (amountPaid >= amount) return InvoiceStatus.Pagada;
         return InvoiceStatus.ParcialmentePagada;

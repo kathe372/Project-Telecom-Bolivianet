@@ -53,6 +53,18 @@ public class Invoice : Entity
     public string?  PlanName  { get; set; }
     public decimal? PlanPrice { get; set; }
 
+    /// <summary>
+    /// Token de concurrencia optimista (columna de sistema <c>xmin</c> de
+    /// PostgreSQL, no requiere migración).
+    ///
+    /// D-14: sin él, dos cajeros cobrando la misma factura a la vez leían ambos
+    /// <c>AmountPaid = 0</c> y el segundo guardado pisaba al primero en silencio.
+    /// Quedaban dos pagos registrados y una factura que decía haberse cobrado una
+    /// sola vez. La transacción no lo evitaba: con READ COMMITTED ambas leen antes
+    /// de que ninguna escriba.
+    /// </summary>
+    public uint Xmin { get; set; }
+
     public bool      IsDeleted   { get; set; } = false;
     public DateTime? DeletedAt   { get; set; }
     public Guid?     DeletedById { get; set; }

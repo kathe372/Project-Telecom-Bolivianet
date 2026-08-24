@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using TelecomBoliviaNet.Domain.Entities.Auth;
 using TelecomBoliviaNet.Domain.Entities.Clients;
@@ -14,9 +14,13 @@ namespace TelecomBoliviaNet.IntegrationTests.Probes;
 /// otro: sin token de concurrencia, el segundo pisa al primero en silencio y
 /// nadie se entera.</para>
 ///
-/// <para>Estos tests documentan qué entidades están protegidas y cuáles no. El
-/// segundo <b>demuestra un hueco real</b>: <c>Invoice</c> no tiene token, aunque
-/// es donde concurren los cobros.</para>
+/// <para>Estos tests verifican que las dos entidades donde de verdad concurren
+/// los usuarios —<c>Client</c> (ficha) e <c>Invoice</c> (cobros)— rebotan el
+/// segundo guardado en vez de dejarlo pisar al primero.</para>
+///
+/// <para>El de <c>Invoice</c> nació al revés: documentaba el hueco de D-14. Al
+/// añadirle el token pasó a fallar —la señal de que estaba corregido— y se
+/// invirtió. Es el ciclo que debería seguir cualquier test que documente un bug.</para>
 /// </summary>
 public class ConcurrencyProbeTests : IClassFixture<CustomWebApplicationFactory>
 {
@@ -96,38 +100,35 @@ public class ConcurrencyProbeTests : IClassFixture<CustomWebApplicationFactory>
     }
 
     [Fact]
-    public async Task Invoice_NO_esta_protegido_HUECO_DOCUMENTADO()
+    public async Task Invoice_TAMBIEN_esta_protegido_contra_actualizaciones_perdidas()
     {
+        // Este test nació invertido: documentaba que Invoice NO tenía token y que
+        // el segundo guardado pisaba al primero en silencio (D-14). Al añadir
+        // IsRowVersion pasó a fallar, que era justo la señal de que estaba
+        // arreglado, y se invirtió — no se borró.
         var (_, invoiceId) = await SeedAsync();
 
         await using var ctxA = NuevoContexto();
         await using var ctxB = NuevoContexto();
 
+        // Dos cobros simultáneos sobre la misma factura de 100. Cada uno ve
+        // AmountPaid = 0 y cree estar saldándola.
         var a = await ctxA.Set<Invoice>().SingleAsync(i => i.Id == invoiceId);
         var b = await ctxB.Set<Invoice>().SingleAsync(i => i.Id == invoiceId);
 
-        // Dos cobros simultáneos sobre la misma factura de 100. Cada uno ve
-        // AmountPaid = 0 y cree estar saldándola.
         a.AmountPaid = 100m; a.Status = InvoiceStatus.Pagada;
         await ctxA.SaveChangesAsync();
 
         b.AmountPaid = 100m; b.Status = InvoiceStatus.Pagada;
-        await ctxB.SaveChangesAsync();   // NO lanza: pisa a A en silencio
+        var guardarB = () => ctxB.SaveChangesAsync();
 
-        // La factura queda "pagada una vez" aunque se registraron DOS cobros.
+        await guardarB.Should().ThrowAsync<DbUpdateConcurrencyException>(
+            "el segundo cobro debe rebotar en vez de pisar al primero");
+
+        // Y la factura conserva lo que escribió A, no una mezcla.
         await using var verificar = NuevoContexto();
         var final = await verificar.Set<Invoice>().AsNoTracking().SingleAsync(i => i.Id == invoiceId);
-
         final.AmountPaid.Should().Be(100m);
-
-        // ESTA es la aserción que documenta el hueco: si algún día se añade
-        // IsRowVersion a Invoice, el segundo SaveChanges lanzará y este test
-        // fallará. Cuando eso pase, hay que INVERTIRLO (pasa a esperar la
-        // excepción, como el de Client), no borrarlo.
-        //
-        // Ver D-14 en BUGS_DESCUBIERTOS.md.
-        true.Should().BeTrue(
-            "documentado: Invoice NO tiene token de concurrencia, así que el " +
-            "segundo guardado pisa al primero sin avisar");
+        final.Status.Should().Be(InvoiceStatus.Pagada);
     }
 }

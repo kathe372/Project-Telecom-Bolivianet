@@ -162,7 +162,32 @@ public class InvoiceOperationsService : IInvoiceOperationsService
             inv.UpdatedAt = DateTime.UtcNow;
         }
         _invoiceRepo.UpdateRange(facturas);
-        await _invoiceRepo.SaveChangesAsync();
+
+        try
+        {
+            await _invoiceRepo.SaveChangesAsync();
+        }
+        catch (DbUpdateConcurrencyException ex)
+        {
+            // D-14: una factura que cambió mientras se marcaban es, casi siempre,
+            // una que acaban de cobrar — y una factura cobrada ya no es "Emitida",
+            // así que no corresponde marcarla como enviada ni avisar de ella.
+            // Se omite y el resto del lote se confirma.
+            var idsEnConflicto = ex.Entries.Select(e => e.Entity).OfType<Invoice>()
+                                   .Select(i => i.Id).ToHashSet();
+
+            foreach (var entry in ex.Entries) await entry.ReloadAsync();
+
+            facturas = facturas.Where(i => !idsEnConflicto.Contains(i.Id)).ToList();
+
+            _logger.LogWarning(
+                "MarkInvoicesSentAsync: {Count} factura(s) cambiaron mientras se marcaban " +
+                "(probablemente un cobro simultáneo). Se omiten: {Ids}",
+                idsEnConflicto.Count, string.Join(", ", idsEnConflicto));
+
+            await _invoiceRepo.SaveChangesAsync();
+        }
+
         foreach (var inv in facturas.Where(i => i.Client is not null))
         {
             try

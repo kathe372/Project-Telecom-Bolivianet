@@ -220,13 +220,30 @@ public class PaymentCreditService : IPaymentCreditService
         return (invoices, null);
     }
 
+    /// <summary>
+    /// Cuánto excedente deja el pago y cuánto saldo previo hace falta consumir.
+    ///
+    /// D-15: el crédito solo se toca por lo que el EFECTIVO no alcanza a cubrir.
+    /// Antes se devolvía <c>Math.Min(creditBalance, totalDebt)</c>, que informaba
+    /// crédito consumido aunque el efectivo bastara: un cliente con Bs. 100 a favor
+    /// que pagaba Bs. 50 sobre una deuda de Bs. 50 generaba un asiento de -50 y
+    /// otro de +50. El saldo final salía bien —los dos se anulan— pero su historial
+    /// de crédito mostraba dos movimientos que nunca ocurrieron, y ese historial es
+    /// lo que el operador enseña cuando alguien pregunta de dónde salió su saldo.
+    /// </summary>
     private static (decimal excedente, decimal creditoUsado) CalculateCredit(
         decimal amount, decimal creditBalance, decimal totalDebt)
     {
+        // Solo se echa mano del saldo por la parte que el efectivo no cubre.
+        var faltante    = totalDebt - amount;
+        var creditoUsado = faltante <= 0m
+            ? 0m
+            : Math.Min(creditBalance, faltante);
+
         var effective = amount + creditBalance;
-        if (effective > totalDebt)
-            return (effective - totalDebt, Math.Min(creditBalance, totalDebt));
-        return (0m, Math.Min(creditBalance, effective));
+        var excedente = effective > totalDebt ? effective - totalDebt : 0m;
+
+        return (excedente, creditoUsado);
     }
 
     private async Task<List<string>> ApplyPaymentToInvoicesAsync(

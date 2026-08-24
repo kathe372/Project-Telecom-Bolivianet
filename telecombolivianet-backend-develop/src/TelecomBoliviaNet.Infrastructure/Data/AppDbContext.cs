@@ -207,6 +207,11 @@ public class AppDbContext : DbContext
             e.Property(i => i.IsDeleted).HasDefaultValue(false).IsRequired();
             e.HasQueryFilter(i => !i.IsDeleted);
 
+            // D-14: concurrencia optimista sobre la columna de sistema xmin, igual
+            // que en Client. Sin esto, dos cobros simultáneos sobre la misma
+            // factura se pisaban en silencio.
+            e.Property(i => i.Xmin).IsRowVersion();
+
             e.HasOne(i => i.Client)
              .WithMany(c => c.Invoices)
              .HasForeignKey(i => i.ClientId)

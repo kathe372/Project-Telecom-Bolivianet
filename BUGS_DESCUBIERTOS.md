@@ -1,4 +1,4 @@
-# Bugs y deuda descubiertos durante el plan de mejora técnica
+﻿# Bugs y deuda descubiertos durante el plan de mejora técnica
 
 Regla de la Fase 0: **si al escribir un test se descubre un bug, NO se arregla ahí.**
 Se anota aquí y se congela el comportamiento actual. Arreglar bugs y refactorizar a
@@ -64,10 +64,10 @@ el dominio puro, 5 del invariante contable del crédito y 2 de concurrencia.
 Resultado: **un bug real confirmado (D-14)** y tres observaciones menores. El resto
 del código aguantó todo lo que le tiré.
 
-### 🔴 D-14 · `Invoice` no tiene token de concurrencia — actualización perdida
+### 🔴 D-14 · `Invoice` sin token de concurrencia — **CORREGIDO (2026-08-24)**
 
 **Demostrado**, no supuesto:
-`Probes/ConcurrencyProbeTests.Invoice_NO_esta_protegido_HUECO_DOCUMENTADO`.
+`Probes/ConcurrencyProbeTests` (el test se invirtió al corregirlo).
 
 `Client` declara `Xmin` como `IsRowVersion()` (AppDbContext:189). **`Invoice` no**,
 pese a que el historial del proyecto (FIX-06) afirma que el token se aplicó a
@@ -108,21 +108,19 @@ e.Property(i => i.Xmin).IsRowVersion();
 
 No requiere migración: `xmin` es una columna de sistema de PostgreSQL.
 
-**No se aplicó, y el motivo importa.** Añadir el token hace que
-`MarkOverdueInvoicesAsync` (que actualiza facturas en lote) empiece a lanzar
-`DbUpdateConcurrencyException` si un cobro toca una de esas facturas mientras el
-job corre. Eso es *mejor* que sobrescribir en silencio, pero el job hoy no maneja
-esa excepción: fallaría entero en vez de reintentar la fila afectada. Aplicar el
-token exige, en el mismo PR, decidir qué hace el job cuando choca.
+**Aplicado junto con el manejo de conflicto en los tres puntos que actualizan
+facturas en lote**, que es lo que hacía que el arreglo no fuera de dos líneas:
 
-Mismo criterio que D-13: un arreglo de dos líneas con consecuencias en otro sitio
-no se mete a ciegas al final de una sesión.
+| Punto | Qué hace ahora al chocar |
+|---|---|
+| `BillingService.MarkOverdueInvoicesAsync` | Recarga las filas en conflicto, las **saca del lote** y confirma el resto. Si alguien acaba de pagarlas, no corresponde marcarlas vencidas; un cobro simultáneo no puede impedir que se marquen las otras mil. |
+| `InvoiceOperationsService.MarkInvoicesSentAsync` | Igual: una factura que cambió es casi siempre una que acaban de cobrar, y una cobrada ya no es `Emitida`. Se omite y no se avisa de ella. |
+| `PaymentService.VoidPaymentAsync` | **Rollback completo** con mensaje propio para el operador. Revertir sobre datos obsoletos falsearía el saldo, así que se deshace todo y se pide recargar. |
 
-> El test que documenta el hueco está escrito para **fallar cuando se arregle**.
-> Cuando eso pase hay que invertirlo (esperar la excepción, como el de `Client`),
-> no borrarlo.
+El test que documentaba el hueco se **invirtió** —ahora exige la excepción, como
+el de `Client`— en vez de borrarse.
 
-### 🟡 D-15 · Asientos de crédito que se anulan entre sí
+### 🟡 D-15 · Asientos de crédito falsos — **CORREGIDO (2026-08-24)**
 
 Cuando el efectivo cubre la deuda entera y el cliente **además** tiene saldo,
 `CalculateCredit` informa crédito consumido aunque no hiciera falta. Ejemplo:
@@ -136,10 +134,12 @@ y anular el pago también funciona, porque los dos asientos suman cero. Pero el
 y ese historial es lo que un operador mira para explicarle a alguien de dónde salió
 su saldo.
 
-Arreglo sugerido: en `CalculateCredit`, cuando `amount >= totalDebt`, devolver
-`creditoUsado = 0`.
+**Corregido:** `CalculateCredit` solo echa mano del saldo por la parte que el
+efectivo no cubre (`faltante = totalDebt - amount`). Si el efectivo basta, no se
+genera ningún movimiento de crédito. Verificado en la sonda del invariante, que
+ahora exige **cero movimientos** ligados a ese pago.
 
-### 🟡 D-16 · `SlaCalculator.AddBusinessMinutes` tiene un `while` sin guarda
+### 🟡 D-16 · `SlaCalculator` con bucle sin guarda — **CORREGIDO (2026-08-24)**
 
 Sus dos funciones auxiliares llevan `for (guard = 0; guard < 365; ...)`, pero el
 bucle principal es `while (minutes > 0)` sin tope. Si `EndHour <= StartHour`,
@@ -150,10 +150,11 @@ Hoy **no es alcanzable**: `TicketHelper:132` desvía el caso 24×7 antes de llam
 `ValidateDto` exige `startHour < endHour` para los horarios normales. Pero la
 protección depende de dos guardas en otros archivos, no del propio cálculo.
 
-Arreglo sugerido: mismo `guard` que sus hermanas, o un `if (minutesToEndOfDay <= 0)
-throw` con un mensaje que nombre el horario mal configurado.
+**Corregido:** el bucle lleva ahora la misma guarda de 365 días que sus hermanas,
+y lanza `ArgumentException` con un mensaje que **nombra el horario** cuando la
+jornada no es útil. Un cuelgue silencioso se convirtió en un error legible.
 
-### 🟡 D-17 · Una factura de importe 0 nunca llega a `Pagada`
+### 🟡 D-17 · Factura de importe 0 nunca llegaba a `Pagada` — **CORREGIDO (2026-08-24)**
 
 `InvoiceDomainService.CalculateStatus` comprueba `amountPaid <= 0` **antes** que
 `amountPaid >= amount`, así que una factura de importe 0 se queda en `Emitida`
@@ -164,7 +165,9 @@ Hoy no ocurre porque `BillingService` fija el estado a mano cuando el crédito c
 la factura entera, sin pasar por `CalculateStatus`. Queda como mina para el día que
 se emitan facturas de cortesía o de importe 0.
 
-Congelado en `DomainEdgeCaseProbeTests.Factura_de_importe_cero_totalmente_cubierta_NO_queda_en_Pagada`.
+**Corregido:** `CalculateStatus` comprueba primero `amount <= 0` y devuelve
+`Pagada` — una factura sin importe no tiene nada que cobrar. La sonda se invirtió
+y además verifica que `Pagada` no está en `OverdueEligible`.
 
 ---
 

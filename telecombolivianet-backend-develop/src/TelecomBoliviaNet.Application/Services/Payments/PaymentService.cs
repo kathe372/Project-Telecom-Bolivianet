@@ -243,6 +243,20 @@ public class PaymentService : IPaymentService
             await _paymentRepo.SaveChangesAsync();
             await _uow.CommitAsync();
         }
+        catch (DbUpdateConcurrencyException ex)
+        {
+            // D-14: alguien tocó una de estas facturas entre que se leyeron y se
+            // guardaron. Revertir sobre datos obsoletos falsearía el saldo, así que
+            // se deshace todo y se pide reintentar — el operador verá la factura ya
+            // actualizada al recargar.
+            _logger.LogWarning(ex,
+                "Anulación del pago {PaymentId}: una factura cambió durante la operación. " +
+                "Rollback ejecutado, no se modificó nada.", paymentId);
+            await _uow.RollbackAsync();
+            return Result<VoidPaymentResultDto>.Failure(
+                "Otra persona modificó una de las facturas de este pago mientras se anulaba. " +
+                "Recarga la pantalla y vuelve a intentarlo.");
+        }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error al anular pago {PaymentId} — rollback ejecutado", paymentId);

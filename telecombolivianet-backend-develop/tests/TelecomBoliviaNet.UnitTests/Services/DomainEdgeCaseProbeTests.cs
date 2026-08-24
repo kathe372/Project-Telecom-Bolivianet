@@ -1,4 +1,4 @@
-using FluentAssertions;
+﻿using FluentAssertions;
 using TelecomBoliviaNet.Domain.Entities.Clients;
 using TelecomBoliviaNet.Domain.Entities.Tickets;
 using TelecomBoliviaNet.Domain.Services;
@@ -22,15 +22,38 @@ public class DomainEdgeCaseProbeTests
     // ── Estado de factura ────────────────────────────────────────────────────
 
     [Fact]
-    public void Factura_de_importe_cero_totalmente_cubierta_NO_queda_en_Pagada()
+    public void Una_factura_sin_importe_esta_saldada_no_pendiente()
     {
-        // Una factura de importe 0 con 0 abonado se clasifica como Emitida, no
-        // como Pagada, porque la primera comprobación es `amountPaid <= 0`.
-        // Documentado: si alguna vez se emiten facturas de importe 0 (promoción,
-        // crédito total, cortesía) quedarían "pendientes" para siempre y las
-        // recogería el job de vencimiento.
+        // D-17 (corregido): antes la primera comprobación era `amountPaid <= 0`,
+        // así que una factura de importe 0 quedaba Emitida para siempre — y
+        // Emitida está en OverdueEligible, de modo que el job de vencimiento
+        // acababa marcándola Vencida con deuda 0.
         InvoiceDomainService.CalculateStatus(0m, 0m)
-            .Should().Be(InvoiceStatus.Emitida);
+            .Should().Be(InvoiceStatus.Pagada);
+
+        // Y no se cuela en el marcado de vencidas.
+        InvoiceDomainService.OverdueEligible
+            .Should().NotContain(InvoiceStatus.Pagada);
+    }
+
+    [Fact]
+    public void Un_horario_sin_jornada_util_da_error_legible_en_vez_de_colgarse()
+    {
+        // D-16 (corregido): con EndHour <= StartHour el bucle principal no
+        // terminaba nunca y el hilo del job de SLA giraba para siempre.
+        var degenerado = new BusinessSchedule
+        {
+            Name = "Turno mal configurado",
+            StartHour = 18, EndHour = 8,   // fin antes que inicio
+            WorkingDaysMask = 31, UtcOffsetHours = -4, Is24x7 = false,
+        };
+
+        var calcular = () => SlaCalculator.AddBusinessMinutes(
+            new DateTime(2026, 8, 24, 12, 0, 0, DateTimeKind.Utc),
+            minutes: 60, degenerado, Array.Empty<DateOnly>());
+
+        calcular.Should().Throw<ArgumentException>()
+            .WithMessage("*no tiene jornada útil*");
     }
 
     [Theory]

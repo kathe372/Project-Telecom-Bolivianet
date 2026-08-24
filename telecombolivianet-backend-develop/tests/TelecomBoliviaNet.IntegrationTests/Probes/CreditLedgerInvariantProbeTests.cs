@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using TelecomBoliviaNet.Application.DTOs.Payments;
 using TelecomBoliviaNet.Application.Interfaces;
@@ -188,6 +188,17 @@ public class CreditLedgerInvariantProbeTests : IClassFixture<CustomWebApplicatio
         var cliente = await esc.Db.Set<Client>().AsNoTracking().SingleAsync(c => c.Id == esc.ClientId);
         cliente.CreditBalance.Should().Be(100m, "el efectivo bastaba; el saldo queda intacto");
         await ElSaldoDebeCuadrarConElLibroMayorAsync(esc, "tras pago que no necesitaba saldo");
+
+        // D-15 (corregido): el saldo final siempre estuvo bien, pero antes se
+        // asentaban un -50 y un +50 que se anulaban entre sí. El historial que el
+        // operador consulta mostraba dos movimientos que nunca ocurrieron.
+        var movimientosDelPago = await esc.Db.Set<CreditMovement>().AsNoTracking()
+            .Where(m => m.ClientId == esc.ClientId && m.PaymentId != null)
+            .ToListAsync();
+
+        movimientosDelPago.Should().BeEmpty(
+            "si el efectivo cubre la deuda, el pago no debe generar ningún " +
+            "movimiento de crédito");
     }
 
     [Fact]
