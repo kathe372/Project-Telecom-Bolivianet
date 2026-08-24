@@ -1,4 +1,4 @@
-using FluentAssertions;
+﻿using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
 using TelecomBoliviaNet.Application.DTOs.Tickets;
@@ -132,7 +132,7 @@ public class SlaBusinessHoursTests
         var helper = new TicketHelper(
             ticketRepo.Object, commentRepo.Object, workLogRepo.Object,
             visitRepo.Object, slaPlanRepo.Object, notifRepo.Object,
-            scheduleRepo.Object, RepoMock.Empty<Installation>().Object, MakeNotif().Object);
+            scheduleRepo.Object, SpecificRepoMock.Installations().Object, MakeNotif().Object);
 
         return new UpdateTicketHandler(ticketRepo.Object, commentRepo.Object, helper, MakeAudit());
     }
@@ -355,7 +355,7 @@ public class SlaBusinessHoursTests
         var helper = new TicketHelper(
             ticketRepo.Object, commentRepo.Object, workLogRepo.Object,
             visitRepo.Object, slaPlanRepo.Object, notifRepo.Object,
-            scheduleRepo.Object, RepoMock.Empty<Installation>().Object, MakeNotif().Object);
+            scheduleRepo.Object, SpecificRepoMock.Installations().Object, MakeNotif().Object);
 
         var handler = new UpdateTicketHandler(
             ticketRepo.Object, commentRepo.Object, helper, MakeAudit());

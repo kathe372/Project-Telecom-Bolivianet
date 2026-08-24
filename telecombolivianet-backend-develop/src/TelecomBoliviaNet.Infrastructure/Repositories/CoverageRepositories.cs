@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using TelecomBoliviaNet.Domain.Entities.Coverage;
 using TelecomBoliviaNet.Domain.Interfaces;
 using TelecomBoliviaNet.Infrastructure.Data;
@@ -39,4 +39,9 @@ public class DistributionBoxRepository
 
         return counts.ToDictionary(x => x.ZoneId, x => x.Count);
     }
+
+    public Task<DistributionBox?> GetByIdWithZoneAsync(Guid id, CancellationToken ct = default)
+        => _db.DistributionBoxes.AsNoTracking()
+            .Include(b => b.Zone)
+            .FirstOrDefaultAsync(b => b.Id == id, ct);
 }

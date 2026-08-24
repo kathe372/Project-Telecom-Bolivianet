@@ -1,5 +1,4 @@
 ﻿using MediatR;
-using Microsoft.EntityFrameworkCore;
 using TelecomBoliviaNet.Application.DTOs.Installations;
 using TelecomBoliviaNet.Application.Services.Auth;
 using TelecomBoliviaNet.Domain.Entities.Installations;
@@ -18,12 +17,12 @@ public record AssignTechniciansCommand(
 
 public class AssignTechniciansHandler : IRequestHandler<AssignTechniciansCommand, Result>
 {
-    private readonly IGenericRepository<Installation> _instRepo;
+    private readonly IInstallationRepository _instRepo;
     private readonly TechnicianAssignmentService         _asignacion;
     private readonly AuditService                     _audit;
 
     public AssignTechniciansHandler(
-        IGenericRepository<Installation> instRepo,
+        IInstallationRepository instRepo,
         TechnicianAssignmentService         asignacion,
         AuditService                     audit)
     {
@@ -34,9 +33,7 @@ public class AssignTechniciansHandler : IRequestHandler<AssignTechniciansCommand
 
     public async Task<Result> Handle(AssignTechniciansCommand cmd, CancellationToken ct)
     {
-        var inst = await _instRepo.GetAll()
-            .Include(i => i.Technicians)
-            .FirstOrDefaultAsync(i => i.Id == cmd.InstalacionId, ct);
+        var inst = await _instRepo.GetForCommandAsync(cmd.InstalacionId, ct);
 
         if (inst is null)
             return Result.Failure("Instalación no encontrada.");

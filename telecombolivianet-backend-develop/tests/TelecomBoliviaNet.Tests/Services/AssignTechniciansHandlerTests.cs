@@ -1,4 +1,4 @@
-using FluentAssertions;
+﻿using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
 using TelecomBoliviaNet.Application.DTOs.Installations;
@@ -31,7 +31,7 @@ public class AssignTechniciansHandlerTests
     }
 
     private static AssignTechniciansHandler MakeHandler(
-        IGenericRepository<Installation>           instRepo,
+        IInstallationRepository                    instRepo,
         IGenericRepository<InstallationTechnician> techRepo,
         IGenericRepository<UserSystem>             userRepo)
     {
@@ -72,7 +72,7 @@ public class AssignTechniciansHandlerTests
         var tec2 = MakeTecnico();
         var inst = MakeInstallation();
 
-        var instRepo = RepoMock.Of(inst);
+        var instRepo = SpecificRepoMock.Installations(inst);
         var techRepo = RepoMock.Empty<InstallationTechnician>();
         var userRepo = RepoMock.Of(tec1, tec2);
 
@@ -95,7 +95,7 @@ public class AssignTechniciansHandlerTests
         var wrongId = Guid.NewGuid();
         var inst    = MakeInstallation();
 
-        var instRepo = RepoMock.Of(inst);
+        var instRepo = SpecificRepoMock.Installations(inst);
         var techRepo = RepoMock.Empty<InstallationTechnician>();
         var userRepo = RepoMock.Of(tec1);
 
@@ -112,7 +112,7 @@ public class AssignTechniciansHandlerTests
     {
         var tec1 = MakeTecnico();
 
-        var instRepo = RepoMock.Empty<Installation>();   // vacío — no hay instalación
+        var instRepo = SpecificRepoMock.Installations();   // vacío — no hay instalación
         var techRepo = RepoMock.Empty<InstallationTechnician>();
         var userRepo = RepoMock.Of(tec1);
 
@@ -130,7 +130,7 @@ public class AssignTechniciansHandlerTests
         var cliente = MakeTecnico(role: UserRole.Operador);
         var inst    = MakeInstallation();
 
-        var instRepo = RepoMock.Of(inst);
+        var instRepo = SpecificRepoMock.Installations(inst);
         var techRepo = RepoMock.Empty<InstallationTechnician>();
         var userRepo = RepoMock.Of(cliente);
 
@@ -156,7 +156,7 @@ public class AssignTechniciansHandlerTests
         var inst = MakeInstallation(technicians: [existing]);
         existing.InstallationId = inst.Id;
 
-        var instRepo = RepoMock.Of(inst);
+        var instRepo = SpecificRepoMock.Installations(inst);
         var techRepo = RepoMock.Empty<InstallationTechnician>();
         var userRepo = RepoMock.Of(tec1);
 
@@ -174,7 +174,7 @@ public class AssignTechniciansHandlerTests
         var tec1 = MakeTecnico();
         var inst = MakeInstallation();
 
-        var instRepo = RepoMock.Of(inst);
+        var instRepo = SpecificRepoMock.Installations(inst);
         var techRepo = RepoMock.Empty<InstallationTechnician>();
         var userRepo = RepoMock.Of(tec1);
 
@@ -195,7 +195,7 @@ public class AssignTechniciansHandlerTests
         var admin = MakeTecnico(role: UserRole.Admin);
         var inst  = MakeInstallation();
 
-        var instRepo = RepoMock.Of(inst);
+        var instRepo = SpecificRepoMock.Installations(inst);
         var techRepo = RepoMock.Empty<InstallationTechnician>();
         var userRepo = RepoMock.Of(admin);
 
@@ -213,7 +213,7 @@ public class AssignTechniciansHandlerTests
         var tec2 = MakeTecnico();
         var inst = MakeInstallation();
 
-        var instRepo = RepoMock.Of(inst);
+        var instRepo = SpecificRepoMock.Installations(inst);
         var techRepo = RepoMock.Empty<InstallationTechnician>();
         var userRepo = RepoMock.Of(tec1, tec2);
 

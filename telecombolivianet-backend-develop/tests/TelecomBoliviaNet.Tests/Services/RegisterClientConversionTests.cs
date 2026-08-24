@@ -55,7 +55,7 @@ public class RegisterClientConversionTests
         IGenericRepository<Installation> instRepo,
         IGenericRepository<Client>?      clientRepo = null)
     {
-        var clients  = clientRepo ?? RepoMock.Empty<Client>().Object;
+        var clients  = clientRepo ?? SpecificRepoMock.Clients().Object;
         var invoices = RepoMock.Empty<Invoice>().Object;
         var billing  = new BillingService(
             clients, invoices, MakeAudit(),
@@ -112,7 +112,7 @@ public class RegisterClientConversionTests
     public async Task TC_CONV_01_Installation_LinkedToNewClient()
     {
         var inst    = MakeProspectInstallation();
-        var handler = MakeHandler(RepoMock.Of(inst).Object);
+        var handler = MakeHandler(SpecificRepoMock.Installations(inst).Object);
 
         var result = await handler.Handle(Cmd(MakeDto(inst.Id)), CancellationToken.None);
 
@@ -128,12 +128,12 @@ public class RegisterClientConversionTests
         var inst = MakeProspectInstallation(gpsLat: -17.5m, gpsLng: -66.2m);
 
         Client? captured = null;
-        var clientRepo = RepoMock.Empty<Client>();
+        var clientRepo = SpecificRepoMock.Clients();
         clientRepo.Setup(r => r.AddAsync(It.IsAny<Client>()))
             .Callback<Client>(c => captured = c)
             .Returns(Task.CompletedTask);
 
-        var handler = MakeHandler(RepoMock.Of(inst).Object, clientRepo.Object);
+        var handler = MakeHandler(SpecificRepoMock.Installations(inst).Object, clientRepo.Object);
 
         var result = await handler.Handle(
             Cmd(MakeDto(inst.Id, gpsLat: null, gpsLng: null)), CancellationToken.None);
@@ -148,7 +148,7 @@ public class RegisterClientConversionTests
     public async Task TC_CONV_03_InstallationAlreadyLinked_ReturnsFailure()
     {
         var inst    = MakeProspectInstallation(clientId: Guid.NewGuid());
-        var handler = MakeHandler(RepoMock.Of(inst).Object);
+        var handler = MakeHandler(SpecificRepoMock.Installations(inst).Object);
 
         var result = await handler.Handle(Cmd(MakeDto(inst.Id)), CancellationToken.None);
 
@@ -160,7 +160,7 @@ public class RegisterClientConversionTests
     [Fact]
     public async Task TC_CONV_04_NoInstallationId_NormalRegistration()
     {
-        var instRepo = RepoMock.Empty<Installation>();
+        var instRepo = SpecificRepoMock.Installations();
         var handler  = MakeHandler(instRepo.Object);
 
         var result = await handler.Handle(Cmd(MakeDto(null)), CancellationToken.None);

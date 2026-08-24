@@ -1,5 +1,4 @@
 ﻿using MediatR;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using TelecomBoliviaNet.Application.Coverage.Services;
 using TelecomBoliviaNet.Application.DTOs.Installations;
@@ -26,7 +25,7 @@ public class CancelInstallationHandler : IRequestHandler<CancelInstallationComma
     /// <summary>Ventana mínima de cancelación (estándar comercial: 24 h).</summary>
     private const int DefaultCancelMinHours = 24;
 
-    private readonly IGenericRepository<Installation>  _instRepo;
+    private readonly IInstallationRepository  _instRepo;
     private readonly IGenericRepository<SupportTicket> _ticketRepo;
     private readonly IGenericRepository<SystemConfig>  _configRepo;
     private readonly AuditService                      _audit;
@@ -35,7 +34,7 @@ public class CancelInstallationHandler : IRequestHandler<CancelInstallationComma
     private readonly ILogger<CancelInstallationHandler>? _logger;
 
     public CancelInstallationHandler(
-        IGenericRepository<Installation>  instRepo,
+        IInstallationRepository  instRepo,
         IGenericRepository<SupportTicket> ticketRepo,
         IGenericRepository<SystemConfig>  configRepo,
         AuditService                      audit,
@@ -54,10 +53,7 @@ public class CancelInstallationHandler : IRequestHandler<CancelInstallationComma
 
     public async Task<Result> Handle(CancelInstallationCommand cmd, CancellationToken ct)
     {
-        var inst = await _instRepo.GetAll()
-            .Include(i => i.Client)
-            .Include(i => i.Ticket)
-            .FirstOrDefaultAsync(i => i.Id == cmd.InstalacionId, ct);
+        var inst = await _instRepo.GetForCommandAsync(cmd.InstalacionId, ct);
 
         if (inst is null)
             return Result.Failure("Instalación no encontrada.");

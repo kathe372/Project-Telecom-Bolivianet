@@ -67,8 +67,8 @@ public class CreateInstallationHandlerTests
     };
 
     private static CreateInstallationHandler MakeHandler(
-        IGenericRepository<Installation>  instRepo,
-        IGenericRepository<Client>        clientRepo,
+        IInstallationRepository           instRepo,
+        IClientRepository                 clientRepo,
         IGenericRepository<Plan>          planRepo,
         IGenericRepository<UserSystem>    userRepo,
         IGenericRepository<SupportTicket> ticketRepo,
@@ -76,7 +76,7 @@ public class CreateInstallationHandlerTests
         IBoxReservationService?           boxReservation    = null)
         => new(instRepo, clientRepo, planRepo, userRepo, ticketRepo,
                RepoMock.Empty<TicketVisit>().Object,
-               RepoMock.Empty<DistributionBox>().Object,
+               SpecificRepoMock.Boxes().Object,
                MakeAudit(),
                FixedCapacity(committedCapacity),
                boxReservation ?? new Mock<IBoxReservationService>().Object,
@@ -131,8 +131,8 @@ public class CreateInstallationHandlerTests
     public async Task TC_CREAR_01_PastDate_ReturnsFailure()
     {
         var handler = MakeHandler(
-            RepoMock.Empty<Installation>().Object,
-            RepoMock.Of(MakeClient()).Object,
+            SpecificRepoMock.Installations().Object,
+            SpecificRepoMock.Clients(MakeClient()).Object,
             RepoMock.Of<Plan>(MakePlan()).Object,
             RepoMock.Of(MakeTecnico()).Object,
             RepoMock.Empty<SupportTicket>().Object);
@@ -159,8 +159,8 @@ public class CreateInstallationHandlerTests
 
         // pool = 1 técnico, capacidad comprometida = 1 → sin disponibilidad
         var handler = MakeHandler(
-            RepoMock.Empty<Installation>().Object,
-            RepoMock.Of(MakeClient()).Object,
+            SpecificRepoMock.Installations().Object,
+            SpecificRepoMock.Clients(MakeClient()).Object,
             RepoMock.Of<Plan>(MakePlan()).Object,
             RepoMock.Of(MakeTecnico()).Object,   // pool = 1
             RepoMock.Empty<SupportTicket>().Object,
@@ -181,8 +181,8 @@ public class CreateInstallationHandlerTests
         // pool = 2, comprometidos = 1 → queda 1 libre, pero el plan exige 2
         var tecnicos = new[] { MakeTecnico(), MakeTecnico() };
         var handler  = MakeHandler(
-            RepoMock.Empty<Installation>().Object,
-            RepoMock.Of(MakeClient()).Object,
+            SpecificRepoMock.Installations().Object,
+            SpecificRepoMock.Clients(MakeClient()).Object,
             RepoMock.Of<Plan>(MakePlan(tecReq: 2)).Object,
             RepoMock.Of(tecnicos).Object,
             RepoMock.Empty<SupportTicket>().Object,
@@ -202,8 +202,8 @@ public class CreateInstallationHandlerTests
     public async Task PASO10_ProspectoSinCI_FallaValidacion()
     {
         var handler = MakeHandler(
-            RepoMock.Empty<Installation>().Object,
-            RepoMock.Empty<Client>().Object,
+            SpecificRepoMock.Installations().Object,
+            SpecificRepoMock.Clients().Object,
             RepoMock.Of<Plan>(MakePlan()).Object,
             RepoMock.Of(MakeTecnico()).Object,
             RepoMock.Empty<SupportTicket>().Object);
@@ -224,8 +224,8 @@ public class CreateInstallationHandlerTests
     public async Task PASO10_ProspectoSinTelefonoRespaldo_FallaValidacion()
     {
         var handler = MakeHandler(
-            RepoMock.Empty<Installation>().Object,
-            RepoMock.Empty<Client>().Object,
+            SpecificRepoMock.Installations().Object,
+            SpecificRepoMock.Clients().Object,
             RepoMock.Of<Plan>(MakePlan()).Object,
             RepoMock.Of(MakeTecnico()).Object,
             RepoMock.Empty<SupportTicket>().Object);
@@ -247,8 +247,8 @@ public class CreateInstallationHandlerTests
     public async Task PASO10_ProspectoSinNombre_FallaValidacion()
     {
         var handler = MakeHandler(
-            RepoMock.Empty<Installation>().Object,
-            RepoMock.Empty<Client>().Object,
+            SpecificRepoMock.Installations().Object,
+            SpecificRepoMock.Clients().Object,
             RepoMock.Of<Plan>(MakePlan()).Object,
             RepoMock.Of(MakeTecnico()).Object,
             RepoMock.Empty<SupportTicket>().Object);
@@ -266,14 +266,14 @@ public class CreateInstallationHandlerTests
     public async Task PASO10_ClienteExistenteSinCI_Pasa_NoAplica()
     {
         Installation? captured = null;
-        var instRepo = RepoMock.Empty<Installation>();
+        var instRepo = SpecificRepoMock.Installations();
         instRepo.Setup(r => r.AddAsync(It.IsAny<Installation>()))
             .Callback<Installation>(i => captured = i)
             .Returns(Task.CompletedTask);
 
         var handler = MakeHandler(
             instRepo.Object,
-            RepoMock.Of(MakeClient()).Object,
+            SpecificRepoMock.Clients(MakeClient()).Object,
             RepoMock.Of<Plan>(MakePlan()).Object,
             RepoMock.Of(MakeTecnico()).Object,
             RepoMock.Empty<SupportTicket>().Object);
@@ -291,14 +291,14 @@ public class CreateInstallationHandlerTests
     public async Task PASO10_ProspectoConNombreYCI_Pasa_YSePersisteElCI()
     {
         Installation? captured = null;
-        var instRepo = RepoMock.Empty<Installation>();
+        var instRepo = SpecificRepoMock.Installations();
         instRepo.Setup(r => r.AddAsync(It.IsAny<Installation>()))
             .Callback<Installation>(i => captured = i)
             .Returns(Task.CompletedTask);
 
         var handler = MakeHandler(
             instRepo.Object,
-            RepoMock.Empty<Client>().Object,
+            SpecificRepoMock.Clients().Object,
             RepoMock.Of<Plan>(MakePlan()).Object,
             RepoMock.Of(MakeTecnico()).Object,
             RepoMock.Empty<SupportTicket>().Object);
@@ -317,8 +317,8 @@ public class CreateInstallationHandlerTests
     public async Task TC_CREAR_03_InactivePlan_ReturnsFailure()
     {
         var handler = MakeHandler(
-            RepoMock.Empty<Installation>().Object,
-            RepoMock.Of(MakeClient()).Object,
+            SpecificRepoMock.Installations().Object,
+            SpecificRepoMock.Clients(MakeClient()).Object,
             RepoMock.Of<Plan>(MakePlan(active: false)).Object,
             RepoMock.Of(MakeTecnico()).Object,
             RepoMock.Empty<SupportTicket>().Object);
@@ -347,8 +347,8 @@ public class CreateInstallationHandlerTests
         };
 
         var handler = MakeHandler(
-            RepoMock.Of(pending).Object,
-            RepoMock.Of(MakeClient()).Object,
+            SpecificRepoMock.Installations(pending).Object,
+            SpecificRepoMock.Clients(MakeClient()).Object,
             RepoMock.Of<Plan>(MakePlan()).Object,
             RepoMock.Of(MakeTecnico()).Object,
             RepoMock.Empty<SupportTicket>().Object);
@@ -383,8 +383,8 @@ public class CreateInstallationHandlerTests
         };
 
         var handler = MakeHandler(
-            RepoMock.Of(pending).Object,
-            RepoMock.Empty<Client>().Object,
+            SpecificRepoMock.Installations(pending).Object,
+            SpecificRepoMock.Clients().Object,
             RepoMock.Of<Plan>(MakePlan()).Object,
             RepoMock.Of(MakeTecnico()).Object,
             RepoMock.Empty<SupportTicket>().Object);
@@ -416,8 +416,8 @@ public class CreateInstallationHandlerTests
         };
 
         var handler = MakeHandler(
-            RepoMock.Of(pending).Object,
-            RepoMock.Empty<Client>().Object,
+            SpecificRepoMock.Installations(pending).Object,
+            SpecificRepoMock.Clients().Object,
             RepoMock.Of<Plan>(MakePlan()).Object,
             RepoMock.Of(MakeTecnico()).Object,
             RepoMock.Empty<SupportTicket>().Object);
@@ -435,8 +435,8 @@ public class CreateInstallationHandlerTests
     public async Task TC_CREAR_05_ValidCreation_ReturnsCalendarLink()
     {
         var handler = MakeHandler(
-            RepoMock.Empty<Installation>().Object,
-            RepoMock.Of(MakeClient()).Object,
+            SpecificRepoMock.Installations().Object,
+            SpecificRepoMock.Clients(MakeClient()).Object,
             RepoMock.Of<Plan>(MakePlan()).Object,
             RepoMock.Of(MakeTecnico()).Object,
             RepoMock.Empty<SupportTicket>().Object);
@@ -462,8 +462,8 @@ public class CreateInstallationHandlerTests
             .Returns(Task.CompletedTask);
 
         var handler = MakeHandler(
-            RepoMock.Empty<Installation>().Object,
-            RepoMock.Empty<Client>().Object,
+            SpecificRepoMock.Installations().Object,
+            SpecificRepoMock.Clients().Object,
             RepoMock.Of<Plan>(MakePlan()).Object,
             RepoMock.Of(MakeTecnico()).Object,
             ticketRepo.Object);
@@ -487,14 +487,14 @@ public class CreateInstallationHandlerTests
     public async Task TC_CREAR_13_ProspectGpsAndIdentity_PersistedOnInstallation()
     {
         Installation? captured = null;
-        var instRepo = RepoMock.Empty<Installation>();
+        var instRepo = SpecificRepoMock.Installations();
         instRepo.Setup(r => r.AddAsync(It.IsAny<Installation>()))
             .Callback<Installation>(i => captured = i)
             .Returns(Task.CompletedTask);
 
         var handler = MakeHandler(
             instRepo.Object,
-            RepoMock.Empty<Client>().Object,
+            SpecificRepoMock.Clients().Object,
             RepoMock.Of<Plan>(MakePlan()).Object,
             RepoMock.Of(MakeTecnico()).Object,
             RepoMock.Empty<SupportTicket>().Object);
@@ -527,14 +527,14 @@ public class CreateInstallationHandlerTests
             .ReturnsAsync(new BoxReservation(boxId, zoneId));
 
         Installation? captured = null;
-        var instRepo = RepoMock.Empty<Installation>();
+        var instRepo = SpecificRepoMock.Installations();
         instRepo.Setup(r => r.AddAsync(It.IsAny<Installation>()))
             .Callback<Installation>(i => captured = i)
             .Returns(Task.CompletedTask);
 
         var handler = MakeHandler(
             instRepo.Object,
-            RepoMock.Empty<Client>().Object,
+            SpecificRepoMock.Clients().Object,
             RepoMock.Of<Plan>(MakePlan()).Object,
             RepoMock.Of(MakeTecnico()).Object,
             RepoMock.Empty<SupportTicket>().Object,
@@ -560,14 +560,14 @@ public class CreateInstallationHandlerTests
             .ReturnsAsync((BoxReservation?)null);
 
         Installation? captured = null;
-        var instRepo = RepoMock.Empty<Installation>();
+        var instRepo = SpecificRepoMock.Installations();
         instRepo.Setup(r => r.AddAsync(It.IsAny<Installation>()))
             .Callback<Installation>(i => captured = i)
             .Returns(Task.CompletedTask);
 
         var handler = MakeHandler(
             instRepo.Object,
-            RepoMock.Empty<Client>().Object,
+            SpecificRepoMock.Clients().Object,
             RepoMock.Of<Plan>(MakePlan()).Object,
             RepoMock.Of(MakeTecnico()).Object,
             RepoMock.Empty<SupportTicket>().Object,
@@ -589,8 +589,8 @@ public class CreateInstallationHandlerTests
     {
         var reservation = new Mock<IBoxReservationService>();
         var handler = MakeHandler(
-            RepoMock.Empty<Installation>().Object,
-            RepoMock.Of(MakeClient()).Object,
+            SpecificRepoMock.Installations().Object,
+            SpecificRepoMock.Clients(MakeClient()).Object,
             RepoMock.Of<Plan>(MakePlan()).Object,
             RepoMock.Of(MakeTecnico()).Object,
             RepoMock.Empty<SupportTicket>().Object,
@@ -610,14 +610,14 @@ public class CreateInstallationHandlerTests
     public async Task TC_CREAR_14_WithClientId_ProspectFieldsIgnored()
     {
         Installation? captured = null;
-        var instRepo = RepoMock.Empty<Installation>();
+        var instRepo = SpecificRepoMock.Installations();
         instRepo.Setup(r => r.AddAsync(It.IsAny<Installation>()))
             .Callback<Installation>(i => captured = i)
             .Returns(Task.CompletedTask);
 
         var handler = MakeHandler(
             instRepo.Object,
-            RepoMock.Of(MakeClient()).Object,
+            SpecificRepoMock.Clients(MakeClient()).Object,
             RepoMock.Of<Plan>(MakePlan()).Object,
             RepoMock.Of(MakeTecnico()).Object,
             RepoMock.Empty<SupportTicket>().Object);
@@ -638,8 +638,8 @@ public class CreateInstallationHandlerTests
     public async Task TC_CREAR_07_InvalidDateFormat_ReturnsFailure()
     {
         var handler = MakeHandler(
-            RepoMock.Empty<Installation>().Object,
-            RepoMock.Of(MakeClient()).Object,
+            SpecificRepoMock.Installations().Object,
+            SpecificRepoMock.Clients(MakeClient()).Object,
             RepoMock.Of<Plan>(MakePlan()).Object,
             RepoMock.Of(MakeTecnico()).Object,
             RepoMock.Empty<SupportTicket>().Object);
@@ -657,8 +657,8 @@ public class CreateInstallationHandlerTests
     public async Task TC_CREAR_08_InvalidTimeFormat_ReturnsFailure()
     {
         var handler = MakeHandler(
-            RepoMock.Empty<Installation>().Object,
-            RepoMock.Of(MakeClient()).Object,
+            SpecificRepoMock.Installations().Object,
+            SpecificRepoMock.Clients(MakeClient()).Object,
             RepoMock.Of<Plan>(MakePlan()).Object,
             RepoMock.Of(MakeTecnico()).Object,
             RepoMock.Empty<SupportTicket>().Object);
@@ -676,8 +676,8 @@ public class CreateInstallationHandlerTests
     public async Task TC_CREAR_09_PlanNotFound_ReturnsFailure()
     {
         var handler = MakeHandler(
-            RepoMock.Empty<Installation>().Object,
-            RepoMock.Of(MakeClient()).Object,
+            SpecificRepoMock.Installations().Object,
+            SpecificRepoMock.Clients(MakeClient()).Object,
             RepoMock.Empty<Plan>().Object,             // plan repo vacío
             RepoMock.Of(MakeTecnico()).Object,
             RepoMock.Empty<SupportTicket>().Object);
@@ -695,8 +695,8 @@ public class CreateInstallationHandlerTests
     public async Task TC_CREAR_10_ClientNotFound_ReturnsFailure()
     {
         var handler = MakeHandler(
-            RepoMock.Empty<Installation>().Object,
-            RepoMock.Empty<Client>().Object,           // client repo vacío
+            SpecificRepoMock.Installations().Object,
+            SpecificRepoMock.Clients().Object,           // client repo vacío
             RepoMock.Of<Plan>(MakePlan()).Object,
             RepoMock.Of(MakeTecnico()).Object,
             RepoMock.Empty<SupportTicket>().Object);
@@ -714,8 +714,8 @@ public class CreateInstallationHandlerTests
     public async Task TC_CREAR_11_CalendarLink_ContainsPlanName()
     {
         var handler = MakeHandler(
-            RepoMock.Empty<Installation>().Object,
-            RepoMock.Of(MakeClient()).Object,
+            SpecificRepoMock.Installations().Object,
+            SpecificRepoMock.Clients(MakeClient()).Object,
             RepoMock.Of<Plan>(MakePlan()).Object,
             RepoMock.Of(MakeTecnico()).Object,
             RepoMock.Empty<SupportTicket>().Object);
@@ -734,8 +734,8 @@ public class CreateInstallationHandlerTests
     public async Task TC_CREAR_12_TodayDate_IsAllowed()
     {
         var handler = MakeHandler(
-            RepoMock.Empty<Installation>().Object,
-            RepoMock.Of(MakeClient()).Object,
+            SpecificRepoMock.Installations().Object,
+            SpecificRepoMock.Clients(MakeClient()).Object,
             RepoMock.Of<Plan>(MakePlan()).Object,
             RepoMock.Of(MakeTecnico()).Object,
             RepoMock.Empty<SupportTicket>().Object);

@@ -78,7 +78,7 @@ public class CoverageHandlerTests
                 CoverageOutcome.Confirmed, "Centro", "GPON", null, Guid.NewGuid(), 30));
 
         var configRepo = RepoMock.Of(MaxCableConfig);
-        var handler    = new CheckCoverageQueryHandler(coverageMock.Object, configRepo.Object, RepoMock.Empty<DistributionBox>().Object, new Mock<ICoverageDemandRecorder>().Object);
+        var handler    = new CheckCoverageQueryHandler(coverageMock.Object, configRepo.Object, SpecificRepoMock.Boxes().Object, new Mock<ICoverageDemandRecorder>().Object);
 
         var result = await handler.Handle(new CheckCoverageQuery(Lat, Lng), CancellationToken.None);
 
@@ -103,7 +103,7 @@ public class CoverageHandlerTests
         var configRepo = RepoMock.Of(boundaryConfig);
         var handler    = new CheckCoverageQueryHandler(
             coverageMock.Object, configRepo.Object,
-            RepoMock.Empty<DistributionBox>().Object, new Mock<ICoverageDemandRecorder>().Object);
+            SpecificRepoMock.Boxes().Object, new Mock<ICoverageDemandRecorder>().Object);
 
         await handler.Handle(new CheckCoverageQuery(Lat, Lng), CancellationToken.None);
 
@@ -122,7 +122,7 @@ public class CoverageHandlerTests
 
         var handler = new CheckCoverageQueryHandler(
             coverageMock.Object, RepoMock.Empty<SystemConfig>().Object,
-            RepoMock.Empty<DistributionBox>().Object, new Mock<ICoverageDemandRecorder>().Object);
+            SpecificRepoMock.Boxes().Object, new Mock<ICoverageDemandRecorder>().Object);
 
         await handler.Handle(new CheckCoverageQuery(Lat, Lng), CancellationToken.None);
 
@@ -142,7 +142,7 @@ public class CoverageHandlerTests
 
         var handler = new CheckCoverageQueryHandler(
             coverageMock.Object, RepoMock.Empty<SystemConfig>().Object,
-            RepoMock.Empty<DistributionBox>().Object, new Mock<ICoverageDemandRecorder>().Object);
+            SpecificRepoMock.Boxes().Object, new Mock<ICoverageDemandRecorder>().Object);
 
         var result = await handler.Handle(new CheckCoverageQuery(Lat, Lng), CancellationToken.None);
 
@@ -165,7 +165,7 @@ public class CoverageHandlerTests
         var recorder = new Mock<ICoverageDemandRecorder>();
         var handler  = new CheckCoverageQueryHandler(
             coverageMock.Object, RepoMock.Empty<SystemConfig>().Object,
-            RepoMock.Empty<DistributionBox>().Object, recorder.Object);
+            SpecificRepoMock.Boxes().Object, recorder.Object);
 
         await handler.Handle(new CheckCoverageQuery(Lat, Lng), CancellationToken.None);
 
@@ -186,7 +186,7 @@ public class CoverageHandlerTests
 
         var handler = new CheckCoverageQueryHandler(
             coverageMock.Object, RepoMock.Empty<SystemConfig>().Object,
-            RepoMock.Empty<DistributionBox>().Object, new Mock<ICoverageDemandRecorder>().Object);
+            SpecificRepoMock.Boxes().Object, new Mock<ICoverageDemandRecorder>().Object);
 
         var result = await handler.Handle(new CheckCoverageQuery(Lat, Lng), CancellationToken.None);
 
@@ -207,7 +207,7 @@ public class CoverageHandlerTests
         var recorder = new Mock<ICoverageDemandRecorder>();
         var handler  = new CheckCoverageQueryHandler(
             coverageMock.Object, RepoMock.Empty<SystemConfig>().Object,
-            RepoMock.Empty<DistributionBox>().Object, recorder.Object);
+            SpecificRepoMock.Boxes().Object, recorder.Object);
 
         await handler.Handle(
             new CheckCoverageQuery(Lat, Lng, Channel: "WhatsApp", ContactPhone: "71435981"),
@@ -290,7 +290,7 @@ public class CoverageHandlerTests
     public async Task CreateBox_LatLngValidos_GuardaPointYAsociaZona()
     {
         var zone    = MakeZone();
-        var boxRepo = RepoMock.Empty<DistributionBox>();
+        var boxRepo = SpecificRepoMock.Boxes();
         var handler = new CreateDistributionBoxHandler(boxRepo.Object, RepoMock.Of(zone).Object);
 
         var result = await handler.Handle(
@@ -368,7 +368,7 @@ public class CoverageHandlerTests
         var box  = MakeBox(total: 8, ocupados: 4, reservados: 2);
         var inst = MakeInstalacionEnProceso();
 
-        var instRepo = RepoMock.Of(inst);
+        var instRepo = SpecificRepoMock.Installations(inst);
         var boxRepo  = RepoMock.Of(box);
         var handler  = new CompleteInstallationWithBoxHandler(instRepo.Object, boxRepo.Object);
 
@@ -393,7 +393,7 @@ public class CoverageHandlerTests
         var inst = MakeInstalacionEnProceso(reservedBoxId: box.Id);
 
         var handler = new CompleteInstallationWithBoxHandler(
-            RepoMock.Of(inst).Object, RepoMock.Of(box).Object);
+            SpecificRepoMock.Installations(inst).Object, RepoMock.Of(box).Object);
 
         var result = await handler.Handle(
             new CompleteInstallationWithBoxCommand(inst.Id, box.Id), CancellationToken.None);

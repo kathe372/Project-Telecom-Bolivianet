@@ -40,9 +40,9 @@ public class InstallationEvidenceTests
     };
 
     private static CompleteInstallationHandler MakeCompleteHandler(Installation inst)
-        => new(RepoMock.Of(inst).Object,
+        => new(SpecificRepoMock.Installations(inst).Object,
                RepoMock.Empty<SupportTicket>().Object,
-               RepoMock.Empty<DistributionBox>().Object,
+               SpecificRepoMock.Boxes().Object,
                MakeAudit(),
                new Mock<IUnitOfWork>().Object,
                NullLogger<CompleteInstallationHandler>.Instance);
@@ -97,7 +97,7 @@ public class InstallationEvidenceTests
     {
         var inst    = MakeInstallation(InstallationStatus.Cancelada);
         var storage = new Mock<IFileStorage>();
-        var service = new InstallationPhotoService(RepoMock.Of(inst).Object, storage.Object);
+        var service = new InstallationPhotoService(SpecificRepoMock.Installations(inst).Object, storage.Object);
 
         var result = await service.UploadAsync(
             inst.Id, new MemoryStream([1, 2, 3]), "foto.jpg");
@@ -117,7 +117,7 @@ public class InstallationEvidenceTests
                 It.IsAny<Stream>(), It.IsAny<string>(), It.IsAny<string>()))
             .ReturnsAsync("https://storage/instalaciones/foto.jpg");
 
-        var service = new InstallationPhotoService(RepoMock.Of(inst).Object, storage.Object);
+        var service = new InstallationPhotoService(SpecificRepoMock.Installations(inst).Object, storage.Object);
 
         var result = await service.UploadAsync(
             inst.Id, new MemoryStream([1, 2, 3]), "foto.jpg");
@@ -154,9 +154,9 @@ public class InstallationEvidenceTests
         var uow = new Mock<IUnitOfWork>();
 
         var handler = new CompleteInstallationHandler(
-            RepoMock.Of(inst).Object,
+            SpecificRepoMock.Installations(inst).Object,
             ticketRepo.Object,
-            RepoMock.Empty<DistributionBox>().Object,
+            SpecificRepoMock.Boxes().Object,
             MakeAudit(),
             uow.Object,
             NullLogger<CompleteInstallationHandler>.Instance);
@@ -184,9 +184,9 @@ public class InstallationEvidenceTests
         var uow  = new Mock<IUnitOfWork>();
 
         var handler = new CompleteInstallationHandler(
-            RepoMock.Of(inst).Object,
+            SpecificRepoMock.Installations(inst).Object,
             RepoMock.Empty<SupportTicket>().Object,
-            RepoMock.Empty<DistributionBox>().Object,
+            SpecificRepoMock.Boxes().Object,
             MakeAudit(),
             uow.Object,
             NullLogger<CompleteInstallationHandler>.Instance);

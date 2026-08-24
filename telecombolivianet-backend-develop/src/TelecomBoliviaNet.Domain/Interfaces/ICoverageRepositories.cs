@@ -1,4 +1,4 @@
-using TelecomBoliviaNet.Domain.Entities.Coverage;
+﻿using TelecomBoliviaNet.Domain.Entities.Coverage;
 
 namespace TelecomBoliviaNet.Domain.Interfaces;
 
@@ -24,4 +24,7 @@ public interface IDistributionBoxRepository : IGenericRepository<DistributionBox
     /// El conteo se hace en SQL, no trayendo las cajas a memoria.
     /// </summary>
     Task<Dictionary<Guid, int>> CountActiveByZoneAsync(CancellationToken ct = default);
+
+    /// <summary>Una caja concreta con su zona cargada, solo lectura.</summary>
+    Task<DistributionBox?> GetByIdWithZoneAsync(Guid id, CancellationToken ct = default);
 }

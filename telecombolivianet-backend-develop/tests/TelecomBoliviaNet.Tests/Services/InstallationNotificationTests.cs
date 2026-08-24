@@ -1,4 +1,4 @@
-using FluentAssertions;
+﻿using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
 using TelecomBoliviaNet.Application.DTOs.Installations;
@@ -41,7 +41,7 @@ public class InstallationNotificationTests
     };
 
     private static AssignTechniciansHandler MakeHandler(
-        IGenericRepository<Installation>           instRepo,
+        IInstallationRepository                    instRepo,
         IGenericRepository<InstallationTechnician> techRepo,
         IGenericRepository<UserSystem>             userRepo,
         INotifPublisher?                           notifPublisher = null)
@@ -66,7 +66,7 @@ public class InstallationNotificationTests
             .Returns(Task.CompletedTask);
 
         var handler = MakeHandler(
-            RepoMock.Of(inst).Object,
+            SpecificRepoMock.Installations(inst).Object,
             RepoMock.Empty<InstallationTechnician>().Object,
             RepoMock.Of(tec).Object,
             publisher.Object);
@@ -90,7 +90,7 @@ public class InstallationNotificationTests
         var publisher = new Mock<INotifPublisher>();
 
         var handler = MakeHandler(
-            RepoMock.Of(inst).Object,
+            SpecificRepoMock.Installations(inst).Object,
             RepoMock.Empty<InstallationTechnician>().Object,
             RepoMock.Of(tec).Object,
             publisher.Object);
@@ -110,7 +110,7 @@ public class InstallationNotificationTests
         var inst = MakeInstallation();
 
         var handler = MakeHandler(
-            RepoMock.Of(inst).Object,
+            SpecificRepoMock.Installations(inst).Object,
             RepoMock.Empty<InstallationTechnician>().Object,
             RepoMock.Of(tec).Object,
             notifPublisher: null);
@@ -134,7 +134,7 @@ public class InstallationNotificationTests
             .Returns(Task.CompletedTask);
 
         var handler = MakeHandler(
-            RepoMock.Of(inst).Object,
+            SpecificRepoMock.Installations(inst).Object,
             RepoMock.Empty<InstallationTechnician>().Object,
             RepoMock.Of(tec1, tec2).Object,
             publisher.Object);
@@ -163,7 +163,7 @@ public class InstallationNotificationTests
             .Returns(Task.CompletedTask);
 
         var handler = MakeHandler(
-            RepoMock.Of(inst).Object,
+            SpecificRepoMock.Installations(inst).Object,
             RepoMock.Empty<InstallationTechnician>().Object,
             RepoMock.Of(tec).Object,
             publisher.Object);
@@ -207,7 +207,7 @@ public class InstallationNotificationTests
             .Returns(Task.CompletedTask);
 
         var handler = MakeHandler(
-            RepoMock.Of(inst).Object,
+            SpecificRepoMock.Installations(inst).Object,
             RepoMock.Empty<InstallationTechnician>().Object,
             RepoMock.Of(tec).Object,
             publisher.Object);

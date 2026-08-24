@@ -68,7 +68,7 @@ public class CancelInstallationHandlerTests
     }
 
     private static CancelInstallationHandler MakeHandler(
-        IGenericRepository<Installation>  instRepo,
+        IInstallationRepository           instRepo,
         IGenericRepository<SupportTicket> ticketRepo,
         Mock<IBoxReservationService>?     boxReservation = null,
         int?                              cancelMinHours = null,
@@ -90,7 +90,7 @@ public class CancelInstallationHandlerTests
     public async Task TC_CANCEL_01_ClientCancelsOutsideWindow_Succeeds()
     {
         var inst    = MakeInstallation(hoursAhead: 26);
-        var handler = MakeHandler(RepoMock.Of(inst).Object, RepoMock.Empty<SupportTicket>().Object);
+        var handler = MakeHandler(SpecificRepoMock.Installations(inst).Object, RepoMock.Empty<SupportTicket>().Object);
 
         var result = await handler.Handle(Cmd(inst.Id, "CLIENTE"), CancellationToken.None);
 
@@ -104,7 +104,7 @@ public class CancelInstallationHandlerTests
     public async Task TC_CANCEL_02_ClientCancelsInsideWindow_ReturnsFailure()
     {
         var inst    = MakeInstallation(hoursAhead: 1);
-        var handler = MakeHandler(RepoMock.Of(inst).Object, RepoMock.Empty<SupportTicket>().Object);
+        var handler = MakeHandler(SpecificRepoMock.Installations(inst).Object, RepoMock.Empty<SupportTicket>().Object);
 
         var result = await handler.Handle(Cmd(inst.Id, "CLIENTE"), CancellationToken.None);
 
@@ -118,7 +118,7 @@ public class CancelInstallationHandlerTests
     public async Task TC_CANCEL_03_AdminCancels1hAhead_Succeeds()
     {
         var inst    = MakeInstallation(hoursAhead: 1);
-        var handler = MakeHandler(RepoMock.Of(inst).Object, RepoMock.Empty<SupportTicket>().Object);
+        var handler = MakeHandler(SpecificRepoMock.Installations(inst).Object, RepoMock.Empty<SupportTicket>().Object);
 
         var result = await handler.Handle(Cmd(inst.Id, "ADMIN"), CancellationToken.None);
 
@@ -131,7 +131,7 @@ public class CancelInstallationHandlerTests
     public async Task TC_CANCEL_04_CompletedInstallation_ReturnsFailure()
     {
         var inst    = MakeInstallation(hoursAhead: 5, status: InstallationStatus.Completada);
-        var handler = MakeHandler(RepoMock.Of(inst).Object, RepoMock.Empty<SupportTicket>().Object);
+        var handler = MakeHandler(SpecificRepoMock.Installations(inst).Object, RepoMock.Empty<SupportTicket>().Object);
 
         var result = await handler.Handle(Cmd(inst.Id, "ADMIN"), CancellationToken.None);
 
@@ -144,7 +144,7 @@ public class CancelInstallationHandlerTests
     public async Task TC_CANCEL_05_RescheduledInstallation_Succeeds()
     {
         var inst    = MakeInstallation(hoursAhead: 5, status: InstallationStatus.Reprogramada);
-        var handler = MakeHandler(RepoMock.Of(inst).Object, RepoMock.Empty<SupportTicket>().Object);
+        var handler = MakeHandler(SpecificRepoMock.Installations(inst).Object, RepoMock.Empty<SupportTicket>().Object);
 
         var result = await handler.Handle(Cmd(inst.Id, "ADMIN"), CancellationToken.None);
 
@@ -158,7 +158,7 @@ public class CancelInstallationHandlerTests
     {
         var before  = DateTime.UtcNow.AddSeconds(-1);
         var inst    = MakeInstallation(hoursAhead: 5);
-        var handler = MakeHandler(RepoMock.Of(inst).Object, RepoMock.Empty<SupportTicket>().Object);
+        var handler = MakeHandler(SpecificRepoMock.Installations(inst).Object, RepoMock.Empty<SupportTicket>().Object);
 
         await handler.Handle(Cmd(inst.Id, "ADMIN"), CancellationToken.None);
 
@@ -181,7 +181,7 @@ public class CancelInstallationHandlerTests
         };
         var ticketRepo = RepoMock.Of(ticket);
         var inst       = MakeInstallation(hoursAhead: 5, ticket: ticket);
-        var handler    = MakeHandler(RepoMock.Of(inst).Object, ticketRepo.Object);
+        var handler    = MakeHandler(SpecificRepoMock.Installations(inst).Object, ticketRepo.Object);
 
         await handler.Handle(Cmd(inst.Id, "ADMIN"), CancellationToken.None);
 
@@ -195,7 +195,7 @@ public class CancelInstallationHandlerTests
     public async Task TC_CANCEL_08_InstallationNotFound_ReturnsFailure()
     {
         var handler = MakeHandler(
-            RepoMock.Empty<Installation>().Object,
+            SpecificRepoMock.Installations().Object,
             RepoMock.Empty<SupportTicket>().Object);
 
         var result = await handler.Handle(Cmd(Guid.NewGuid(), "ADMIN"), CancellationToken.None);
@@ -209,7 +209,7 @@ public class CancelInstallationHandlerTests
     public async Task TC_CANCEL_09_InProcessInstallation_Succeeds()
     {
         var inst    = MakeInstallation(hoursAhead: 5, status: InstallationStatus.EnProceso);
-        var handler = MakeHandler(RepoMock.Of(inst).Object, RepoMock.Empty<SupportTicket>().Object);
+        var handler = MakeHandler(SpecificRepoMock.Installations(inst).Object, RepoMock.Empty<SupportTicket>().Object);
 
         var result = await handler.Handle(Cmd(inst.Id, "ADMIN"), CancellationToken.None);
 
@@ -224,7 +224,7 @@ public class CancelInstallationHandlerTests
         var inst        = MakeInstallation(hoursAhead: 5);
         var reservation = new Mock<IBoxReservationService>();
         var handler     = MakeHandler(
-            RepoMock.Of(inst).Object, RepoMock.Empty<SupportTicket>().Object, reservation);
+            SpecificRepoMock.Installations(inst).Object, RepoMock.Empty<SupportTicket>().Object, reservation);
 
         var result = await handler.Handle(Cmd(inst.Id, "ADMIN"), CancellationToken.None);
 
@@ -238,7 +238,7 @@ public class CancelInstallationHandlerTests
     {
         var inst    = MakeInstallation(hoursAhead: 3);
         var handler = MakeHandler(
-            RepoMock.Of(inst).Object, RepoMock.Empty<SupportTicket>().Object,
+            SpecificRepoMock.Installations(inst).Object, RepoMock.Empty<SupportTicket>().Object,
             cancelMinHours: 2);
 
         var result = await handler.Handle(Cmd(inst.Id, "CLIENTE"), CancellationToken.None);
@@ -257,7 +257,7 @@ public class CancelInstallationHandlerTests
 
         var botProxy = new Mock<IBotProxyService>();
         var handler  = MakeHandler(
-            RepoMock.Of(inst).Object, RepoMock.Empty<SupportTicket>().Object,
+            SpecificRepoMock.Installations(inst).Object, RepoMock.Empty<SupportTicket>().Object,
             botProxy: botProxy);
 
         var result = await handler.Handle(Cmd(inst.Id, "ADMIN"), CancellationToken.None);
@@ -274,7 +274,7 @@ public class CancelInstallationHandlerTests
         var inst     = MakeInstallation(hoursAhead: 26);
         var botProxy = new Mock<IBotProxyService>();
         var handler  = MakeHandler(
-            RepoMock.Of(inst).Object, RepoMock.Empty<SupportTicket>().Object,
+            SpecificRepoMock.Installations(inst).Object, RepoMock.Empty<SupportTicket>().Object,
             botProxy: botProxy);
 
         await handler.Handle(Cmd(inst.Id, "CLIENTE"), CancellationToken.None);

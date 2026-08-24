@@ -1,5 +1,4 @@
 ﻿using MediatR;
-using Microsoft.EntityFrameworkCore;
 using TelecomBoliviaNet.Application.DTOs.Installations;
 using TelecomBoliviaNet.Application.Services.Auth;
 using TelecomBoliviaNet.Domain.Entities.Auth;
@@ -20,7 +19,7 @@ public record RescheduleInstallationCommand(
 
 public class RescheduleInstallationHandler : IRequestHandler<RescheduleInstallationCommand, Result>
 {
-    private readonly IGenericRepository<Installation>  _instRepo;
+    private readonly IInstallationRepository  _instRepo;
     private readonly IGenericRepository<SupportTicket> _ticketRepo;
     private readonly IGenericRepository<TicketVisit>   _visitRepo;
     private readonly IGenericRepository<UserSystem>    _userRepo;
@@ -28,7 +27,7 @@ public class RescheduleInstallationHandler : IRequestHandler<RescheduleInstallat
     private readonly AuditService                      _audit;
 
     public RescheduleInstallationHandler(
-        IGenericRepository<Installation>  instRepo,
+        IInstallationRepository  instRepo,
         IGenericRepository<SupportTicket> ticketRepo,
         IGenericRepository<TicketVisit>   visitRepo,
         IGenericRepository<UserSystem>    userRepo,
@@ -45,11 +44,7 @@ public class RescheduleInstallationHandler : IRequestHandler<RescheduleInstallat
 
     public async Task<Result> Handle(RescheduleInstallationCommand cmd, CancellationToken ct)
     {
-        var inst = await _instRepo.GetAll()
-            .Include(i => i.Client)
-            .Include(i => i.Plan)
-            .Include(i => i.Ticket)
-            .FirstOrDefaultAsync(i => i.Id == cmd.InstalacionId, ct);
+        var inst = await _instRepo.GetForCommandAsync(cmd.InstalacionId, ct);
 
         if (inst is null) return Result.Failure("Instalación no encontrada.");
 
@@ -89,10 +84,12 @@ public class RescheduleInstallationHandler : IRequestHandler<RescheduleInstallat
             // La visita creada al agendar (ver CreateInstallationCommand) debe
             // moverse junto con la instalación, si no la tab "Visitas" del
             // ticket sigue mostrando la cita vieja.
-            var visit = await _visitRepo.GetAll()
-                .Where(v => v.TicketId == inst.Ticket.Id && v.Status == VisitStatus.Programada)
+            // Un ticket tiene un puñado de visitas como mucho: el filtro va en SQL
+            // y el "la más próxima" se resuelve en memoria.
+            var visit = (await _visitRepo.ListAsync(
+                    v => v.TicketId == inst.Ticket.Id && v.Status == VisitStatus.Programada))
                 .OrderBy(v => v.ScheduledAt)
-                .FirstOrDefaultAsync(ct);
+                .FirstOrDefault();
             if (visit is not null)
             {
                 InstallationTicketSync.SyncVisit(visit, inst);
@@ -117,8 +114,8 @@ public class RescheduleInstallationHandler : IRequestHandler<RescheduleInstallat
             DateOnly.FromDateTime(fecha), hora, horaFin, inst.Id, ct);
 
         var pool = Math.Max(
-            await _userRepo.GetAll()
-                .CountAsync(u => u.Role == UserRole.Tecnico && u.Status == UserStatus.Activo, ct),
+            await _userRepo.CountAsync(
+                u => u.Role == UserRole.Tecnico && u.Status == UserStatus.Activo),
             1);
 
         var requeridos = Math.Max(inst.Plan?.TecnicosRequeridos ?? 1, 1);

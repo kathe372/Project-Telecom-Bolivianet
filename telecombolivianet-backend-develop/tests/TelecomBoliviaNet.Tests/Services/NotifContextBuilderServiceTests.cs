@@ -1,4 +1,4 @@
-using FluentAssertions;
+﻿using FluentAssertions;
 using Microsoft.Extensions.Configuration;
 using Moq;
 using TelecomBoliviaNet.Application.Services.Notifications;
@@ -67,8 +67,8 @@ public class NotifContextBuilderServiceTests
         SystemConfig[]?  configs  = null)
     {
         var clientRepo = client is not null
-            ? RepoMock.Of(client)
-            : RepoMock.Empty<Client>();
+            ? SpecificRepoMock.Clients(client)
+            : SpecificRepoMock.Clients();
 
         var invoiceRepo = invoices is not null
             ? RepoMock.Of(invoices)

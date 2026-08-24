@@ -1,5 +1,4 @@
 ﻿using MediatR;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using TelecomBoliviaNet.Application.DTOs.Installations;
 using TelecomBoliviaNet.Application.Services.Auth;
@@ -20,7 +19,7 @@ public record CompleteInstallationCommand(
 
 public class CompleteInstallationHandler : IRequestHandler<CompleteInstallationCommand, Result>
 {
-    private readonly IGenericRepository<Installation>    _instRepo;
+    private readonly IInstallationRepository    _instRepo;
     private readonly IGenericRepository<SupportTicket>   _ticketRepo;
     private readonly IGenericRepository<DistributionBox> _boxRepo;
     private readonly AuditService                        _audit;
@@ -28,7 +27,7 @@ public class CompleteInstallationHandler : IRequestHandler<CompleteInstallationC
     private readonly ILogger<CompleteInstallationHandler> _logger;
 
     public CompleteInstallationHandler(
-        IGenericRepository<Installation>    instRepo,
+        IInstallationRepository    instRepo,
         IGenericRepository<SupportTicket>   ticketRepo,
         IGenericRepository<DistributionBox> boxRepo,
         AuditService                        audit,
@@ -45,9 +44,7 @@ public class CompleteInstallationHandler : IRequestHandler<CompleteInstallationC
 
     public async Task<Result> Handle(CompleteInstallationCommand cmd, CancellationToken ct)
     {
-        var inst = await _instRepo.GetAll()
-            .Include(i => i.Ticket)
-            .FirstOrDefaultAsync(i => i.Id == cmd.InstalacionId, ct);
+        var inst = await _instRepo.GetForCommandAsync(cmd.InstalacionId, ct);
 
         if (inst is null)
             return Result.Failure("Instalación no encontrada.");

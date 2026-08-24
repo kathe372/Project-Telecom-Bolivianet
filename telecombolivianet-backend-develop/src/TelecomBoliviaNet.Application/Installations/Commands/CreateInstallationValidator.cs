@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using TelecomBoliviaNet.Application.Services.Notifications;
 using TelecomBoliviaNet.Domain.Entities.Auth;
 using TelecomBoliviaNet.Domain.Entities.Clients;
@@ -18,15 +18,15 @@ public record CreateInstallationValidated(
 
 public class CreateInstallationValidator
 {
-    private readonly IGenericRepository<Installation> _instRepo;
-    private readonly IGenericRepository<Client>       _clientRepo;
+    private readonly IInstallationRepository _instRepo;
+    private readonly IClientRepository       _clientRepo;
     private readonly IGenericRepository<Plan>         _planRepo;
     private readonly IGenericRepository<UserSystem>   _userRepo;
     private readonly ISlotCalculatorService           _slotCalc;
 
     public CreateInstallationValidator(
-        IGenericRepository<Installation> instRepo,
-        IGenericRepository<Client>       clientRepo,
+        IInstallationRepository instRepo,
+        IClientRepository       clientRepo,
         IGenericRepository<Plan>         planRepo,
         IGenericRepository<UserSystem>   userRepo,
         ISlotCalculatorService           slotCalc)
@@ -78,12 +78,8 @@ public class CreateInstallationValidator
             // identificador estable de un prospecto entre turnos.
             if (!string.IsNullOrWhiteSpace(prospectPhone))
             {
-                var prospectoTienePendiente = await _instRepo.AnyAsync(i =>
-                    i.ClientId == null &&
-                    i.ProspectPhone == prospectPhone &&
-                    (i.Status == InstallationStatus.Pendiente ||
-                     i.Status == InstallationStatus.EnProceso ||
-                     i.Status == InstallationStatus.Reprogramada));
+                var prospectoTienePendiente =
+                    await _instRepo.HasOpenForProspectAsync(prospectPhone, ct);
 
                 if (prospectoTienePendiente)
                     return Result<CreateInstallationValidated>.Failure(
@@ -114,19 +110,12 @@ public class CreateInstallationValidator
         Client? client = null;
         if (clienteId.HasValue)
         {
-            client = await _clientRepo.GetAll()
-                .Include(c => c.Plan)
-                .FirstOrDefaultAsync(c => c.Id == clienteId.Value, ct);
+            client = await _clientRepo.GetWithPlanAsync(clienteId.Value, ct);
 
             if (client is null)
                 return Result<CreateInstallationValidated>.Failure("El cliente indicado no existe.");
 
-            // Reprogramada se incluye de forma defensiva (filas sin normalizar)
-            var tienePendiente = await _instRepo.AnyAsync(i =>
-                i.ClientId == client.Id &&
-                (i.Status == InstallationStatus.Pendiente ||
-                 i.Status == InstallationStatus.EnProceso ||
-                 i.Status == InstallationStatus.Reprogramada));
+            var tienePendiente = await _instRepo.HasOpenForClientAsync(client.Id, ct);
 
             if (tienePendiente)
                 return Result<CreateInstallationValidated>.Failure(
@@ -140,8 +129,8 @@ public class CreateInstallationValidator
             DateOnly.FromDateTime(fecha), horaInicio, horaFin, ct: ct);
 
         var pool = Math.Max(
-            await _userRepo.GetAll()
-                .CountAsync(u => u.Role == UserRole.Tecnico && u.Status == UserStatus.Activo, ct),
+            await _userRepo.CountAsync(
+                u => u.Role == UserRole.Tecnico && u.Status == UserStatus.Activo),
             1);
 
         if (pool - comprometidos < Math.Max(plan.TecnicosRequeridos, 1))

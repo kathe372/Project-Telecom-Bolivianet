@@ -17,10 +17,21 @@ namespace TelecomBoliviaNet.Tests.Helpers;
 /// </summary>
 public static class RepoMock
 {
+    /// <summary>Mock del repositorio genérico.</summary>
     public static Mock<IGenericRepository<T>> Of<T>(params T[] items) where T : Entity
+        => Of<IGenericRepository<T>, T>(items);
+
+    /// <summary>
+    /// Mock de un repositorio ESPECÍFICO (F4): configura todo lo heredado de
+    /// <c>IGenericRepository&lt;T&gt;</c> sobre la misma lista en memoria, para que
+    /// quien lo use solo tenga que añadir los métodos propios del agregado.
+    /// </summary>
+    public static Mock<TRepo> Of<TRepo, T>(params T[] items)
+        where TRepo : class, IGenericRepository<T>
+        where T : Entity
     {
         var list = items.ToList();
-        var mock = new Mock<IGenericRepository<T>>();
+        var mock = new Mock<TRepo>();
 
         // GetAll() devuelve IQueryable con soporte async (MockQueryable)
         // Necesario para que FirstOrDefaultAsync/ToListAsync funcionen en tests unitarios
@@ -112,4 +123,10 @@ public static class RepoMock
     /// <summary>Repo vacío — útil para repos de entidades que no necesitan datos iniciales.</summary>
     public static Mock<IGenericRepository<T>> Empty<T>() where T : Entity
         => Of<T>();
+
+    /// <summary>Repo específico vacío.</summary>
+    public static Mock<TRepo> Empty<TRepo, T>()
+        where TRepo : class, IGenericRepository<T>
+        where T : Entity
+        => Of<TRepo, T>();
 }

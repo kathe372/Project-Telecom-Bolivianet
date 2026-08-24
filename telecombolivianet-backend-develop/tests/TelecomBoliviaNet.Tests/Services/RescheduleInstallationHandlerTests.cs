@@ -90,7 +90,7 @@ public class RescheduleInstallationHandlerTests
     {
         var tecnicos = Enumerable.Range(0, pool).Select(_ => MakeTecnico()).ToArray();
         return new RescheduleInstallationHandler(
-            RepoMock.Of(inst).Object,
+            SpecificRepoMock.Installations(inst).Object,
             RepoMock.Empty<SupportTicket>().Object,
             visitRepo ?? RepoMock.Empty<TicketVisit>().Object,
             RepoMock.Of(tecnicos).Object,

@@ -1,4 +1,4 @@
-using FluentAssertions;
+﻿using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
 using TelecomBoliviaNet.Application.Interfaces;
@@ -68,7 +68,7 @@ public class BillingServiceTests
 
     private static BillingService MakeService(Mock<IGenericRepository<Invoice>> invoiceRepo)
         => new BillingService(
-            RepoMock.Empty<Client>().Object,
+            SpecificRepoMock.Clients().Object,
             invoiceRepo.Object,
             MakeAudit(),
             NullLogger<BillingService>.Instance,

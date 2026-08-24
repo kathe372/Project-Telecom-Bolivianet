@@ -70,7 +70,7 @@ public class NotifTemplateServiceTests
         => new(
             repo.Object,
             RepoMock.Empty<NotifTemplateHistory>().Object,
-            RepoMock.Empty<Client>().Object,
+            SpecificRepoMock.Clients().Object,
             RepoMock.Empty<SystemConfig>().Object,
             MakeContextBuilder(),
             MakeAudit());
@@ -81,7 +81,7 @@ public class NotifTemplateServiceTests
     /// </summary>
     private static NotifContextBuilderService MakeContextBuilder()
         => new(
-            RepoMock.Empty<Client>().Object,
+            SpecificRepoMock.Clients().Object,
             RepoMock.Empty<Invoice>().Object,
             RepoMock.Empty<ClientQr>().Object,
             RepoMock.Empty<SystemConfig>().Object,

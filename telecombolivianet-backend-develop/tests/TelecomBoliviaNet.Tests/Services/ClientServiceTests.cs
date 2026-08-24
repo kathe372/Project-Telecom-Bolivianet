@@ -297,7 +297,7 @@ public class ClientServiceTests
     [Fact]
     public async Task Suspend_ClientNotFound_ReturnsFail()
     {
-        var emptyClientRepo = RepoMock.Empty<Client>();
+        var emptyClientRepo = SpecificRepoMock.Clients();
         var handler = new SuspendClientHandler(
             emptyClientRepo.Object, MakeAudit(), MakeNotif().Object);
 

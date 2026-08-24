@@ -1,5 +1,4 @@
-using MediatR;
-using Microsoft.EntityFrameworkCore;
+﻿using MediatR;
 using TelecomBoliviaNet.Application.Coverage.Services;
 using TelecomBoliviaNet.Application.DTOs.Installations;
 using TelecomBoliviaNet.Application.Services;
@@ -26,10 +25,10 @@ public record CreateInstallationCommand(
 public class CreateInstallationHandler
     : IRequestHandler<CreateInstallationCommand, Result<InstallationCreatedDto>>
 {
-    private readonly IGenericRepository<Installation>     _instRepo;
+    private readonly IInstallationRepository              _instRepo;
     private readonly IGenericRepository<SupportTicket>    _ticketRepo;
     private readonly IGenericRepository<TicketVisit>      _visitRepo;
-    private readonly IGenericRepository<DistributionBox>  _boxRepo;
+    private readonly IDistributionBoxRepository  _boxRepo;
     private readonly AuditService                         _audit;
     private readonly CreateInstallationValidator          _validator;
     private readonly IBoxReservationService               _boxReservation;
@@ -37,13 +36,13 @@ public class CreateInstallationHandler
     private readonly TicketBalancingService               _balanceoSvc;
 
     public CreateInstallationHandler(
-        IGenericRepository<Installation>    instRepo,
-        IGenericRepository<Client>          clientRepo,
+        IInstallationRepository             instRepo,
+        IClientRepository                   clientRepo,
         IGenericRepository<Plan>            planRepo,
         IGenericRepository<UserSystem>      userRepo,
         IGenericRepository<SupportTicket>   ticketRepo,
         IGenericRepository<TicketVisit>     visitRepo,
-        IGenericRepository<DistributionBox> boxRepo,
+        IDistributionBoxRepository boxRepo,
         AuditService                        audit,
         ISlotCalculatorService              slotCalc,
         IBoxReservationService              boxReservation,
@@ -86,9 +85,7 @@ public class CreateInstallationHandler
                 inst.DistributionBoxId = reserva.BoxId;
                 inst.CoverageZoneId    = reserva.ZoneId;
 
-                var box = await _boxRepo.GetAll().AsNoTracking()
-                    .Include(b => b.Zone)
-                    .FirstOrDefaultAsync(b => b.Id == reserva.BoxId, ct);
+                var box = await _boxRepo.GetByIdWithZoneAsync(reserva.BoxId, ct);
                 boxCodigo  = box?.Codigo;
                 zoneNombre = box?.Zone?.Nombre;
             }

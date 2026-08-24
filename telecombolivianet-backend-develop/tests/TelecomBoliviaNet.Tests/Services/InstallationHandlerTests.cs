@@ -193,15 +193,15 @@ public class InstallationHandlerTests
     [Fact]
     public async Task Crear_ValidDto_ReturnsSuccessAndCreatesTicket()
     {
-        var instRepo   = RepoMock.Empty<Installation>();
-        var clientRepo = RepoMock.Of(MakeClient());
+        var instRepo   = SpecificRepoMock.Installations();
+        var clientRepo = SpecificRepoMock.Clients(MakeClient());
         var planRepo   = RepoMock.Of<Plan>(MakePlan());
         var userRepo   = RepoMock.Of(MakeTecnico());
         var ticketRepo = RepoMock.Empty<SupportTicket>();
         var handler    = new CreateInstallationHandler(
             instRepo.Object, clientRepo.Object, planRepo.Object,
             userRepo.Object, ticketRepo.Object,
-            RepoMock.Empty<TicketVisit>().Object, RepoMock.Empty<DistributionBox>().Object,
+            RepoMock.Empty<TicketVisit>().Object, SpecificRepoMock.Boxes().Object,
             MakeAudit(), ZeroCapacity(), NoopReservation(), MakeTicketNumSvc(),
             new TicketBalancingService(ticketRepo.Object, userRepo.Object));
 
@@ -233,13 +233,13 @@ public class InstallationHandlerTests
     public async Task Crear_ClientNotFound_ReturnsFail()
     {
         var handler = new CreateInstallationHandler(
-            RepoMock.Empty<Installation>().Object,
-            RepoMock.Empty<Client>().Object,
+            SpecificRepoMock.Installations().Object,
+            SpecificRepoMock.Clients().Object,
             RepoMock.Of<Plan>(MakePlan()).Object,
             RepoMock.Of(MakeTecnico()).Object,
             RepoMock.Empty<SupportTicket>().Object,
             RepoMock.Empty<TicketVisit>().Object,
-            RepoMock.Empty<DistributionBox>().Object,
+            SpecificRepoMock.Boxes().Object,
             MakeAudit(), ZeroCapacity(), NoopReservation(), MakeTicketNumSvc(),
             new TicketBalancingService(RepoMock.Empty<SupportTicket>().Object, RepoMock.Empty<UserSystem>().Object));
 
@@ -266,13 +266,13 @@ public class InstallationHandlerTests
     public async Task Crear_InactivePlan_ReturnsFail()
     {
         var handler = new CreateInstallationHandler(
-            RepoMock.Empty<Installation>().Object,
-            RepoMock.Of(MakeClient()).Object,
+            SpecificRepoMock.Installations().Object,
+            SpecificRepoMock.Clients(MakeClient()).Object,
             RepoMock.Of<Plan>(MakePlan(active: false)).Object,
             RepoMock.Of(MakeTecnico()).Object,
             RepoMock.Empty<SupportTicket>().Object,
             RepoMock.Empty<TicketVisit>().Object,
-            RepoMock.Empty<DistributionBox>().Object,
+            SpecificRepoMock.Boxes().Object,
             MakeAudit(), ZeroCapacity(), NoopReservation(), MakeTicketNumSvc(),
             new TicketBalancingService(RepoMock.Empty<SupportTicket>().Object, RepoMock.Empty<UserSystem>().Object));
 
@@ -305,7 +305,7 @@ public class InstallationHandlerTests
             Description = "Test", CreatedAt = DateTime.UtcNow,
         };
         var inst       = MakeInstallation(ticket: ticket);
-        var instRepo   = RepoMock.Of(inst);
+        var instRepo   = SpecificRepoMock.Installations(inst);
         var ticketRepo = RepoMock.Of(ticket);
         var handler    = new CancelInstallationHandler(
             instRepo.Object, ticketRepo.Object,
@@ -334,7 +334,7 @@ public class InstallationHandlerTests
     {
         var inst    = MakeInstallation(InstallationStatus.Completada);
         var handler = new CancelInstallationHandler(
-            RepoMock.Of(inst).Object,
+            SpecificRepoMock.Installations(inst).Object,
             RepoMock.Empty<SupportTicket>().Object,
             RepoMock.Empty<SystemConfig>().Object,
             MakeAudit(), NoopReservation());
@@ -362,11 +362,11 @@ public class InstallationHandlerTests
             DueDate = DateTime.UtcNow.AddHours(4),
         };
         var inst       = MakeInstallation(InstallationStatus.EnProceso, ticket);
-        var instRepo   = RepoMock.Of(inst);
+        var instRepo   = SpecificRepoMock.Installations(inst);
         var ticketRepo = RepoMock.Of(ticket);
         var handler    = new CompleteInstallationHandler(
             instRepo.Object, ticketRepo.Object,
-            RepoMock.Empty<DistributionBox>().Object, MakeAudit(),
+            SpecificRepoMock.Boxes().Object, MakeAudit(),
             new Mock<IUnitOfWork>().Object,
             NullLogger<CompleteInstallationHandler>.Instance);
 
@@ -395,7 +395,7 @@ public class InstallationHandlerTests
         };
         var inst    = MakeInstallation();
         var handler = new AssignTechnicianHandler(
-            RepoMock.Of(inst).Object,
+            SpecificRepoMock.Installations(inst).Object,
             RepoMock.Of(operador).Object,
             MakeAudit());
 

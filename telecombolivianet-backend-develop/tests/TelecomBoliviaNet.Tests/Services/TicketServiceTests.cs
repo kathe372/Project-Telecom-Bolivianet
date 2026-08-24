@@ -1,4 +1,4 @@
-using FluentAssertions;
+﻿using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
 using TelecomBoliviaNet.Application.DTOs.Tickets;
@@ -92,7 +92,7 @@ public class TicketServiceTests
         var helper = new TicketHelper(
             ticketRepo.Object, commentRepo.Object, workLogRepo.Object,
             visitRepo.Object, slaPlanRepo.Object, notifRepo.Object,
-            scheduleRepo.Object, RepoMock.Empty<Installation>().Object, MakeNotif().Object);
+            scheduleRepo.Object, SpecificRepoMock.Installations().Object, MakeNotif().Object);
 
         var balanceoSvc = new TicketBalancingService(ticketRepo.Object, userRepo.Object);
 
@@ -140,7 +140,7 @@ public class TicketServiceTests
     public async Task Create_ClientNotFound_ReturnsFail()
     {
         var ticketRepo  = RepoMock.Empty<SupportTicket>();
-        var clientRepo  = RepoMock.Empty<Client>(); // sin clientes
+        var clientRepo  = SpecificRepoMock.Clients(); // sin clientes
         var userRepo    = RepoMock.Of(MakeTecnico());
         var commentRepo = RepoMock.Empty<TicketComment>();
         var workLogRepo = RepoMock.Empty<TicketWorkLog>();
@@ -152,7 +152,7 @@ public class TicketServiceTests
         var helper = new TicketHelper(
             ticketRepo.Object, commentRepo.Object, workLogRepo.Object,
             visitRepo.Object, slaPlanRepo.Object, notifRepo.Object,
-            scheduleRepo.Object, RepoMock.Empty<Installation>().Object, MakeNotif().Object);
+            scheduleRepo.Object, SpecificRepoMock.Installations().Object, MakeNotif().Object);
 
         var handler = new CreateTicketHandler(
             ticketRepo.Object, clientRepo.Object, userRepo.Object,
@@ -265,7 +265,7 @@ public class TicketServiceTests
         };
 
         var ticketRepo  = RepoMock.Empty<SupportTicket>();
-        var clientRepo  = RepoMock.Of(MakeClient());
+        var clientRepo  = SpecificRepoMock.Clients(MakeClient());
         var userRepo    = RepoMock.Of(operador);
         var commentRepo = RepoMock.Empty<TicketComment>();
         var workLogRepo = RepoMock.Empty<TicketWorkLog>();
@@ -277,7 +277,7 @@ public class TicketServiceTests
         var helper = new TicketHelper(
             ticketRepo.Object, commentRepo.Object, workLogRepo.Object,
             visitRepo.Object, slaPlanRepo.Object, notifRepo.Object,
-            scheduleRepo.Object, RepoMock.Empty<Installation>().Object, MakeNotif().Object);
+            scheduleRepo.Object, SpecificRepoMock.Installations().Object, MakeNotif().Object);
 
         var handler = new CreateTicketHandler(
             ticketRepo.Object, clientRepo.Object, userRepo.Object,
