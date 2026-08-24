@@ -1,4 +1,4 @@
-using System.Linq.Expressions;
+﻿using System.Linq.Expressions;
 using Moq;
 using TelecomBoliviaNet.Domain.Entities.Clients;
 using TelecomBoliviaNet.Domain.Entities.Coverage;
@@ -42,6 +42,46 @@ public static class SpecificRepoMock
 
         mock.Setup(r => r.GetLatestBoxCodeByClientAsync(It.IsAny<CancellationToken>()))
             .ReturnsAsync(new Dictionary<Guid, string>());
+
+        mock.Setup(r => r.GetDetailAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((Guid id, CancellationToken _) => lista.FirstOrDefault(i => i.Id == id));
+
+        // El filtrado que antes hacía el handler vive ahora en el repositorio, así
+        // que el mock lo reproduce en memoria: si no, los tests de esos handlers
+        // dejarían de probar nada.
+        mock.Setup(r => r.GetCalendarRangeAsync(
+                It.IsAny<DateTime>(), It.IsAny<DateTime>(), It.IsAny<Guid?>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((DateTime desde, DateTime hasta, Guid? tec, CancellationToken _) =>
+                lista.Where(i => i.Fecha.Date >= desde.Date && i.Fecha.Date <= hasta.Date
+                              && (tec is null || i.TecnicoId == tec))
+                     .OrderBy(i => i.Fecha).ThenBy(i => i.HoraInicio)
+                     .ToList());
+
+        mock.Setup(r => r.GetTechnicianDayAsync(
+                It.IsAny<Guid>(), It.IsAny<DateTime>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((Guid tec, DateTime fecha, CancellationToken _) =>
+                lista.Where(i => i.Fecha.Date == fecha.Date
+                              && (i.TecnicoId == tec
+                                  || i.Technicians.Any(t => t.TechnicianId == tec))
+                              && i.Status != InstallationStatus.Cancelada)
+                     .OrderBy(i => i.HoraInicio)
+                     .ToList());
+
+        mock.Setup(r => r.GetPagedAsync(
+                It.IsAny<InstallationListFilter>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((InstallationListFilter f, CancellationToken _) =>
+            {
+                var q = lista.AsEnumerable();
+                if (f.Status.HasValue)    q = q.Where(i => i.Status    == f.Status.Value);
+                if (f.TecnicoId.HasValue) q = q.Where(i => i.TecnicoId == f.TecnicoId);
+                if (f.ClienteId.HasValue) q = q.Where(i => i.ClientId  == f.ClienteId);
+                if (f.SoloProspectos)     q = q.Where(i => i.ClientId is null && i.ProspectPhone != null);
+                if (f.Fecha.HasValue)     q = q.Where(i => i.Fecha.Date == f.Fecha.Value.Date);
+
+                var todas = q.OrderBy(i => i.Fecha).ThenBy(i => i.HoraInicio).ToList();
+                var pag   = todas.Skip((f.Page - 1) * f.PageSize).Take(f.PageSize).ToList();
+                return (pag, todas.Count);
+            });
 
         return mock;
     }

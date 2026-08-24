@@ -33,7 +33,7 @@ public class GetCalendarEventsHandlerTests
         };
 
     private static GetCalendarEventsHandler MakeHandler(params Installation[] items)
-        => new(RepoMock.Of(items).Object);
+        => new(SpecificRepoMock.Installations(items).Object);
 
     // ── TC-CAL-B01: solo las del rango ───────────────────────────────────────
     [Fact]

@@ -1,5 +1,4 @@
-using MediatR;
-using Microsoft.EntityFrameworkCore;
+﻿using MediatR;
 using TelecomBoliviaNet.Application.DTOs.Common;
 using TelecomBoliviaNet.Application.DTOs.Installations;
 using TelecomBoliviaNet.Domain.Entities.Installations;
@@ -13,51 +12,32 @@ public record GetInstallationsListQuery(InstallationFilterDto Filter)
 public class GetInstallationsListHandler
     : IRequestHandler<GetInstallationsListQuery, PagedResult<InstallationListItemDto>>
 {
-    private readonly IGenericRepository<Installation> _instRepo;
+    private readonly IInstallationRepository _instRepo;
 
-    public GetInstallationsListHandler(IGenericRepository<Installation> instRepo)
+    public GetInstallationsListHandler(IInstallationRepository instRepo)
         => _instRepo = instRepo;
 
     public async Task<PagedResult<InstallationListItemDto>> Handle(
         GetInstallationsListQuery req, CancellationToken ct)
     {
         var f     = req.Filter;
-        var query = _instRepo.GetAll()
-            .Include(i => i.Client)
-            .Include(i => i.Plan)
-            .Include(i => i.Tecnico)
-            .Include(i => i.DistributionBox)
-            .AsQueryable();
-
+        // Traducir el DTO de la API (strings sin parsear) a los criterios que
+        // entiende el repositorio es trabajo del caso de uso: es quien sabe qué
+        // significa un filtro vacío o una fecha mal escrita.
+        InstallationStatus? status = null;
         if (!string.IsNullOrWhiteSpace(f.Status) &&
             Enum.TryParse<InstallationStatus>(f.Status, out var st))
-            query = query.Where(i => i.Status == st);
+            status = st;
 
-        if (f.TecnicoId.HasValue)
-            query = query.Where(i => i.TecnicoId == f.TecnicoId);
-
-        if (f.ClienteId.HasValue)
-            query = query.Where(i => i.ClientId == f.ClienteId);
-
-        // Pipeline de recontacto (F6): prospectos con teléfono, aún no
-        // convertidos a cliente — típicamente Cancelada/NoRealizada.
-        if (f.SoloProspectos == true)
-            query = query.Where(i => i.ClientId == null && i.ProspectPhone != null);
-
+        DateTime? fecha = null;
         if (!string.IsNullOrWhiteSpace(f.Fecha) && DateTime.TryParse(f.Fecha, out var fdParsed))
-        {
-            // Npgsql exige Kind=Utc para parámetros timestamptz; TryParse
-            // devuelve Kind=Unspecified y la consulta explota con 500.
-            var fd = DateTime.SpecifyKind(fdParsed.Date, DateTimeKind.Utc);
-            query = query.Where(i => i.Fecha.Date == fd);
-        }
+            fecha = fdParsed.Date;
 
-        var total = await query.CountAsync(ct);
-        var items = await query
-            .OrderBy(i => i.Fecha).ThenBy(i => i.HoraInicio)
-            .Skip((f.Page - 1) * f.PageSize)
-            .Take(f.PageSize)
-            .ToListAsync(ct);
+        var (items, total) = await _instRepo.GetPagedAsync(
+            new InstallationListFilter(
+                status, fecha, f.TecnicoId, f.ClienteId,
+                f.SoloProspectos == true, f.Page, f.PageSize),
+            ct);
 
         return new PagedResult<InstallationListItemDto>(
             items.Select(InstallationMapper.ToListItem),

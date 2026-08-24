@@ -1,4 +1,4 @@
-using MediatR;
+﻿using MediatR;
 using Microsoft.EntityFrameworkCore;
 using TelecomBoliviaNet.Application.DTOs.Installations;
 using TelecomBoliviaNet.Application.Services.Notifications;
@@ -113,8 +113,8 @@ public class GetInstallationSlotsHandler
 
     private async Task<int> CountTechniciansAsync(CancellationToken ct)
     {
-        var count = await _userRepo.GetAll()
-            .CountAsync(u => u.Role == UserRole.Tecnico && u.Status == UserStatus.Activo, ct);
+        var count = await _userRepo.CountAsync(
+            u => u.Role == UserRole.Tecnico && u.Status == UserStatus.Activo);
         return Math.Max(count, 1);
     }
 

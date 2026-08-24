@@ -1,6 +1,5 @@
-using System.Globalization;
+﻿using System.Globalization;
 using MediatR;
-using Microsoft.EntityFrameworkCore;
 using TelecomBoliviaNet.Application.DTOs.Installations;
 using TelecomBoliviaNet.Domain.Entities.Tickets;
 using TelecomBoliviaNet.Domain.Interfaces;
@@ -20,9 +19,9 @@ public record GetTicketCalendarVisitsQuery(string Desde, string Hasta, Guid? Tec
 public class GetTicketCalendarVisitsHandler
     : IRequestHandler<GetTicketCalendarVisitsQuery, IReadOnlyList<AgendaItemDto>>
 {
-    private readonly IGenericRepository<TicketVisit> _visitRepo;
+    private readonly ITicketVisitRepository _visitRepo;
 
-    public GetTicketCalendarVisitsHandler(IGenericRepository<TicketVisit> visitRepo)
+    public GetTicketCalendarVisitsHandler(ITicketVisitRepository visitRepo)
         => _visitRepo = visitRepo;
 
     public async Task<IReadOnlyList<AgendaItemDto>> Handle(
@@ -38,18 +37,7 @@ public class GetTicketCalendarVisitsHandler
         // EnProceso: si el ticket ya se resolvio/cerro por otro canal, o esta
         // en pausa esperando al cliente, ya no debe seguir ocupando el
         // calendario aunque la visita nunca se haya cancelado explicitamente.
-        var query = _visitRepo.GetAll()
-            .Include(v => v.Ticket).ThenInclude(t => t!.Client).ThenInclude(c => c!.Plan)
-            .Where(v => v.ScheduledAt.Date >= desde && v.ScheduledAt.Date <= hasta
-                     && v.Status == VisitStatus.Programada
-                     && v.Ticket != null
-                     && (v.Ticket.Status == TicketStatus.Abierto || v.Ticket.Status == TicketStatus.EnProceso));
-
-        if (req.TecnicoId.HasValue)
-            query = query.Where(v => v.TechnicianId == req.TecnicoId
-                                   || v.Technicians.Any(t => t.TechnicianId == req.TecnicoId));
-
-        var visits = await query.OrderBy(v => v.ScheduledAt).ToListAsync(ct);
+        var visits = await _visitRepo.GetCalendarRangeAsync(desde, hasta, req.TecnicoId, ct);
 
         return visits.Where(v => v.Ticket is not null).Select(v =>
         {

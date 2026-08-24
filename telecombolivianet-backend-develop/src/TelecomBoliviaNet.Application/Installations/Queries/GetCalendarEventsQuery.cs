@@ -1,6 +1,5 @@
-using System.Globalization;
+﻿using System.Globalization;
 using MediatR;
-using Microsoft.EntityFrameworkCore;
 using TelecomBoliviaNet.Application.DTOs.Installations;
 using TelecomBoliviaNet.Domain.Entities.Installations;
 using TelecomBoliviaNet.Domain.Interfaces;
@@ -21,9 +20,9 @@ public record GetCalendarEventsQuery(string Desde, string Hasta, Guid? TecnicoId
 public class GetCalendarEventsHandler
     : IRequestHandler<GetCalendarEventsQuery, IReadOnlyList<InstallationListItemDto>>
 {
-    private readonly IGenericRepository<Installation> _instRepo;
+    private readonly IInstallationRepository _instRepo;
 
-    public GetCalendarEventsHandler(IGenericRepository<Installation> instRepo)
+    public GetCalendarEventsHandler(IInstallationRepository instRepo)
         => _instRepo = instRepo;
 
     public async Task<IReadOnlyList<InstallationListItemDto>> Handle(
@@ -35,19 +34,7 @@ public class GetCalendarEventsHandler
         if (hasta < desde)
             throw new DomainException("'hasta' no puede ser anterior a 'desde'.");
 
-        var query = _instRepo.GetAllReadOnly()
-            .Include(i => i.Client)
-            .Include(i => i.Plan)
-            .Include(i => i.Tecnico)
-            .Include(i => i.DistributionBox)
-            .Where(i => i.Fecha.Date >= desde && i.Fecha.Date <= hasta);
-
-        if (req.TecnicoId.HasValue)
-            query = query.Where(i => i.TecnicoId == req.TecnicoId);
-
-        var items = await query
-            .OrderBy(i => i.Fecha).ThenBy(i => i.HoraInicio)
-            .ToListAsync(ct);
+        var items = await _instRepo.GetCalendarRangeAsync(desde, hasta, req.TecnicoId, ct);
 
         return items.Select(InstallationMapper.ToListItem).ToList();
     }

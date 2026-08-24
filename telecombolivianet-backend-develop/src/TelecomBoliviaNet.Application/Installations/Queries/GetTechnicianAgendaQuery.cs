@@ -1,5 +1,4 @@
-using MediatR;
-using Microsoft.EntityFrameworkCore;
+﻿using MediatR;
 using TelecomBoliviaNet.Application.DTOs.Installations;
 using TelecomBoliviaNet.Domain.Entities.Auth;
 using TelecomBoliviaNet.Domain.Entities.Installations;
@@ -14,13 +13,13 @@ public record GetTechnicianAgendaQuery(Guid TecnicoId, string Fecha)
 public class GetTechnicianAgendaHandler
     : IRequestHandler<GetTechnicianAgendaQuery, TechnicianAgendaDto?>
 {
-    private readonly IGenericRepository<Installation> _instRepo;
-    private readonly IGenericRepository<TicketVisit>  _visitRepo;
+    private readonly IInstallationRepository _instRepo;
+    private readonly ITicketVisitRepository  _visitRepo;
     private readonly IGenericRepository<UserSystem>   _userRepo;
 
     public GetTechnicianAgendaHandler(
-        IGenericRepository<Installation> instRepo,
-        IGenericRepository<TicketVisit>  visitRepo,
+        IInstallationRepository instRepo,
+        ITicketVisitRepository  visitRepo,
         IGenericRepository<UserSystem>   userRepo)
     {
         _instRepo  = instRepo;
@@ -39,15 +38,7 @@ public class GetTechnicianAgendaHandler
 
         var targetDate = fecha.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc);
 
-        var installations = await _instRepo.GetAll()
-            .Include(i => i.Client)
-            .Include(i => i.Plan)
-            .Where(i => i.Fecha.Date == targetDate.Date
-                     && (i.TecnicoId == req.TecnicoId
-                         || i.Technicians.Any(t => t.TechnicianId == req.TecnicoId))
-                     && i.Status != InstallationStatus.Cancelada)
-            .OrderBy(i => i.HoraInicio)
-            .ToListAsync(ct);
+        var installations = await _instRepo.GetTechnicianDayAsync(req.TecnicoId, targetDate, ct);
 
         var installationItems = installations.Select(i => new AgendaItemDto(
             Id:            i.Id,
@@ -68,14 +59,7 @@ public class GetTechnicianAgendaHandler
         // Visitas de tickets (soporte técnico, recolección de equipo, cambio de
         // plan, etc.) — el técnico necesita verlas en la misma agenda que sus
         // instalaciones, no revisarlas ticket por ticket aparte.
-        var visits = await _visitRepo.GetAll()
-            .Include(v => v.Ticket).ThenInclude(t => t!.Client).ThenInclude(c => c!.Plan)
-            .Where(v => v.ScheduledAt.Date == targetDate.Date
-                     && (v.TechnicianId == req.TecnicoId
-                         || v.Technicians.Any(t => t.TechnicianId == req.TecnicoId))
-                     && v.Status != VisitStatus.Cancelada)
-            .OrderBy(v => v.ScheduledAt)
-            .ToListAsync(ct);
+        var visits = await _visitRepo.GetTechnicianDayAsync(req.TecnicoId, targetDate, ct);
 
         var visitItems = visits.Where(v => v.Ticket is not null).Select(v =>
         {
