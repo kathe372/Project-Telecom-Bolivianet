@@ -1,5 +1,4 @@
-using MediatR;
-using Microsoft.EntityFrameworkCore;
+﻿using MediatR;
 using TelecomBoliviaNet.Application.DTOs.Tickets;
 using TelecomBoliviaNet.Application.Tickets.Helpers;
 using TelecomBoliviaNet.Domain.Entities.Tickets;
@@ -16,6 +15,9 @@ public class GetSlaPlansHandler : IRequestHandler<GetSlaPlansQuery, IEnumerable<
     public GetSlaPlansHandler(IGenericRepository<SlaPlan> slaPlanRepo) => _slaPlanRepo = slaPlanRepo;
 
     public async Task<IEnumerable<SlaPlanDto>> Handle(GetSlaPlansQuery _, CancellationToken ct)
-        => (await _slaPlanRepo.GetAll().OrderBy(p => p.Priority).ToListAsync(ct))
+        // Catálogo diminuto (un plan por prioridad): ordenar en memoria no
+        // cuesta nada y evita arrastrar EF hasta el caso de uso.
+        => (await _slaPlanRepo.ListAsync())
+           .OrderBy(p => p.Priority)
            .Select(TicketHelper.MapSlaPlan);
 }

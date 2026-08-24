@@ -1,5 +1,4 @@
-using MediatR;
-using Microsoft.EntityFrameworkCore;
+﻿using MediatR;
 using TelecomBoliviaNet.Domain.Entities.Tickets;
 using TelecomBoliviaNet.Domain.Interfaces;
 
@@ -14,13 +13,10 @@ public record GetTicketOwnerQuery(Guid TicketId) : IRequest<Guid?>;
 
 public class GetTicketOwnerHandler : IRequestHandler<GetTicketOwnerQuery, Guid?>
 {
-    private readonly IGenericRepository<SupportTicket> _repo;
+    private readonly ITicketRepository _repo;
 
-    public GetTicketOwnerHandler(IGenericRepository<SupportTicket> repo) => _repo = repo;
+    public GetTicketOwnerHandler(ITicketRepository repo) => _repo = repo;
 
     public async Task<Guid?> Handle(GetTicketOwnerQuery q, CancellationToken ct) =>
-        await _repo.GetAllReadOnly()
-            .Where(t => t.Id == q.TicketId)
-            .Select(t => (Guid?)t.AssignedToUserId)
-            .FirstOrDefaultAsync(ct);
+        await _repo.GetAssignedUserIdAsync(q.TicketId, ct);
 }

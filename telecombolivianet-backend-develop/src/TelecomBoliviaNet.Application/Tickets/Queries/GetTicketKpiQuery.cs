@@ -1,4 +1,4 @@
-using MediatR;
+﻿using MediatR;
 using Microsoft.EntityFrameworkCore;
 using TelecomBoliviaNet.Application.DTOs.Tickets;
 using TelecomBoliviaNet.Application.Services.Notifications;
@@ -18,6 +18,16 @@ public class GetTicketKpiHandler : IRequestHandler<GetTicketKpiQuery, TicketKpiD
 
     public async Task<TicketKpiDto> Handle(GetTicketKpiQuery query, CancellationToken ct)
     {
+        // EXCEPCIÓN DELIBERADA A F4 (ADR-001): este handler conserva EF Core.
+        //
+        // Es un REPORTE: ocho conteos, un GroupBy por prioridad y dos promedios,
+        // todos sobre la misma consulta base filtrada. Que se agreguen en SQL es
+        // una optimización buscada — traer los tickets a memoria para contarlos
+        // sería mucho peor. Envolverlo en un repositorio significaría un método
+        // por cada métrica, o uno gigante que devuelve el DTO entero, que es
+        // mover el problema de sitio.
+        //
+        // Mismo criterio que PaymentService.GetCollectionReportAsync.
         var now   = DateTime.UtcNow;
         var q     = _ticketRepo.GetAll();
 
