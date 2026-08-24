@@ -1,5 +1,4 @@
-using MediatR;
-using Microsoft.EntityFrameworkCore;
+﻿using MediatR;
 using TelecomBoliviaNet.Application.Interfaces;
 using TelecomBoliviaNet.Domain.Entities.Clients;
 using TelecomBoliviaNet.Domain.Interfaces;
@@ -14,11 +13,11 @@ namespace TelecomBoliviaNet.Application.Payments.Events;
 public class SuggestReactivationOnDebtClearedHandler
     : INotificationHandler<PaymentRegisteredEvent>
 {
-    private readonly IGenericRepository<Client> _clientRepo;
+    private readonly IClientRepository _clientRepo;
     private readonly IInternalAlertService      _alerts;
 
     public SuggestReactivationOnDebtClearedHandler(
-        IGenericRepository<Client> clientRepo,
+        IClientRepository clientRepo,
         IInternalAlertService      alerts)
     {
         _clientRepo = clientRepo;
@@ -27,9 +26,7 @@ public class SuggestReactivationOnDebtClearedHandler
 
     public async Task Handle(PaymentRegisteredEvent e, CancellationToken ct)
     {
-        var client = await _clientRepo.GetAll()
-            .Include(c => c.Invoices)
-            .FirstOrDefaultAsync(c => c.Id == e.ClientId, ct);
+        var client = await _clientRepo.GetWithInvoicesAsync(e.ClientId, ct);
 
         if (client is null || client.Status != ClientStatus.Suspendido)
             return;

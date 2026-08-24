@@ -1,6 +1,5 @@
 ﻿using MediatR;
 using TelecomBoliviaNet.Application.Constants;
-using Microsoft.EntityFrameworkCore;
 using TelecomBoliviaNet.Application.Clients.Helpers;
 using TelecomBoliviaNet.Application.Services.Auth;
 using TelecomBoliviaNet.Application.Services.Tickets;
@@ -20,13 +19,13 @@ public record CancelClientCommand(
 
 public class CancelClientHandler : IRequestHandler<CancelClientCommand, Result<string>>
 {
-    private readonly IGenericRepository<Client>        _clientRepo;
+    private readonly IClientRepository        _clientRepo;
     private readonly IGenericRepository<SupportTicket> _ticketRepo;
     private readonly AuditService                      _audit;
     private readonly TicketNumberService                _ticketNumSvc;
 
     public CancelClientHandler(
-        IGenericRepository<Client>        clientRepo,
+        IClientRepository        clientRepo,
         IGenericRepository<SupportTicket> ticketRepo,
         AuditService                      audit,
         TicketNumberService                ticketNumSvc)
@@ -39,9 +38,7 @@ public class CancelClientHandler : IRequestHandler<CancelClientCommand, Result<s
 
     public async Task<Result<string>> Handle(CancelClientCommand cmd, CancellationToken ct)
     {
-        var client = await _clientRepo.GetAll()
-            .Include(c => c.Invoices)
-            .FirstOrDefaultAsync(c => c.Id == cmd.ClientId, ct);
+        var client = await _clientRepo.GetWithInvoicesAsync(cmd.ClientId, ct);
 
         if (client is null) return Result<string>.Failure("Cliente no encontrado.");
         if (client.Status == ClientStatus.DadoDeBaja)

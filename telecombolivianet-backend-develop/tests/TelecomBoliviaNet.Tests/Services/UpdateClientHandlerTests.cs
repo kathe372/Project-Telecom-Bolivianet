@@ -1,4 +1,4 @@
-using FluentAssertions;
+﻿using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
 using TelecomBoliviaNet.Application.Clients.Commands;
@@ -53,7 +53,7 @@ public class UpdateClientHandlerTests
         botProxy.Setup(b => b.InvalidateIdentityAsync(It.IsAny<string>())).ReturnsAsync(true);
 
         var handler = new UpdateClientHandler(
-            RepoMock.Of(client).Object,
+            SpecificRepoMock.Clients(client).Object,
             RepoMock.Of(plan).Object,
             MakeAudit(),
             botProxy.Object);
@@ -135,7 +135,7 @@ public class UpdateClientHandlerTests
         var botProxy = new Mock<IBotProxyService>();
         botProxy.Setup(b => b.InvalidateIdentityAsync(It.IsAny<string>())).ReturnsAsync(false);
         var handler = new UpdateClientHandler(
-            RepoMock.Of(client).Object, RepoMock.Of(plan).Object, MakeAudit(), botProxy.Object);
+            SpecificRepoMock.Clients(client).Object, RepoMock.Of(plan).Object, MakeAudit(), botProxy.Object);
 
         var result = await handler.Handle(
             new UpdateClientCommand(client.Id, MakeDto(client, plan.Id, phoneMain: "70000002"), ActorId, "Admin", "127.0.0.1"),

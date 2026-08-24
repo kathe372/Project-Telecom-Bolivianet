@@ -1,4 +1,13 @@
 ﻿using MediatR;
+// F4: este archivo conserva la referencia a EF Core por UN motivo: captura
+// DbUpdateConcurrencyException, que es el tipo que lanza EF cuando el token xmin
+// detecta que otra persona modificó la ficha. No hay consulta de EF aquí.
+//
+// Es el único archivo de Application en esa situación. Cuando se migren
+// PaymentService, BillingService, PlanChangeService e InvoiceOperationsService
+// —que hoy usan EF por muchos otros motivos— habrá cinco, y entonces sí
+// compensará una excepción propia del dominio traducida en el repositorio.
+// Con uno solo, la abstracción costaría más de lo que quita.
 using Microsoft.EntityFrameworkCore;
 using System.Text.Json;
 using TelecomBoliviaNet.Application.DTOs.Clients;
@@ -20,13 +29,13 @@ public record UpdateClientCommand(
 
 public class UpdateClientHandler : IRequestHandler<UpdateClientCommand, Result>
 {
-    private readonly IGenericRepository<Client> _clientRepo;
+    private readonly IClientRepository _clientRepo;
     private readonly IGenericRepository<Plan>   _planRepo;
     private readonly AuditService               _audit;
     private readonly IBotProxyService           _botProxy;
 
     public UpdateClientHandler(
-        IGenericRepository<Client> clientRepo,
+        IClientRepository clientRepo,
         IGenericRepository<Plan>   planRepo,
         AuditService               audit,
         IBotProxyService           botProxy)
@@ -39,9 +48,7 @@ public class UpdateClientHandler : IRequestHandler<UpdateClientCommand, Result>
 
     public async Task<Result> Handle(UpdateClientCommand cmd, CancellationToken ct)
     {
-        var client = await _clientRepo.GetAll()
-            .Include(c => c.Plan)
-            .FirstOrDefaultAsync(c => c.Id == cmd.ClientId, ct);
+        var client = await _clientRepo.GetWithPlanAsync(cmd.ClientId, ct);
 
         if (client is null) return Result.Failure("Cliente no encontrado.");
 

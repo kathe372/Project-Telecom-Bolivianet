@@ -1,5 +1,4 @@
 using MediatR;
-using Microsoft.EntityFrameworkCore;
 using TelecomBoliviaNet.Application.DTOs.Clients;
 using TelecomBoliviaNet.Domain.Entities.Clients;
 using TelecomBoliviaNet.Domain.Interfaces;
@@ -23,9 +22,9 @@ public class GetClientByPhoneHandler :
     IRequestHandler<GetClientByPhoneQuery, ClientBotDto?>,
     IRequestHandler<GetClientsByPhoneQuery, List<ClientBotDto>>
 {
-    private readonly IGenericRepository<Client> _clientRepo;
+    private readonly IClientRepository _clientRepo;
 
-    public GetClientByPhoneHandler(IGenericRepository<Client> clientRepo) => _clientRepo = clientRepo;
+    public GetClientByPhoneHandler(IClientRepository clientRepo) => _clientRepo = clientRepo;
 
     public async Task<ClientBotDto?> Handle(GetClientByPhoneQuery q, CancellationToken ct)
     {
@@ -43,16 +42,11 @@ public class GetClientByPhoneHandler :
         if (phone.StartsWith("591") && phone.Length > 3)
             phone = phone[3..];
 
-        var clients = await _clientRepo.GetAll()
-            .Include(c => c.Plan)
-            .Include(c => c.Invoices)
-            .Where(c =>
-                c.PhoneMain      == phone    ||
-                c.PhoneMain      == rawPhone ||
-                c.PhoneSecondary == phone    ||
-                c.PhoneSecondary == rawPhone)
-            .OrderBy(c => c.CreatedAt)
-            .ToListAsync(ct);
+        // Se buscan ambas formas: como llegó y sin el prefijo de país. Un mismo
+        // cliente puede estar registrado de cualquiera de las dos maneras.
+        var candidatos = phone == rawPhone ? new[] { phone } : new[] { phone, rawPhone };
+
+        var clients = await _clientRepo.GetByAnyPhoneAsync(candidatos, ct);
 
         return clients.Select(client =>
         {

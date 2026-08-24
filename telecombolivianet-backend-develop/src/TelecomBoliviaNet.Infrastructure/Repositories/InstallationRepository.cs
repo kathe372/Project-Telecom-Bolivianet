@@ -33,6 +33,14 @@ public class InstallationRepository : GenericRepository<Installation>, IInstalla
         return pares.ToDictionary(x => x.ClientId, x => x.BoxCodigo);
     }
 
+    public Task<ClientBoxRef?> GetLatestBoxForClientAsync(
+        Guid clientId, CancellationToken ct = default)
+        => _db.Installations.AsNoTracking()
+            .Where(i => i.ClientId == clientId && i.DistributionBoxId != null)
+            .OrderByDescending(i => i.Fecha)
+            .Select(i => new ClientBoxRef(i.DistributionBoxId!.Value, i.DistributionBox!.Codigo))
+            .FirstOrDefaultAsync(ct);
+
     public Task<Installation?> GetForCommandAsync(Guid id, CancellationToken ct = default)
         => _db.Installations
             .Include(i => i.Client)

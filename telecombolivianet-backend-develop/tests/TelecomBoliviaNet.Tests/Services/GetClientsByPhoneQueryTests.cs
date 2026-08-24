@@ -1,4 +1,4 @@
-using FluentAssertions;
+﻿using FluentAssertions;
 using TelecomBoliviaNet.Application.Clients.Queries;
 using TelecomBoliviaNet.Domain.Entities.Clients;
 using TelecomBoliviaNet.Tests.Helpers;
@@ -15,7 +15,7 @@ namespace TelecomBoliviaNet.Tests.Services;
 public class GetClientsByPhoneQueryTests
 {
     private static GetClientByPhoneHandler MakeHandler(params Client[] clients)
-        => new(RepoMock.Of(clients).Object);
+        => new(SpecificRepoMock.Clients(clients).Object);
 
     [Fact]
     public async Task SinCoincidencias_DevuelveListaVacia()

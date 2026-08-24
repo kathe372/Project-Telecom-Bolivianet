@@ -67,32 +67,32 @@ public class ClientServiceTests
     }
 
     private static (SuspendClientHandler handler,
-                    Mock<IGenericRepository<Client>> clientRepo,
+                    Mock<IClientRepository> clientRepo,
                     Mock<INotifPublisher> notif)
         MakeSuspend(Client? client = null)
     {
         var notif      = MakeNotif();
-        var clientRepo = RepoMock.Of(client ?? MakeClient());
+        var clientRepo = SpecificRepoMock.Clients(client ?? MakeClient());
         var handler    = new SuspendClientHandler(clientRepo.Object, MakeAudit(), notif.Object);
         return (handler, clientRepo, notif);
     }
 
     private static (ReactivateClientHandler handler,
-                    Mock<IGenericRepository<Client>> clientRepo,
+                    Mock<IClientRepository> clientRepo,
                     Mock<INotifPublisher> notif)
         MakeReactivate(Client? client = null)
     {
         var notif      = MakeNotif();
-        var clientRepo = RepoMock.Of(client ?? MakeClient());
+        var clientRepo = SpecificRepoMock.Clients(client ?? MakeClient());
         var handler    = new ReactivateClientHandler(clientRepo.Object, MakeAudit(), notif.Object);
         return (handler, clientRepo, notif);
     }
 
     private static (CancelClientHandler handler,
-                    Mock<IGenericRepository<Client>> clientRepo)
+                    Mock<IClientRepository> clientRepo)
         MakeCancel(Client? client = null)
     {
-        var clientRepo = RepoMock.Of(client ?? MakeClient());
+        var clientRepo = SpecificRepoMock.Clients(client ?? MakeClient());
         var ticketRepo = RepoMock.Empty<SupportTicket>();
         var handler    = new CancelClientHandler(clientRepo.Object, ticketRepo.Object, MakeAudit(), MakeTicketNumSvc());
         return (handler, clientRepo);

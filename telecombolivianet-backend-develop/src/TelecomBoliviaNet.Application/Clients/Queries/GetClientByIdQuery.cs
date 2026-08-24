@@ -1,10 +1,8 @@
 using MediatR;
-using Microsoft.EntityFrameworkCore;
 using TelecomBoliviaNet.Application.Clients.Helpers;
 using TelecomBoliviaNet.Application.DTOs.Clients;
 using TelecomBoliviaNet.Application.DTOs.Plans;
 using TelecomBoliviaNet.Domain.Entities.Clients;
-using TelecomBoliviaNet.Domain.Entities.Installations;
 using TelecomBoliviaNet.Domain.Interfaces;
 
 namespace TelecomBoliviaNet.Application.Clients.Queries;
@@ -13,12 +11,12 @@ public record GetClientByIdQuery(Guid ClientId) : IRequest<ClientDetailDto?>;
 
 public class GetClientByIdHandler : IRequestHandler<GetClientByIdQuery, ClientDetailDto?>
 {
-    private readonly IGenericRepository<Client>       _clientRepo;
-    private readonly IGenericRepository<Installation> _installationRepo;
+    private readonly IClientRepository       _clientRepo;
+    private readonly IInstallationRepository _installationRepo;
 
     public GetClientByIdHandler(
-        IGenericRepository<Client>       clientRepo,
-        IGenericRepository<Installation> installationRepo)
+        IClientRepository       clientRepo,
+        IInstallationRepository installationRepo)
     {
         _clientRepo       = clientRepo;
         _installationRepo = installationRepo;
@@ -26,24 +24,12 @@ public class GetClientByIdHandler : IRequestHandler<GetClientByIdQuery, ClientDe
 
     public async Task<ClientDetailDto?> Handle(GetClientByIdQuery q, CancellationToken ct)
     {
-        var c = await _clientRepo.GetAll()
-            .IgnoreQueryFilters()
-            .Include(c => c.Plan)
-            .Include(c => c.InstalledBy)
-            .Include(c => c.Invoices)
-                .ThenInclude(i => i.PaymentInvoices)
-                    .ThenInclude(pi => pi.Payment)
-            .FirstOrDefaultAsync(c => c.Id == q.ClientId, ct);
+        var c = await _clientRepo.GetDetailAsync(q.ClientId, ct);
 
         if (c is null) return null;
 
         // Caja NAP a la que pertenece el cliente (vía su instalación con caja asignada).
-        var caja = await _installationRepo.GetAll()
-            .Include(i => i.DistributionBox)
-            .Where(i => i.ClientId == q.ClientId && i.DistributionBoxId != null)
-            .OrderByDescending(i => i.Fecha)
-            .Select(i => new { i.DistributionBoxId, Codigo = i.DistributionBox!.Codigo })
-            .FirstOrDefaultAsync(ct);
+        var caja = await _installationRepo.GetLatestBoxForClientAsync(q.ClientId, ct);
 
         var debt    = ClientProjectionHelpers.CalcDebt(c.Invoices);
         var pending = ClientProjectionHelpers.CalcPendingMonths(c.Invoices);
@@ -71,7 +57,7 @@ public class GetClientByIdHandler : IRequestHandler<GetClientByIdQuery, ClientDe
             c.CreditBalance,
             0,
             c.Xmin,
-            caja?.DistributionBoxId,
-            caja?.Codigo);
+            caja?.BoxId,
+            caja?.Code);
     }
 }

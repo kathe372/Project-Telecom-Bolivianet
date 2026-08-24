@@ -19,6 +19,13 @@ public interface IInstallationRepository : IGenericRepository<Installation>
     Task<Dictionary<Guid, string>> GetLatestBoxCodeByClientAsync(CancellationToken ct = default);
 
     /// <summary>
+    /// Caja NAP de la instalación más reciente de UN cliente, para su ficha.
+    /// Null si nunca se le asignó una. No reutiliza el diccionario de arriba:
+    /// ese recorre todos los clientes y aquí solo interesa uno.
+    /// </summary>
+    Task<ClientBoxRef?> GetLatestBoxForClientAsync(Guid clientId, CancellationToken ct = default);
+
+    /// <summary>
     /// Instalación con todo lo que necesitan los comandos que la modifican:
     /// cliente, plan, ticket y técnicos asignados.
     ///
@@ -62,6 +69,9 @@ public interface IInstallationRepository : IGenericRepository<Installation>
 /// ese sigue en Application con sus strings sin parsear. Traducirlo es trabajo del
 /// caso de uso, que es quien sabe qué significa un filtro vacío.
 /// </summary>
+/// <summary>Caja NAP a la que quedó conectado un cliente: su id y su código visible.</summary>
+public record ClientBoxRef(Guid BoxId, string Code);
+
 public record InstallationListFilter(
     InstallationStatus? Status         = null,
     DateTime?           Fecha          = null,

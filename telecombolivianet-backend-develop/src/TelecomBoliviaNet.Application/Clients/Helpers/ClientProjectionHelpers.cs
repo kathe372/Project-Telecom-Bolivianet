@@ -8,42 +8,12 @@ namespace TelecomBoliviaNet.Application.Clients.Helpers;
 internal static class ClientProjectionHelpers
 {
     private static readonly CultureInfo _es = CultureInfo.GetCultureInfo("es-BO");
-    internal static IQueryable<Client> ApplyFullTextSearch(IQueryable<Client> query, string searchTerm)
-    {
-        var q = searchTerm.ToLower();
-        return query.Where(c =>
-            c.FullName.ToLower().Contains(q)     ||
-            c.TbnCode.ToLower().Contains(q)      ||
-            c.IdentityCard.ToLower().Contains(q) ||
-            c.WinboxNumber.ToLower().Contains(q) ||
-            c.PhoneMain.Contains(q)              ||
-            c.Zone.ToLower().Contains(q)         ||
-            (c.PhoneSecondary != null && c.PhoneSecondary.Contains(q)) ||
-            (c.Email          != null && c.Email.ToLower().Contains(q)));
-    }
 
-    /// <summary>
-    /// Filtra clientes por si tienen o no deuda, con la MISMA definición que usa la columna de
-    /// deuda de la grilla (<see cref="CalcDebt"/> → <c>InvoiceDomainService.UnpaidStatuses</c>).
-    ///
-    /// Antes cada pantalla escribía su propio predicado <c>Pendiente|Vencida</c> mientras la
-    /// columna ya usaba la fuente única: los primeros días del mes un cliente aparecía con
-    /// "Bs. 149" en la grilla y desaparecía al marcar "Con deuda". Vive acá, junto a CalcDebt,
-    /// para que filtro y columna no puedan volver a divergir.
-    /// </summary>
-    /// <param name="debtFilter">"debt", "paid" o cualquier otro valor (sin filtro).</param>
-    internal static IQueryable<Client> ApplyDebtFilter(IQueryable<Client> query, string? debtFilter)
-    {
-        if (string.IsNullOrWhiteSpace(debtFilter)) return query;
-
-        var unpaid = InvoiceDomainService.UnpaidStatuses;
-        return debtFilter switch
-        {
-            "debt" => query.Where(c => c.Invoices.Any(i => unpaid.Contains(i.Status))),
-            "paid" => query.Where(c => !c.Invoices.Any(i => unpaid.Contains(i.Status))),
-            _      => query,
-        };
-    }
+    // Los filtros sobre IQueryable (búsqueda y deuda) se mudaron a
+    // Domain/Services/ClientQuerySpecs: ahora los aplica el repositorio, que es
+    // quien arma la consulta. CalcDebt sigue acá porque opera en memoria, sobre
+    // las facturas ya cargadas, y comparte con el filtro la misma definición de
+    // "impaga" vía InvoiceDomainService.UnpaidStatuses.
 
     internal static decimal CalcDebt(IEnumerable<Invoice> invoices) =>
         invoices.Sum(i => i.Outstanding);

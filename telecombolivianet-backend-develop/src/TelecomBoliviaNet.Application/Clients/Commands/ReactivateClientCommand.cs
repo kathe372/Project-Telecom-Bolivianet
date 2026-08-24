@@ -1,5 +1,4 @@
 ﻿using MediatR;
-using Microsoft.EntityFrameworkCore;
 using TelecomBoliviaNet.Application.Interfaces;
 using TelecomBoliviaNet.Application.Services.Auth;
 using TelecomBoliviaNet.Domain.Entities.Clients;
@@ -17,12 +16,12 @@ public record ReactivateClientCommand(
 
 public class ReactivateClientHandler : IRequestHandler<ReactivateClientCommand, Result>
 {
-    private readonly IGenericRepository<Client> _clientRepo;
+    private readonly IClientRepository _clientRepo;
     private readonly AuditService               _audit;
     private readonly INotifPublisher            _notif;
 
     public ReactivateClientHandler(
-        IGenericRepository<Client> clientRepo,
+        IClientRepository clientRepo,
         AuditService               audit,
         INotifPublisher            notif)
     {
@@ -33,9 +32,7 @@ public class ReactivateClientHandler : IRequestHandler<ReactivateClientCommand, 
 
     public async Task<Result> Handle(ReactivateClientCommand cmd, CancellationToken ct)
     {
-        var client = await _clientRepo.GetAll()
-            .Include(c => c.Plan)
-            .FirstOrDefaultAsync(c => c.Id == cmd.ClientId, ct);
+        var client = await _clientRepo.GetWithPlanAsync(cmd.ClientId, ct);
 
         if (client is null) return Result.Failure("Cliente no encontrado.");
         if (client.Status == ClientStatus.Activo)

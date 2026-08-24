@@ -1,6 +1,4 @@
 using MediatR;
-using Microsoft.EntityFrameworkCore;
-using TelecomBoliviaNet.Domain.Entities.Clients;
 using TelecomBoliviaNet.Domain.Interfaces;
 
 namespace TelecomBoliviaNet.Application.Clients.Queries;
@@ -26,9 +24,9 @@ public record InvoicePlanSnapshotDto(Guid InvoiceId, string? PlanName, decimal? 
 public class GetInvoicePlanSnapshotsHandler
     : IRequestHandler<GetInvoicePlanSnapshotsQuery, IEnumerable<InvoicePlanSnapshotDto>>
 {
-    private readonly IGenericRepository<Invoice> _invoiceRepo;
+    private readonly IInvoiceRepository _invoiceRepo;
 
-    public GetInvoicePlanSnapshotsHandler(IGenericRepository<Invoice> invoiceRepo)
+    public GetInvoicePlanSnapshotsHandler(IInvoiceRepository invoiceRepo)
         => _invoiceRepo = invoiceRepo;
 
     public async Task<IEnumerable<InvoicePlanSnapshotDto>> Handle(
@@ -37,9 +35,7 @@ public class GetInvoicePlanSnapshotsHandler
         var ids = q.InvoiceIds.ToList();
         if (ids.Count == 0) return [];
 
-        return await _invoiceRepo.GetAll()
-            .Where(i => ids.Contains(i.Id))
-            .Select(i => new InvoicePlanSnapshotDto(i.Id, i.PlanName, i.PlanPrice))
-            .ToListAsync(ct);
+        var snapshots = await _invoiceRepo.GetPlanSnapshotsAsync(ids, ct);
+        return snapshots.Select(s => new InvoicePlanSnapshotDto(s.InvoiceId, s.PlanName, s.PlanPrice));
     }
 }

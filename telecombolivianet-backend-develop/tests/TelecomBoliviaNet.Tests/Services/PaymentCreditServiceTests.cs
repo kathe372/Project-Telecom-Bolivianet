@@ -76,7 +76,7 @@ public class PaymentCreditServiceTests
     {
         var paymentRepo = RepoMock.Empty<Payment>();
         var invoiceRepo = RepoMock.Of(invoices);
-        var clientRepo  = RepoMock.Of(client);
+        var clientRepo  = SpecificRepoMock.Clients(client);
         var piRepo      = RepoMock.Empty<PaymentInvoice>();
         var receiptRepo = RepoMock.Empty<PaymentReceipt>();
 

@@ -1,4 +1,4 @@
-using TelecomBoliviaNet.Domain.Entities.Clients;
+﻿using TelecomBoliviaNet.Domain.Entities.Clients;
 
 namespace TelecomBoliviaNet.Domain.Interfaces;
 
@@ -22,7 +22,54 @@ public interface IClientRepository : IGenericRepository<Client>
     /// cobertura. Solo trae lo que el mapa dibuja, no la ficha completa.
     /// </summary>
     Task<List<ClientMapPoint>> GetWithGpsAsync(CancellationToken ct = default);
+
+    /// <summary>
+    /// Cliente con sus facturas cargadas. Lo necesita la baja, que antes de
+    /// cancelar comprueba si queda deuda.
+    /// </summary>
+    Task<Client?> GetWithInvoicesAsync(Guid id, CancellationToken ct = default);
+
+    /// <summary>
+    /// Ficha completa de un cliente: plan, quién lo instaló y el historial de
+    /// facturas con sus pagos. Null si no existe.
+    /// </summary>
+    Task<Client?> GetDetailAsync(Guid id, CancellationToken ct = default);
+
+    /// <summary>
+    /// Clientes cuyo teléfono principal o secundario coincide con alguno de los
+    /// números dados, con plan y facturas cargados, del más antiguo al más nuevo.
+    ///
+    /// <para>Recibe VARIOS números porque quien llama ya normalizó el que le
+    /// llegó (con y sin prefijo 591) y quiere probar ambas formas en una sola
+    /// consulta. Puede devolver más de uno: el teléfono no es único, dos
+    /// familiares con CIs distintos comparten contacto.</para>
+    /// </summary>
+    Task<List<Client>> GetByAnyPhoneAsync(
+        IReadOnlyCollection<string> phones, CancellationToken ct = default);
+
+    /// <summary>
+    /// Página del listado con plan y facturas cargadas, ya filtrada y ordenada.
+    /// Sirve tanto a la grilla de Clientes como a la búsqueda avanzada.
+    /// </summary>
+    Task<(List<Client> Items, int Total)> GetPagedAsync(
+        ClientListFilter filter, CancellationToken ct = default);
 }
+
+/// <summary>
+/// Criterios del listado de clientes. Los dos consumidores —la grilla y la
+/// búsqueda avanzada— usan subconjuntos distintos, de ahí que todo sea opcional.
+/// </summary>
+public record ClientListFilter(
+    string? Search          = null,
+    string? Status          = null,
+    Guid?   PlanId          = null,
+    string? Zone            = null,
+    bool?   HasEmail        = null,
+    string? DebtFilter      = null,
+    string? SortBy          = null,
+    bool    IncludeDeleted  = false,
+    int     Page            = 1,
+    int     PageSize        = 20);
 
 /// <summary>
 /// Proyección mínima de un cliente para el mapa: lo que se pinta y nada más.

@@ -1,5 +1,4 @@
 using MediatR;
-using Microsoft.EntityFrameworkCore;
 using TelecomBoliviaNet.Application.Clients.Helpers;
 using TelecomBoliviaNet.Application.DTOs.Clients;
 using TelecomBoliviaNet.Domain.Entities.Clients;
@@ -11,12 +10,12 @@ public record GetClientInvoicesQuery(Guid ClientId, int Year) : IRequest<Invoice
 
 public class GetClientInvoicesHandler : IRequestHandler<GetClientInvoicesQuery, InvoiceGridDto>
 {
-    private readonly IGenericRepository<Invoice> _invoiceRepo;
-    private readonly IGenericRepository<Payment> _paymentRepo;
+    private readonly IInvoiceRepository _invoiceRepo;
+    private readonly IPaymentRepository _paymentRepo;
 
     public GetClientInvoicesHandler(
-        IGenericRepository<Invoice> invoiceRepo,
-        IGenericRepository<Payment> paymentRepo)
+        IInvoiceRepository invoiceRepo,
+        IPaymentRepository paymentRepo)
     {
         _invoiceRepo = invoiceRepo;
         _paymentRepo = paymentRepo;
@@ -24,20 +23,8 @@ public class GetClientInvoicesHandler : IRequestHandler<GetClientInvoicesQuery, 
 
     public async Task<InvoiceGridDto> Handle(GetClientInvoicesQuery q, CancellationToken ct)
     {
-        var invoices = await _invoiceRepo.GetAll()
-            .Where(i => i.ClientId == q.ClientId &&
-                        (i.Year == q.Year || i.Type == InvoiceType.Instalacion) &&
-                        i.Status != InvoiceStatus.Anulada)
-            .OrderBy(i => i.Month)
-            .ToListAsync(ct);
-
-        var payments = await _paymentRepo.GetAll()
-            .Include(p => p.RegisteredBy)
-            .Include(p => p.PaymentInvoices)
-                .ThenInclude(pi => pi.Invoice)
-            .Where(p => p.ClientId == q.ClientId)
-            .OrderByDescending(p => p.PaidAt)
-            .ToListAsync(ct);
+        var invoices = await _invoiceRepo.GetForClientYearAsync(q.ClientId, q.Year, ct);
+        var payments = await _paymentRepo.GetHistoryForClientAsync(q.ClientId, ct);
 
         var debt    = ClientProjectionHelpers.CalcDebt(
             invoices.Where(i => i.Year == q.Year || i.Type == InvoiceType.Instalacion));

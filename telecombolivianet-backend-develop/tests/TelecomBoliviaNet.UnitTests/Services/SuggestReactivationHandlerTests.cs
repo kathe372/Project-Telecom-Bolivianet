@@ -17,8 +17,9 @@ public class SuggestReactivationHandlerTests
 
     private SuggestReactivationOnDebtClearedHandler Build(Client client)
     {
-        var repo = new Mock<IGenericRepository<Client>>(MockBehavior.Loose);
-        repo.Setup(r => r.GetAll()).Returns(new[] { client }.AsQueryable().BuildMock());
+        var repo = new Mock<IClientRepository>(MockBehavior.Loose);
+        repo.Setup(r => r.GetWithInvoicesAsync(client.Id, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(client);
         return new SuggestReactivationOnDebtClearedHandler(repo.Object, _alerts.Object);
     }
 

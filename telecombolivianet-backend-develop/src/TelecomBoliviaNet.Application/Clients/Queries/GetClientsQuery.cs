@@ -1,9 +1,7 @@
 using MediatR;
-using Microsoft.EntityFrameworkCore;
 using TelecomBoliviaNet.Application.Clients.Helpers;
 using TelecomBoliviaNet.Application.DTOs.Clients;
 using TelecomBoliviaNet.Application.DTOs.Common;
-using TelecomBoliviaNet.Domain.Entities.Clients;
 using TelecomBoliviaNet.Domain.Interfaces;
 
 namespace TelecomBoliviaNet.Application.Clients.Queries;
@@ -12,51 +10,29 @@ public record GetClientsQuery(ClientFilterDto Filter) : IRequest<PagedResult<Cli
 
 public class GetClientsHandler : IRequestHandler<GetClientsQuery, PagedResult<ClientListItemDto>>
 {
-    private readonly IGenericRepository<Client> _clientRepo;
+    private readonly IClientRepository _clientRepo;
 
-    public GetClientsHandler(IGenericRepository<Client> clientRepo) => _clientRepo = clientRepo;
+    public GetClientsHandler(IClientRepository clientRepo) => _clientRepo = clientRepo;
 
     public async Task<PagedResult<ClientListItemDto>> Handle(GetClientsQuery q, CancellationToken ct)
     {
         var filter = q.Filter;
 
+        // Los dados de baja solo aparecen si el operador no filtra por estado o
+        // los pide explícitamente; el resto de vistas los deja fuera.
         var includeBaja = string.IsNullOrWhiteSpace(filter.Status)
                           || filter.Status == "all"
                           || filter.Status == "DadoDeBaja";
-        var baseQuery = includeBaja
-            ? _clientRepo.GetAllReadOnly().IgnoreQueryFilters()
-            : _clientRepo.GetAllReadOnly();
 
-        var query = baseQuery
-            .Include(c => c.Plan)
-            .Include(c => c.Invoices)
-            .AsQueryable();
-
-        if (!string.IsNullOrWhiteSpace(filter.Search))
-            query = ClientProjectionHelpers.ApplyFullTextSearch(query, filter.Search);
-
-        if (!string.IsNullOrWhiteSpace(filter.Status) && filter.Status != "all")
-            if (Enum.TryParse<ClientStatus>(filter.Status, out var status))
-                query = query.Where(c => c.Status == status);
-
-        if (filter.PlanId.HasValue)
-            query = query.Where(c => c.PlanId == filter.PlanId.Value);
-
-        query = filter.SortBy switch
-        {
-            "code" => query.OrderBy(c => c.TbnCode),
-            "zone" => query.OrderBy(c => c.Zone),
-            "name" => query.OrderBy(c => c.FullName),
-            _      => query.OrderBy(c => c.TbnCode)
-        };
-
-        query = ClientProjectionHelpers.ApplyDebtFilter(query, filter.DebtFilter);
-
-        var total   = await query.CountAsync(ct);
-        var clients = await query
-            .Skip((filter.PageNumber - 1) * filter.PageSize)
-            .Take(filter.PageSize)
-            .ToListAsync(ct);
+        var (clients, total) = await _clientRepo.GetPagedAsync(new ClientListFilter(
+            Search:         filter.Search,
+            Status:         filter.Status,
+            PlanId:         filter.PlanId,
+            DebtFilter:     filter.DebtFilter,
+            SortBy:         filter.SortBy,
+            IncludeDeleted: includeBaja,
+            Page:           filter.PageNumber,
+            PageSize:       filter.PageSize), ct);
 
         var items = clients.Select(c => new ClientListItemDto(
             c.Id, c.TbnCode, c.FullName, c.Zone,

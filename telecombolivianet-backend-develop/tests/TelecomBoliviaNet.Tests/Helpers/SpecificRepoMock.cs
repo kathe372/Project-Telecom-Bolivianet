@@ -97,6 +97,61 @@ public static class SpecificRepoMock
         mock.Setup(r => r.GetWithGpsAsync(It.IsAny<CancellationToken>()))
             .ReturnsAsync(new List<ClientMapPoint>());
 
+        // Las facturas ya vienen en la colección del cliente que arma el test:
+        // basta con devolver la misma instancia, igual que hace el Include real.
+        mock.Setup(r => r.GetWithInvoicesAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((Guid id, CancellationToken _) => lista.FirstOrDefault(c => c.Id == id));
+
+        mock.Setup(r => r.GetDetailAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((Guid id, CancellationToken _) => lista.FirstOrDefault(c => c.Id == id));
+
+        mock.Setup(r => r.GetByAnyPhoneAsync(
+                It.IsAny<IReadOnlyCollection<string>>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((IReadOnlyCollection<string> phones, CancellationToken _) => lista
+                .Where(c => phones.Contains(c.PhoneMain)
+                         || (c.PhoneSecondary != null && phones.Contains(c.PhoneSecondary)))
+                .OrderBy(c => c.CreatedAt)
+                .ToList());
+
+        return mock;
+    }
+
+    public static Mock<IInvoiceRepository> Invoices(params Invoice[] items)
+    {
+        var lista = items.ToList();
+        var mock  = RepoMock.Of<IInvoiceRepository, Invoice>(items);
+
+        mock.Setup(r => r.GetForClientYearAsync(
+                It.IsAny<Guid>(), It.IsAny<int>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((Guid clientId, int year, CancellationToken _) => lista
+                .Where(i => i.ClientId == clientId
+                         && (i.Year == year || i.Type == InvoiceType.Instalacion)
+                         && i.Status != InvoiceStatus.Anulada)
+                .OrderBy(i => i.Month)
+                .ToList());
+
+        mock.Setup(r => r.GetPlanSnapshotsAsync(
+                It.IsAny<IReadOnlyCollection<Guid>>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((IReadOnlyCollection<Guid> ids, CancellationToken _) => lista
+                .Where(i => ids.Contains(i.Id))
+                .Select(i => new InvoicePlanSnapshot(i.Id, i.PlanName, i.PlanPrice))
+                .ToList());
+
+        return mock;
+    }
+
+    public static Mock<IPaymentRepository> Payments(params Payment[] items)
+    {
+        var lista = items.ToList();
+        var mock  = RepoMock.Of<IPaymentRepository, Payment>(items);
+
+        mock.Setup(r => r.GetHistoryForClientAsync(
+                It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((Guid clientId, CancellationToken _) => lista
+                .Where(p => p.ClientId == clientId)
+                .OrderByDescending(p => p.PaidAt)
+                .ToList());
+
         return mock;
     }
 

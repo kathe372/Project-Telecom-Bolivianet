@@ -1,4 +1,4 @@
-using FluentAssertions;
+﻿using FluentAssertions;
 using TelecomBoliviaNet.Application.Clients.Queries;
 using TelecomBoliviaNet.Domain.Entities.Clients;
 using TelecomBoliviaNet.Tests.Helpers;
@@ -21,7 +21,7 @@ public class GetInvoicePlanSnapshotsHandlerTests
     {
         var inv1 = MakeInvoice(Guid.NewGuid(), "Plan Cobre", 99m);
         var inv2 = MakeInvoice(Guid.NewGuid(), "Plan Platinium 1", 199m);
-        var repo = RepoMock.Of(inv1, inv2);
+        var repo = SpecificRepoMock.Invoices(inv1, inv2);
         var handler = new GetInvoicePlanSnapshotsHandler(repo.Object);
 
         var result = (await handler.Handle(
@@ -37,7 +37,7 @@ public class GetInvoicePlanSnapshotsHandlerTests
     {
         var wanted   = MakeInvoice(Guid.NewGuid(), "Plan Cobre", 99m);
         var unwanted = MakeInvoice(Guid.NewGuid(), "Plan Oro", 300m);
-        var repo = RepoMock.Of(wanted, unwanted);
+        var repo = SpecificRepoMock.Invoices(wanted, unwanted);
         var handler = new GetInvoicePlanSnapshotsHandler(repo.Object);
 
         var result = (await handler.Handle(
@@ -50,7 +50,7 @@ public class GetInvoicePlanSnapshotsHandlerTests
     [Fact]
     public async Task Empty_InvoiceIds_Returns_Empty_Without_Querying()
     {
-        var repo = RepoMock.Empty<Invoice>();
+        var repo = SpecificRepoMock.Invoices();
         var handler = new GetInvoicePlanSnapshotsHandler(repo.Object);
 
         var result = await handler.Handle(new GetInvoicePlanSnapshotsQuery([]), CancellationToken.None);
@@ -62,7 +62,7 @@ public class GetInvoicePlanSnapshotsHandlerTests
     public async Task NullPlanName_And_NullPlanPrice_Are_Preserved_As_Null()
     {
         var invoice = MakeInvoice(Guid.NewGuid(), null, null);
-        var repo = RepoMock.Of(invoice);
+        var repo = SpecificRepoMock.Invoices(invoice);
         var handler = new GetInvoicePlanSnapshotsHandler(repo.Object);
 
         var result = (await handler.Handle(
