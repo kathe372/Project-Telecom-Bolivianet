@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using TelecomBoliviaNet.Domain.Entities.Clients;
 using TelecomBoliviaNet.Domain.Interfaces;
 using TelecomBoliviaNet.Infrastructure.Data;
@@ -27,6 +27,14 @@ public class InvoiceRepository : GenericRepository<Invoice>, IInvoiceRepository
             .Where(i => invoiceIds.Contains(i.Id))
             .Select(i => new InvoicePlanSnapshot(i.Id, i.PlanName, i.PlanPrice))
             .ToListAsync(ct);
+
+    public Task<List<Invoice>> GetForClientBetweenAsync(
+        Guid clientId, DateTime? from, DateTime? to, CancellationToken ct = default)
+        => _db.Invoices.AsNoTracking()
+            .Where(i => i.ClientId == clientId
+                     && (from == null || i.IssuedAt >= from)
+                     && (to   == null || i.IssuedAt <= to))
+            .ToListAsync(ct);
 }
 
 /// <summary>Implementación de <see cref="IPaymentRepository"/>. Ver ADR-001.</summary>
@@ -44,5 +52,14 @@ public class PaymentRepository : GenericRepository<Payment>, IPaymentRepository
                 .ThenInclude(pi => pi.Invoice)
             .Where(p => p.ClientId == clientId)
             .OrderByDescending(p => p.PaidAt)
+            .ToListAsync(ct);
+
+    public Task<List<Payment>> GetForClientBetweenAsync(
+        Guid clientId, DateTime? from, DateTime? to, CancellationToken ct = default)
+        => _db.Payments.AsNoTracking()
+            .Include(p => p.RegisteredBy)
+            .Where(p => p.ClientId == clientId && !p.IsVoided
+                     && (from == null || p.PaidAt >= from)
+                     && (to   == null || p.PaidAt <= to))
             .ToListAsync(ct);
 }

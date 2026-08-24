@@ -33,4 +33,12 @@ public interface IUserRepository : IGenericRepository<UserSystem>
         int      page,
         int      pageSize,
         CancellationToken ct = default);
+
+    /// <summary>
+    /// Nombre de cada usuario indicado, indexado por Id. Para listados que
+    /// muestran "quién hizo esto" sin necesitar la ficha completa: se resuelve
+    /// en una consulta en vez de una por fila.
+    /// </summary>
+    Task<Dictionary<Guid, string>> GetNamesByIdsAsync(
+        IReadOnlyCollection<Guid> ids, CancellationToken ct = default);
 }

@@ -120,6 +120,10 @@ public static class DependencyInjection
         services.AddScoped<ITicketVisitRepository,      TicketVisitRepository>();
         services.AddScoped<IInvoiceRepository,          InvoiceRepository>();
         services.AddScoped<IPaymentRepository,          PaymentRepository>();
+        services.AddScoped<IClientAttachmentRepository, ClientAttachmentRepository>();
+        services.AddScoped<IClientQrRepository,         ClientQrRepository>();
+        services.AddScoped<INotifLogRepository,         NotifLogRepository>();
+        services.AddScoped<IPlanChangeRequestRepository, PlanChangeRequestRepository>();
 
         return services;
     }

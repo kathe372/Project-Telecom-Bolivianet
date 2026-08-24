@@ -1,4 +1,4 @@
-using TelecomBoliviaNet.Domain.Entities.Clients;
+﻿using TelecomBoliviaNet.Domain.Entities.Clients;
 
 namespace TelecomBoliviaNet.Domain.Interfaces;
 
@@ -26,6 +26,14 @@ public interface IInvoiceRepository : IGenericRepository<Invoice>
     /// </summary>
     Task<List<InvoicePlanSnapshot>> GetPlanSnapshotsAsync(
         IReadOnlyCollection<Guid> invoiceIds, CancellationToken ct = default);
+
+    /// <summary>
+    /// Facturas emitidas a un cliente dentro de una ventana de fechas — todas,
+    /// incluidas las anuladas: la línea de tiempo de su ficha cuenta lo que
+    /// pasó, no lo que quedó vigente.
+    /// </summary>
+    Task<List<Invoice>> GetForClientBetweenAsync(
+        Guid clientId, DateTime? from, DateTime? to, CancellationToken ct = default);
 }
 
 /// <summary>Lo que costaba el plan del cliente en el momento de emitir la factura.</summary>
@@ -41,4 +49,12 @@ public interface IPaymentRepository : IGenericRepository<Payment>
     /// </summary>
     Task<List<Payment>> GetHistoryForClientAsync(
         Guid clientId, CancellationToken ct = default);
+
+    /// <summary>
+    /// Pagos vigentes de un cliente dentro de una ventana de fechas, con quién
+    /// los registró. Los anulados quedan fuera: en la línea de tiempo figuran
+    /// por su asiento de auditoría, no como cobro.
+    /// </summary>
+    Task<List<Payment>> GetForClientBetweenAsync(
+        Guid clientId, DateTime? from, DateTime? to, CancellationToken ct = default);
 }

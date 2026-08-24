@@ -84,7 +84,7 @@ public class PlanChangeServiceTests
     }
 
     private (PlanChangeService svc,
-             Mock<IGenericRepository<PlanChangeRequest>> changeRepo,
+             Mock<IPlanChangeRequestRepository> changeRepo,
              Mock<IGenericRepository<Invoice>> invoiceRepo,
              Mock<INotifPublisher> notif)
         MakeService(
@@ -97,11 +97,11 @@ public class PlanChangeServiceTests
         var resolvedNew = newPlan  ?? MakePlan(NewPlanId, "Plan Plata", 150m);
         var resolvedCli = client   ?? MakeClient(OldPlanId, oldPlan);
 
-        var changeRepo  = RepoMock.Of(changes?.ToArray()  ?? []);
-        var clientRepo  = RepoMock.Of(resolvedCli);
+        var changeRepo  = SpecificRepoMock.PlanChanges(changes?.ToArray() ?? []);
+        var clientRepo  = SpecificRepoMock.Clients(resolvedCli);
         var planRepo    = RepoMock.Of(oldPlan, resolvedNew);
         var invoiceRepo = RepoMock.Of(invoices?.ToArray() ?? []);
-        var ticketRepo  = RepoMock.Empty<SupportTicket>();
+        var ticketRepo  = SpecificRepoMock.Tickets();
         var notifMock   = new Mock<INotifPublisher>();
         notifMock.Setup(n => n.PublishAsync(
             It.IsAny<NotifType>(), It.IsAny<Guid>(),

@@ -1,5 +1,4 @@
 ﻿using Microsoft.AspNetCore.Http;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using TelecomBoliviaNet.Application.DTOs.Clients;
 using TelecomBoliviaNet.Application.Interfaces;
@@ -13,9 +12,9 @@ namespace TelecomBoliviaNet.Application.Services.Clients;
 
 public class ClientQrService : IClientQrService
 {
-    private readonly IGenericRepository<ClientQr>   _qrRepo;
+    private readonly IClientQrRepository   _qrRepo;
     private readonly IGenericRepository<Client>      _clientRepo;
-    private readonly IGenericRepository<UserSystem>  _userRepo;
+    private readonly IUserRepository  _userRepo;
     private readonly IFileStorage                    _fileStorage;
     private readonly AuditService                    _audit;
     private readonly ILogger<ClientQrService>        _logger;
@@ -23,9 +22,9 @@ public class ClientQrService : IClientQrService
     private const int AlertDaysBefore = 5;
 
     public ClientQrService(
-        IGenericRepository<ClientQr>  qrRepo,
+        IClientQrRepository  qrRepo,
         IGenericRepository<Client>    clientRepo,
-        IGenericRepository<UserSystem> userRepo,
+        IUserRepository userRepo,
         IFileStorage                  fileStorage,
         AuditService                  audit,
         ILogger<ClientQrService>      logger)
@@ -58,9 +57,7 @@ public class ClientQrService : IClientQrService
         if (!allowed.Contains(file.ContentType.ToLower()))
             return Result<ClientQrDto>.Failure("Formato no permitido. Use JPG, PNG o WebP.");
 
-        var anterior = await _qrRepo.GetAll()
-            .Where(q => q.ClientId == clientId && q.IsActive)
-            .FirstOrDefaultAsync();
+        var anterior = await _qrRepo.GetActiveAsync(clientId);
 
         if (anterior is not null)
         {
@@ -106,13 +103,7 @@ public class ClientQrService : IClientQrService
     {
         var now = DateTime.UtcNow;
 
-        var qr = await _qrRepo.GetAll()
-            .Include(q => q.Client)
-            .Where(q => q.ClientId == clientId
-                     && q.IsActive
-                     && (q.ExpiresAt == null || q.ExpiresAt.Value > now))
-            .OrderByDescending(q => q.UploadedAt)
-            .FirstOrDefaultAsync();
+        var qr = await _qrRepo.GetActiveValidAsync(clientId, now);
 
         if (qr is null) return (null, null, null);
 
@@ -133,17 +124,18 @@ public class ClientQrService : IClientQrService
     public async Task DeactivateExpiredQrsAsync()
     {
         var now     = DateTime.UtcNow;
-        var expired = await _qrRepo.GetAll()
-            .Where(q => q.IsActive && q.ExpiresAt.HasValue && q.ExpiresAt.Value <= now)
-            .ToListAsync();
+        var expired = await _qrRepo.GetExpiredAsync(now);
 
         foreach (var qr in expired)
         {
             qr.IsActive          = false;
             qr.DeactivatedReason = "Expirado automáticamente";
             _qrRepo.Update(qr);
-            await _qrRepo.SaveChangesAsync();
         }
+
+        // Un solo guardado para todo el lote: antes se confirmaba dentro del
+        // bucle, una transacción por QR.
+        if (expired.Count > 0) await _qrRepo.SaveChangesAsync();
 
         if (expired.Count > 0)
             _logger.LogInformation("QrService: {Count} QRs desactivados por expiración", expired.Count);
@@ -152,15 +144,10 @@ public class ClientQrService : IClientQrService
 
     public async Task<List<ClientQrDto>> GetHistorialAsync(Guid clientId)
     {
-        var qrs = await _qrRepo.GetAll()
-            .Where(q => q.ClientId == clientId)
-            .OrderByDescending(q => q.UploadedAt)
-            .ToListAsync();
+        var qrs = await _qrRepo.GetHistoryAsync(clientId);
 
         var actorIds = qrs.Select(q => q.UploadedById).Distinct().ToList();
-        var actors   = await _userRepo.GetAll()
-            .Where(u => actorIds.Contains(u.Id))
-            .ToDictionaryAsync(u => u.Id, u => u.FullName);
+        var actors   = await _userRepo.GetNamesByIdsAsync(actorIds);
 
         return qrs.Select(q => MapDto(q, actors.GetValueOrDefault(q.UploadedById, "Sistema"))).ToList();
     }
@@ -171,15 +158,7 @@ public class ClientQrService : IClientQrService
     {
         var alertDate = DateTime.UtcNow.AddDays(AlertDaysBefore);
 
-        var qrs = await _qrRepo.GetAll()
-            .Include(q => q.Client)
-            .Where(q =>
-                q.IsActive &&
-                !q.AlertSent &&
-                q.ExpiresAt.HasValue &&
-                q.ExpiresAt.Value <= alertDate &&
-                q.ExpiresAt.Value > DateTime.UtcNow)
-            .ToListAsync();
+        var qrs = await _qrRepo.GetExpiringSoonAsync(DateTime.UtcNow, alertDate);
 
         return qrs.Select(q => (
             q.ClientId,
@@ -191,9 +170,7 @@ public class ClientQrService : IClientQrService
 
     public async Task MarkAlertSentAsync(Guid clientId)
     {
-        var qr = await _qrRepo.GetAll()
-            .Where(q => q.ClientId == clientId && q.IsActive)
-            .FirstOrDefaultAsync();
+        var qr = await _qrRepo.GetActiveAsync(clientId);
 
         if (qr is not null)
         {

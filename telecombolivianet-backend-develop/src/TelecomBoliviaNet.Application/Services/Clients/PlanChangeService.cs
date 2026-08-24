@@ -1,4 +1,8 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿// F4: la referencia a EF Core queda por UN motivo, el mismo que en
+// UpdateClientCommand — capturar DbUpdateConcurrencyException, el tipo que lanza
+// EF cuando el token xmin detecta una modificación concurrente. Ya no queda
+// ninguna consulta de EF en este archivo.
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using TelecomBoliviaNet.Application.DTOs.Clients;
 using TelecomBoliviaNet.Application.Interfaces;
@@ -17,10 +21,10 @@ namespace TelecomBoliviaNet.Application.Services.Clients;
 
 public class PlanChangeService : IPlanChangeService
 {
-    private readonly IGenericRepository<PlanChangeRequest> _changeRepo;
-    private readonly IGenericRepository<Client>             _clientRepo;
+    private readonly IPlanChangeRequestRepository _changeRepo;
+    private readonly IClientRepository             _clientRepo;
     private readonly IGenericRepository<Plan>               _planRepo;
-    private readonly IGenericRepository<SupportTicket>      _ticketRepo;
+    private readonly ITicketRepository      _ticketRepo;
     private readonly AuditService                           _audit;
     private readonly IUnitOfWork                            _uow;
     private readonly INotifPublisher                        _notif;
@@ -31,10 +35,10 @@ public class PlanChangeService : IPlanChangeService
     private readonly TicketNumberService                    _ticketNumSvc;
 
     public PlanChangeService(
-        IGenericRepository<PlanChangeRequest> changeRepo,
-        IGenericRepository<Client>            clientRepo,
+        IPlanChangeRequestRepository changeRepo,
+        IClientRepository            clientRepo,
         IGenericRepository<Plan>              planRepo,
-        IGenericRepository<SupportTicket>     ticketRepo,
+        ITicketRepository     ticketRepo,
         AuditService                          audit,
         IUnitOfWork                           uow,
         INotifPublisher                       notif,
@@ -62,9 +66,7 @@ public class PlanChangeService : IPlanChangeService
         Guid clientId, Guid newPlanId, string? notes,
         Guid actorId, string actorName, string ip)
     {
-        var client = await _clientRepo.GetAll()
-            .Include(c => c.Plan)
-            .FirstOrDefaultAsync(c => c.Id == clientId);
+        var client = await _clientRepo.GetWithPlanAsync(clientId);
 
         if (client is null)
             return Result<Guid>.Failure("Cliente no encontrado.");
@@ -148,10 +150,7 @@ public class PlanChangeService : IPlanChangeService
         Guid cambioId, bool midMonth,
         Guid actorId, string actorName, string ip)
     {
-        var cambio = await _changeRepo.GetAll()
-            .Include(r => r.Client).ThenInclude(c => c!.Plan)
-            .Include(r => r.NewPlan)
-            .FirstOrDefaultAsync(r => r.Id == cambioId);
+        var cambio = await _changeRepo.GetForCommandAsync(cambioId);
 
         if (cambio is null)
             return Result<bool>.Failure("Solicitud de cambio no encontrada.");
@@ -169,9 +168,7 @@ public class PlanChangeService : IPlanChangeService
                 "Un cambio a un plan de igual o menor precio se aplica a fin de mes, no de inmediato.");
 
         var ticket = cambio.TicketId.HasValue
-            ? await _ticketRepo.GetAll()
-                .IgnoreQueryFilters()
-                .FirstOrDefaultAsync(t => t.Id == cambio.TicketId.Value)
+            ? await _ticketRepo.GetByIdIgnoringClientFilterAsync(cambio.TicketId.Value)
             : null;
 
         await _uow.BeginTransactionAsync();
@@ -267,10 +264,7 @@ public class PlanChangeService : IPlanChangeService
         Guid cambioId, string motivo,
         Guid actorId, string actorName, string ip)
     {
-        var cambio = await _changeRepo.GetAll()
-            .Include(r => r.Client)
-            .Include(r => r.NewPlan)
-            .FirstOrDefaultAsync(r => r.Id == cambioId);
+        var cambio = await _changeRepo.GetForCommandAsync(cambioId);
 
         if (cambio is null)
             return Result<bool>.Failure("Solicitud no encontrada.");
@@ -278,9 +272,7 @@ public class PlanChangeService : IPlanChangeService
             return Result<bool>.Failure("Esta solicitud ya fue procesada.");
 
         var ticket = cambio.TicketId.HasValue
-            ? await _ticketRepo.GetAll()
-                .IgnoreQueryFilters()
-                .FirstOrDefaultAsync(t => t.Id == cambio.TicketId.Value)
+            ? await _ticketRepo.GetByIdIgnoringClientFilterAsync(cambio.TicketId.Value)
             : null;
 
         var ahora = DateTime.UtcNow;
@@ -336,16 +328,7 @@ public class PlanChangeService : IPlanChangeService
 
     public async Task<List<PlanChangeItemDto>> GetPendingAsync(Guid? clientId = null)
     {
-        var query = _changeRepo.GetAll()
-            .Include(r => r.Client)
-            .Include(r => r.OldPlan)
-            .Include(r => r.NewPlan)
-            .Where(r => r.Status == PlanChangeStatus.Pendiente);
-
-        if (clientId.HasValue)
-            query = query.Where(r => r.ClientId == clientId.Value);
-
-        var items = await query.OrderBy(r => r.RequestedAt).ToListAsync();
+        var items = await _changeRepo.GetPendingAsync(clientId);
 
         return items.Select(r => new PlanChangeItemDto(
             r.Id,
@@ -361,12 +344,7 @@ public class PlanChangeService : IPlanChangeService
 
     public async Task<List<PlanChangeHistoryDto>> GetHistorialAsync(Guid clientId)
     {
-        var items = await _changeRepo.GetAll()
-            .Include(r => r.OldPlan)
-            .Include(r => r.NewPlan)
-            .Where(r => r.ClientId == clientId)
-            .OrderByDescending(r => r.RequestedAt)
-            .ToListAsync();
+        var items = await _changeRepo.GetHistoryForClientAsync(clientId);
 
         return items.Select(r => new PlanChangeHistoryDto(
             r.Id,

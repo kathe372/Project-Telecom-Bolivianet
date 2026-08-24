@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using TelecomBoliviaNet.Domain.Entities.Auth;
 using TelecomBoliviaNet.Domain.Interfaces;
 using TelecomBoliviaNet.Infrastructure.Data;
@@ -42,5 +42,15 @@ public class UserRepository : GenericRepository<UserSystem>, IUserRepository
         var items = await q.Skip((page - 1) * pageSize).Take(pageSize).ToListAsync(ct);
 
         return (items, total);
+    }
+
+    public async Task<Dictionary<Guid, string>> GetNamesByIdsAsync(
+        IReadOnlyCollection<Guid> ids, CancellationToken ct = default)
+    {
+        if (ids.Count == 0) return [];
+
+        return await _db.UserSystems.AsNoTracking()
+            .Where(u => ids.Contains(u.Id))
+            .ToDictionaryAsync(u => u.Id, u => u.FullName, ct);
     }
 }

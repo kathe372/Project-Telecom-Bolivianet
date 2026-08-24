@@ -3,11 +3,11 @@
 // DbUpdateConcurrencyException, que es el tipo que lanza EF cuando el token xmin
 // detecta que otra persona modificó la ficha. No hay consulta de EF aquí.
 //
-// Es el único archivo de Application en esa situación. Cuando se migren
-// PaymentService, BillingService, PlanChangeService e InvoiceOperationsService
+// Son dos los archivos de Application en esa situación: este y PlanChangeService.
+// Cuando se migren PaymentService, BillingService e InvoiceOperationsService
 // —que hoy usan EF por muchos otros motivos— habrá cinco, y entonces sí
 // compensará una excepción propia del dominio traducida en el repositorio.
-// Con uno solo, la abstracción costaría más de lo que quita.
+// Con dos, la abstracción costaría más de lo que quita.
 using Microsoft.EntityFrameworkCore;
 using System.Text.Json;
 using TelecomBoliviaNet.Application.DTOs.Clients;

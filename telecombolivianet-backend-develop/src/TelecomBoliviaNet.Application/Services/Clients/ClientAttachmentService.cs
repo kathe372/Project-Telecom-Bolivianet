@@ -1,5 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Logging;
+﻿using Microsoft.Extensions.Logging;
 using TelecomBoliviaNet.Application.DTOs.Clients;
 using TelecomBoliviaNet.Application.Interfaces;
 using TelecomBoliviaNet.Application.Services.Auth;
@@ -14,7 +13,7 @@ namespace TelecomBoliviaNet.Application.Services.Clients;
 
 public class ClientAttachmentService : IClientAttachmentService
 {
-    private readonly IGenericRepository<ClientAttachment>   _repo;
+    private readonly IClientAttachmentRepository   _repo;
     private readonly IGenericRepository<Client>             _clientRepo;
     private readonly IFileStorage                           _storage;
     private readonly AuditService                           _audit;
@@ -31,7 +30,7 @@ public class ClientAttachmentService : IClientAttachmentService
     ];
 
     public ClientAttachmentService(
-        IGenericRepository<ClientAttachment> repo,
+        IClientAttachmentRepository repo,
         IGenericRepository<Client>           clientRepo,
         IFileStorage                         storage,
         AuditService                         audit,
@@ -47,11 +46,7 @@ public class ClientAttachmentService : IClientAttachmentService
 
     public async Task<List<ClientAttachmentDto>> GetByClientAsync(Guid clientId)
     {
-        var list = await _repo.GetAll()
-            .Include(a => a.SubidoPor)
-            .Where(a => a.ClientId == clientId && !a.IsDeleted)
-            .OrderByDescending(a => a.SubidoAt)
-            .ToListAsync();
+        var list = await _repo.GetActiveByClientAsync(clientId);
 
         return list.Select(a => ToDto(a)).ToList();
     }
@@ -73,8 +68,7 @@ public class ClientAttachmentService : IClientAttachmentService
         if (sizeBytes > MaxFileSizeBytes)
             return Result<ClientAttachmentDto>.Failure("El archivo supera el límite de 10 MB.");
 
-        var count = await _repo.GetAll()
-            .CountAsync(a => a.ClientId == clientId && !a.IsDeleted);
+        var count = await _repo.CountActiveByClientAsync(clientId);
         if (count >= MaxAttachments)
             return Result<ClientAttachmentDto>.Failure(
                 $"El cliente ya tiene {MaxAttachments} adjuntos. Elimina alguno antes de subir uno nuevo.");

@@ -3,6 +3,7 @@ using Moq;
 using TelecomBoliviaNet.Domain.Entities.Clients;
 using TelecomBoliviaNet.Domain.Entities.Coverage;
 using TelecomBoliviaNet.Domain.Entities.Installations;
+using TelecomBoliviaNet.Domain.Entities.Tickets;
 using TelecomBoliviaNet.Domain.Interfaces;
 
 namespace TelecomBoliviaNet.Tests.Helpers;
@@ -135,6 +136,68 @@ public static class SpecificRepoMock
             .ReturnsAsync((IReadOnlyCollection<Guid> ids, CancellationToken _) => lista
                 .Where(i => ids.Contains(i.Id))
                 .Select(i => new InvoicePlanSnapshot(i.Id, i.PlanName, i.PlanPrice))
+                .ToList());
+
+        return mock;
+    }
+
+    /// <summary>
+    /// Las navegaciones (Client, OldPlan, NewPlan) las puebla el test al armar
+    /// la solicitud, igual que haría el Include real: aquí solo se filtra.
+    /// </summary>
+    public static Mock<IPlanChangeRequestRepository> PlanChanges(params PlanChangeRequest[] items)
+    {
+        var lista = items.ToList();
+        var mock  = RepoMock.Of<IPlanChangeRequestRepository, PlanChangeRequest>(items);
+
+        mock.Setup(r => r.GetForCommandAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((Guid id, CancellationToken _) => lista.FirstOrDefault(r => r.Id == id));
+
+        mock.Setup(r => r.GetPendingAsync(It.IsAny<Guid?>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((Guid? clientId, CancellationToken _) => lista
+                .Where(r => r.Status == PlanChangeStatus.Pendiente
+                         && (clientId == null || r.ClientId == clientId))
+                .OrderBy(r => r.RequestedAt)
+                .ToList());
+
+        mock.Setup(r => r.GetHistoryForClientAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((Guid clientId, CancellationToken _) => lista
+                .Where(r => r.ClientId == clientId)
+                .OrderByDescending(r => r.RequestedAt)
+                .ToList());
+
+        mock.Setup(r => r.GetForClientBetweenAsync(
+                It.IsAny<Guid>(), It.IsAny<DateTime?>(), It.IsAny<DateTime?>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync((Guid clientId, DateTime? from, DateTime? to, CancellationToken _) => lista
+                .Where(r => r.ClientId == clientId
+                         && (from == null || r.RequestedAt >= from)
+                         && (to   == null || r.RequestedAt <= to))
+                .ToList());
+
+        return mock;
+    }
+
+    public static Mock<ITicketRepository> Tickets(params SupportTicket[] items)
+    {
+        var lista = items.ToList();
+        var mock  = RepoMock.Of<ITicketRepository, SupportTicket>(items);
+
+        mock.Setup(r => r.GetAssignedUserIdAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((Guid id, CancellationToken _) =>
+                lista.FirstOrDefault(t => t.Id == id)?.AssignedToUserId);
+
+        mock.Setup(r => r.GetByIdIgnoringClientFilterAsync(
+                It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((Guid id, CancellationToken _) => lista.FirstOrDefault(t => t.Id == id));
+
+        mock.Setup(r => r.GetForClientBetweenAsync(
+                It.IsAny<Guid>(), It.IsAny<DateTime?>(), It.IsAny<DateTime?>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync((Guid clientId, DateTime? from, DateTime? to, CancellationToken _) => lista
+                .Where(t => t.ClientId == clientId
+                         && (from == null || t.CreatedAt >= from)
+                         && (to   == null || t.CreatedAt <= to))
                 .ToList());
 
         return mock;

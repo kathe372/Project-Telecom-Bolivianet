@@ -1,4 +1,4 @@
-using TelecomBoliviaNet.Domain.Entities.Audit;
+﻿using TelecomBoliviaNet.Domain.Entities.Audit;
 using TelecomBoliviaNet.Domain.Entities.Tickets;
 
 namespace TelecomBoliviaNet.Domain.Interfaces;
@@ -16,6 +16,23 @@ public interface ITicketRepository : IGenericRepository<SupportTicket>
     /// menudo y con un solo dato basta.
     /// </summary>
     Task<Guid?> GetAssignedUserIdAsync(Guid ticketId, CancellationToken ct = default);
+
+    /// <summary>
+    /// Ticket por Id <b>aunque su cliente esté dado de baja</b>.
+    ///
+    /// La entidad filtra por el borrado lógico del cliente, así que los flujos
+    /// que cierran pendientes de un cliente ya dado de baja —resolver su cambio
+    /// de plan, por ejemplo— necesitan saltarse ese filtro.
+    /// </summary>
+    Task<SupportTicket?> GetByIdIgnoringClientFilterAsync(
+        Guid id, CancellationToken ct = default);
+
+    /// <summary>
+    /// Tickets de un cliente creados dentro de una ventana de fechas, con quién
+    /// los abrió. Alimenta la línea de tiempo de su ficha.
+    /// </summary>
+    Task<List<SupportTicket>> GetForClientBetweenAsync(
+        Guid clientId, DateTime? from, DateTime? to, CancellationToken ct = default);
 }
 
 /// <summary>
@@ -30,4 +47,11 @@ public interface IAuditLogRepository : IGenericRepository<AuditLog>
     /// </summary>
     Task<List<AuditLog>> GetRecentByEntityAsync(
         Guid entityId, string module, int take, CancellationToken ct = default);
+
+    /// <summary>
+    /// Asientos sobre una entidad dentro de una ventana de fechas, sin tope ni
+    /// filtro de módulo. Alimenta la línea de tiempo de la ficha del cliente.
+    /// </summary>
+    Task<List<AuditLog>> GetForEntityBetweenAsync(
+        Guid entityId, DateTime? from, DateTime? to, CancellationToken ct = default);
 }

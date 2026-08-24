@@ -1,5 +1,4 @@
 ﻿using TelecomBoliviaNet.Domain.Entities.Audit;
-using Microsoft.EntityFrameworkCore;
 using TelecomBoliviaNet.Application.DTOs.Clients;
 using TelecomBoliviaNet.Domain.Entities.Admin;
 using TelecomBoliviaNet.Domain.Entities.Clients;
@@ -13,22 +12,22 @@ namespace TelecomBoliviaNet.Application.Services.Clients;
 
 public class ClientHistoryService : IClientHistoryService
 {
-    private readonly IGenericRepository<Payment>           _paymentRepo;
-    private readonly IGenericRepository<Invoice>           _invoiceRepo;
-    private readonly IGenericRepository<SupportTicket>     _ticketRepo;
-    private readonly IGenericRepository<AuditLog>          _auditRepo;
-    private readonly IGenericRepository<NotifLog>          _notifRepo;
-    private readonly IGenericRepository<ClientAttachment>  _attachRepo;
-    private readonly IGenericRepository<PlanChangeRequest> _planChangeRepo;
+    private readonly IPaymentRepository           _paymentRepo;
+    private readonly IInvoiceRepository           _invoiceRepo;
+    private readonly ITicketRepository            _ticketRepo;
+    private readonly IAuditLogRepository          _auditRepo;
+    private readonly INotifLogRepository          _notifRepo;
+    private readonly IClientAttachmentRepository  _attachRepo;
+    private readonly IPlanChangeRequestRepository _planChangeRepo;
 
     public ClientHistoryService(
-        IGenericRepository<Payment>            paymentRepo,
-        IGenericRepository<Invoice>            invoiceRepo,
-        IGenericRepository<SupportTicket>      ticketRepo,
-        IGenericRepository<AuditLog>           auditRepo,
-        IGenericRepository<NotifLog>           notifRepo,
-        IGenericRepository<ClientAttachment>   attachRepo,
-        IGenericRepository<PlanChangeRequest>  planChangeRepo)
+        IPaymentRepository           paymentRepo,
+        IInvoiceRepository           invoiceRepo,
+        ITicketRepository            ticketRepo,
+        IAuditLogRepository          auditRepo,
+        INotifLogRepository          notifRepo,
+        IClientAttachmentRepository  attachRepo,
+        IPlanChangeRequestRepository planChangeRepo)
     {
         _paymentRepo     = paymentRepo;
         _invoiceRepo     = invoiceRepo;
@@ -47,13 +46,7 @@ public class ClientHistoryService : IClientHistoryService
 
         if (tipoFilter is null or "Pago")
         {
-            var pagos = await _paymentRepo.GetAll()
-                .AsNoTracking()
-                .Include(p => p.RegisteredBy)
-                .Where(p => p.ClientId == clientId && !p.IsVoided
-                && (!desde.HasValue || p.PaidAt >= desde.Value)
-                && (!hasta.HasValue || p.PaidAt <= hasta.Value))
-                .ToListAsync();
+            var pagos = await _paymentRepo.GetForClientBetweenAsync(clientId, desde, hasta);
 
             items.AddRange(pagos.Select(p => new ClientActivityItemDto(
                 p.Id, "Pago",
@@ -65,12 +58,7 @@ public class ClientHistoryService : IClientHistoryService
 
         if (tipoFilter is null or "Factura")
         {
-            var facturas = await _invoiceRepo.GetAll()
-                .AsNoTracking()
-                .Where(i => i.ClientId == clientId
-                && (!desde.HasValue || i.IssuedAt >= desde.Value)
-                && (!hasta.HasValue || i.IssuedAt <= hasta.Value))
-                .ToListAsync();
+            var facturas = await _invoiceRepo.GetForClientBetweenAsync(clientId, desde, hasta);
 
             items.AddRange(facturas.Select(i => new ClientActivityItemDto(
                 i.Id, "Factura",
@@ -82,13 +70,7 @@ public class ClientHistoryService : IClientHistoryService
 
         if (tipoFilter is null or "Ticket")
         {
-            var tickets = await _ticketRepo.GetAll()
-                .AsNoTracking()
-                .Include(t => t.CreatedBy)
-                .Where(t => t.ClientId == clientId
-                && (!desde.HasValue || t.CreatedAt >= desde.Value)
-                && (!hasta.HasValue || t.CreatedAt <= hasta.Value))
-                .ToListAsync();
+            var tickets = await _ticketRepo.GetForClientBetweenAsync(clientId, desde, hasta);
 
             items.AddRange(tickets.Select(t => new ClientActivityItemDto(
                 t.Id, "Ticket",
@@ -100,12 +82,7 @@ public class ClientHistoryService : IClientHistoryService
 
         if (tipoFilter is null or "Notif")
         {
-            var notifs = await _notifRepo.GetAll()
-                .AsNoTracking()
-                .Where(n => n.ClienteId == clientId
-                && (!desde.HasValue || n.RegistradoAt >= desde.Value)
-                && (!hasta.HasValue || n.RegistradoAt <= hasta.Value))
-                .ToListAsync();
+            var notifs = await _notifRepo.GetForClientBetweenAsync(clientId, desde, hasta);
 
             items.AddRange(notifs.Select(n => new ClientActivityItemDto(
                 n.Id, "Notif",
@@ -117,12 +94,7 @@ public class ClientHistoryService : IClientHistoryService
 
         if (tipoFilter is null or "Admin" or "Estado")
         {
-            var auditItems = await _auditRepo.GetAll()
-                .AsNoTracking()
-                .Where(a => a.EntityId == clientId
-                && (!desde.HasValue || a.CreatedAt >= desde.Value)
-                && (!hasta.HasValue || a.CreatedAt <= hasta.Value))
-                .ToListAsync();
+            var auditItems = await _auditRepo.GetForEntityBetweenAsync(clientId, desde, hasta);
 
             items.AddRange(auditItems.Select(a => new ClientActivityItemDto(
                 a.Id, a.Action.StartsWith("CLIENT_STATUS") ? "Estado" : "Admin",
@@ -134,14 +106,7 @@ public class ClientHistoryService : IClientHistoryService
 
         if (tipoFilter is null or "CambioPlan")
         {
-            var cambios = await _planChangeRepo.GetAll()
-                .AsNoTracking()
-                .Include(r => r.OldPlan)
-                .Include(r => r.NewPlan)
-                .Where(r => r.ClientId == clientId
-                && (!desde.HasValue || r.RequestedAt >= desde.Value)
-                && (!hasta.HasValue || r.RequestedAt <= hasta.Value))
-                .ToListAsync();
+            var cambios = await _planChangeRepo.GetForClientBetweenAsync(clientId, desde, hasta);
 
             items.AddRange(cambios.Select(r =>
             {
@@ -164,13 +129,7 @@ public class ClientHistoryService : IClientHistoryService
 
         if (tipoFilter is null or "Adjunto")
         {
-            var adjuntos = await _attachRepo.GetAll()
-                .AsNoTracking()
-                .Include(a => a.SubidoPor)
-                .Where(a => a.ClientId == clientId
-                && (!desde.HasValue || a.SubidoAt >= desde.Value)
-                && (!hasta.HasValue || a.SubidoAt <= hasta.Value))
-                .ToListAsync();
+            var adjuntos = await _attachRepo.GetForClientBetweenAsync(clientId, desde, hasta);
 
             items.AddRange(adjuntos.Select(a => new ClientActivityItemDto(
                 a.Id, "Adjunto",
