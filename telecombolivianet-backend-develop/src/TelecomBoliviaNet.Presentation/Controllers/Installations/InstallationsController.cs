@@ -1,6 +1,7 @@
-using MediatR;
+﻿using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using TelecomBoliviaNet.Application.Interfaces;
 using TelecomBoliviaNet.Application.Coverage.Commands;
 using TelecomBoliviaNet.Application.DTOs.Installations;
 using TelecomBoliviaNet.Application.Installations.Commands;
@@ -16,9 +17,9 @@ namespace TelecomBoliviaNet.Presentation.Controllers.Installations;
 public class InstallationsController : BaseController
 {
     private readonly IMediator                _mediator;
-    private readonly InstallationPhotoService _photos;
+    private readonly IInstallationPhotoService _photos;
 
-    public InstallationsController(IMediator mediator, InstallationPhotoService photos)
+    public InstallationsController(IMediator mediator, IInstallationPhotoService photos)
     {
         _mediator = mediator;
         _photos   = photos;

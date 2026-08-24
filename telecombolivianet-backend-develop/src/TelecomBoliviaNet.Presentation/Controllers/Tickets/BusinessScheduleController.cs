@@ -1,5 +1,6 @@
-using Microsoft.AspNetCore.Authorization;
+﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using TelecomBoliviaNet.Application.Interfaces;
 using TelecomBoliviaNet.Application.DTOs.Tickets;
 using TelecomBoliviaNet.Application.Services.Tickets;
 using TelecomBoliviaNet.Presentation.Controllers;
@@ -10,9 +11,9 @@ namespace TelecomBoliviaNet.Presentation.Controllers.Tickets;
 [Authorize(Policy = "AdminOnly")]
 public class BusinessScheduleController : BaseController
 {
-    private readonly BusinessScheduleService _svc;
+    private readonly IBusinessScheduleService _svc;
 
-    public BusinessScheduleController(BusinessScheduleService svc)
+    public BusinessScheduleController(IBusinessScheduleService svc)
         => _svc = svc;
 
     [HttpGet]

@@ -4,9 +4,11 @@ using TelecomBoliviaNet.Domain.Entities.Tickets;
 using TelecomBoliviaNet.Domain.Interfaces;
 using TelecomBoliviaNet.Domain.Primitives;
 
+using TelecomBoliviaNet.Application.Interfaces;
+
 namespace TelecomBoliviaNet.Application.Services.Tickets;
 
-public class BusinessScheduleService
+public class BusinessScheduleService : IBusinessScheduleService
 {
     private readonly IGenericRepository<BusinessSchedule> _scheduleRepo;
     private readonly IGenericRepository<ScheduleHoliday> _holidayRepo;

@@ -11,7 +11,7 @@ using TelecomBoliviaNet.Domain.Primitives;
 
 namespace TelecomBoliviaNet.Application.Services.Invoices;
 
-public class InvoiceOperationsService
+public class InvoiceOperationsService : IInvoiceOperationsService
 {
     private readonly IGenericRepository<Invoice>  _invoiceRepo;
     private readonly IGenericRepository<Client>   _clientRepo;

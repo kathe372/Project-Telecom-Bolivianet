@@ -1,5 +1,6 @@
-using Microsoft.AspNetCore.Authorization;
+﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using TelecomBoliviaNet.Application.Interfaces;
 using TelecomBoliviaNet.Application.DTOs.Clients;
 using TelecomBoliviaNet.Application.Services.Clients;
 using TelecomBoliviaNet.Presentation.Controllers;
@@ -9,9 +10,9 @@ namespace TelecomBoliviaNet.Presentation.Controllers.Clients;
 [Route("api/clients/{clientId:guid}/qr")]
 public class ClientQrController : BaseController
 {
-    private readonly ClientQrService _svc;
+    private readonly IClientQrService _svc;
 
-    public ClientQrController(ClientQrService svc) => _svc = svc;
+    public ClientQrController(IClientQrService svc) => _svc = svc;
 
 
     [HttpGet]

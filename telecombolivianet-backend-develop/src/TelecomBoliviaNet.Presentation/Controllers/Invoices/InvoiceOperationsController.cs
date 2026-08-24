@@ -1,5 +1,6 @@
-using Microsoft.AspNetCore.Authorization;
+﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using TelecomBoliviaNet.Application.Interfaces;
 using TelecomBoliviaNet.Application.DTOs.Invoices;
 using TelecomBoliviaNet.Application.Services.Invoices;
 using TelecomBoliviaNet.Domain.Entities.Clients;
@@ -11,9 +12,9 @@ namespace TelecomBoliviaNet.Presentation.Controllers.Invoices;
 [Authorize(Policy = "AdminOnly")]
 public class InvoiceOperationsController : BaseController
 {
-    private readonly InvoiceOperationsService _operations;
+    private readonly IInvoiceOperationsService _operations;
 
-    public InvoiceOperationsController(InvoiceOperationsService operations) => _operations = operations;
+    public InvoiceOperationsController(IInvoiceOperationsService operations) => _operations = operations;
 
     [HttpPost("extraordinary")]
     public async Task<IActionResult> CreateExtraordinary([FromBody] CreateExtraordinaryInvoiceDto dto)

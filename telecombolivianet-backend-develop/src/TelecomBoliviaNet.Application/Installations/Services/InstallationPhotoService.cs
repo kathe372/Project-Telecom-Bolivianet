@@ -1,4 +1,4 @@
-using TelecomBoliviaNet.Application.Interfaces;
+﻿using TelecomBoliviaNet.Application.Interfaces;
 using TelecomBoliviaNet.Domain.Entities.Installations;
 using TelecomBoliviaNet.Domain.Interfaces;
 using TelecomBoliviaNet.Domain.Primitives;
@@ -9,7 +9,7 @@ namespace TelecomBoliviaNet.Application.Installations.Services;
 /// Sube las fotos de evidencia de una instalación a Supabase Storage
 /// (F5 nivel comercial: prueba visual del trabajo realizado).
 /// </summary>
-public class InstallationPhotoService
+public class InstallationPhotoService : IInstallationPhotoService
 {
     private readonly IGenericRepository<Installation> _instRepo;
     private readonly IFileStorage                     _storage;

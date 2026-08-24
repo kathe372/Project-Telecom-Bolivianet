@@ -11,7 +11,7 @@ using TelecomBoliviaNet.Domain.Primitives;
 
 namespace TelecomBoliviaNet.Application.Services.Clients;
 
-public class ClientQrService
+public class ClientQrService : IClientQrService
 {
     private readonly IGenericRepository<ClientQr>   _qrRepo;
     private readonly IGenericRepository<Client>      _clientRepo;

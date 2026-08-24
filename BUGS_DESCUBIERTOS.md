@@ -8,22 +8,37 @@ la vez es cómo se rompen los sistemas en producción.
 
 ## Pendientes arrastrados
 
-### 🟠 P-01 · F1 cerró al ~70%: faltan 3 interfaces y el despliegue
+### 🟠 P-01 · F1: interfaces CERRADAS, despliegue aún pendiente
 
-Se decidió avanzar a F2 con estos dos criterios de salida de F1 sin cumplir:
-
-**a) Interfaces: 7 de los 10 pedidos.** Quedan 13 servicios que los controladores
-inyectan como clase concreta:
+**a) Interfaces — RESUELTO el 2026-08-23.** De 7 a **12 de 24**, superando el
+objetivo de 10 que fijaba el plan. Añadidas en este tramo:
 
 ```
-AuditService · AuthService · BusinessScheduleService · ClientHistoryService
-ClientQrService · CompanyQrService · InstallationPhotoService
-InvoiceOperationsService · NotifConfigService · NotifHistoryService
-NotifSendService · TicketAttachmentService · TicketBalancingService
+IBusinessScheduleService · IClientQrService · IInvoiceOperationsService
+IClientHistoryService    · IInstallationPhotoService
 ```
 
-`NotifConfigService` (16 métodos públicos) **no** debería recibir interfaz ahora:
-sería consagrar el problema. Su sitio es F5, donde se parte.
+Quedan 8 servicios que los controladores inyectan como clase concreta:
+
+```
+AuditService · AuthService · CompanyQrService · NotifConfigService
+NotifHistoryService · NotifSendService · TicketAttachmentService
+TicketBalancingService
+```
+
+De ellos, los cuatro de notificaciones (`NotifConfigService` tiene **16 métodos
+públicos**) **no** deberían recibir interfaz tal cual: sería consagrar el
+problema en vez de resolverlo. Su sitio es **F5**, donde se parten.
+
+`AuditService` merece mención aparte: lo inyectan servicios de toda la aplicación,
+así que su radio de impacto es mucho mayor que el de los demás. Conviene hacerlo
+en su propio PR.
+
+> El test `DependencyResolutionTests` volvió a ganarse el sueldo: al cambiar estas
+> cinco detectó que se habían actualizado los CAMPOS de cuatro controladores pero
+> no los PARÁMETROS de sus constructores, que seguían pidiendo la clase concreta ya
+> no registrada. Es un fallo que no rompe la compilación y solo aparece al abrir
+> la pantalla afectada.
 
 **b) Nada se ha desplegado a Railway desde que empezó el plan.** F0 y F1 están solo
 en CI. Importa especialmente porque F1 tocó el registro de dependencias, que falla
@@ -66,6 +81,28 @@ intención y elimina la dependencia del calendario.
 directamente. Inyectar `TimeProvider` permitiría fijar la fecha en los tests y
 probar de verdad los casos de borde (viernes por la tarde, feriados) en vez de
 esquivarlos. Candidato natural para **F5**, al tocar esos handlers.
+
+#### Séptimo caso, con causa distinta (2026-08-23)
+
+`CreateInstallationHandlerTests.TC_CREAR_01_PastDate_ReturnsFailure` falló un
+domingo a las **20:09 hora de Bolivia**. Aquí no era el día de la semana sino el
+**desfase de zona horaria**:
+
+- El test construía la fecha con `DateTime.UtcNow.AddDays(-1)`.
+- El validador compara contra `hoyLocal`, en hora de Bolivia (UTC−4).
+
+Entre las 20:00 y las 24:00 bolivianas, UTC **ya pasó de día**. Así que
+`UtcNow.AddDays(-1)` caía en el día de HOY en hora local — y hoy no es pasado, de
+modo que la validación aceptaba la fecha y el test esperaba lo contrario.
+
+**Arreglo:** el test calcula ahora la fecha en hora de Bolivia, la misma que usa
+el validador. Falla durante 4 horas al día, todos los días: es el más difícil de
+atribuir de los siete, porque no depende del calendario sino de la hora a la que
+se ejecute la suite.
+
+> Refuerza la conclusión: mientras el reloj se lea directamente en el código de
+> producción, estos casos van a seguir apareciendo de uno en uno. `TimeProvider`
+> deja de ser una mejora estética y pasa a ser el arreglo real.
 
 > Es la segunda vez que la suite falla por dependencia temporal, tras D-03. La
 > diferencia: D-03 eran los jobs de producción corriendo contra la base de test;

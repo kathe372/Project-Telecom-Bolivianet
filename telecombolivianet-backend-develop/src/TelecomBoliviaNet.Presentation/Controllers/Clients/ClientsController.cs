@@ -1,4 +1,4 @@
-using FluentValidation;
+﻿using FluentValidation;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -20,7 +20,7 @@ public class ClientsController : BaseController
     private readonly IValidator<UpdateClientDto>     _updateVal;
     private readonly IValidator<RegisterPaymentDto>  _paymentVal;
     private readonly IClientAttachmentService         _attSvc;
-    private readonly ClientHistoryService          _histSvc;
+    private readonly IClientHistoryService          _histSvc;
     private readonly IPaymentCreditService           _creditSvc;
 
     public ClientsController(
@@ -29,7 +29,7 @@ public class ClientsController : BaseController
         IValidator<UpdateClientDto>    updateVal,
         IValidator<RegisterPaymentDto> paymentVal,
         IClientAttachmentService        attSvc,
-        ClientHistoryService         histSvc,
+        IClientHistoryService         histSvc,
         IPaymentCreditService          creditSvc)
     {
         _mediator    = mediator;

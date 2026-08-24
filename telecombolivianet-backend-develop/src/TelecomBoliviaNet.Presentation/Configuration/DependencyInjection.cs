@@ -150,7 +150,7 @@ public static class DependencyInjection
         services.AddHostedService<BillingBackgroundJob>();
         services.AddScoped<InvoiceNumberService>();
         services.AddScoped<IInvoiceNumberService>(sp => sp.GetRequiredService<InvoiceNumberService>());
-        services.AddScoped<InvoiceOperationsService>();
+        services.AddScoped<IInvoiceOperationsService, InvoiceOperationsService>();
 
         services.AddScoped<PaymentService>();
         services.AddScoped<IPaymentService>(sp => sp.GetRequiredService<PaymentService>());
@@ -176,7 +176,7 @@ public static class DependencyInjection
             });
         services.AddScoped<TicketBalancingService>();
         services.AddScoped<TicketAttachmentService>();
-        services.AddScoped<ClientHistoryService>();
+        services.AddScoped<IClientHistoryService, ClientHistoryService>();
         services.AddScoped<IChatbotDirectNotifier, ChatbotDirectNotifier>();
 
         services.AddScoped<IFileStorage>(sp =>
@@ -191,7 +191,7 @@ public static class DependencyInjection
         services.AddScoped<ICompanyProfileService, CompanyProfileService>();
 
         services.AddScoped<TicketHelper>();
-        services.AddScoped<BusinessScheduleService>();
+        services.AddScoped<IBusinessScheduleService, BusinessScheduleService>();
         services.AddHostedService<SlaAlertJob>();
         services.AddHostedService<AutoCloseTicketJob>();
         services.AddHostedService<AutoSuspendClientJob>();
@@ -214,7 +214,7 @@ public static class DependencyInjection
         services.AddScoped<IAdminSettingsService, AdminSettingsService>();
         services.AddSingleton<SecretEncryptionService>();
 
-        services.AddScoped<ClientQrService>();
+        services.AddScoped<IClientQrService, ClientQrService>();
         services.AddHostedService<QrExpiryAlertJob>();
         services.AddHostedService<CompanyQrExpiryAlertJob>();
         services.AddHostedService<ExpirePortReservationsJob>();
@@ -237,7 +237,7 @@ public static class DependencyInjection
 
         services.AddScoped<ISlotCalculatorService, SlotCalculatorService>();
         services.AddScoped<TechnicianAssignmentService>();
-        services.AddScoped<InstallationPhotoService>();
+        services.AddScoped<IInstallationPhotoService, InstallationPhotoService>();
 
         return services;
     }

@@ -1,4 +1,4 @@
-using TelecomBoliviaNet.Domain.Entities.Audit;
+﻿using TelecomBoliviaNet.Domain.Entities.Audit;
 using Microsoft.EntityFrameworkCore;
 using TelecomBoliviaNet.Application.DTOs.Clients;
 using TelecomBoliviaNet.Domain.Entities.Admin;
@@ -7,9 +7,11 @@ using TelecomBoliviaNet.Domain.Entities.Notifications;
 using TelecomBoliviaNet.Domain.Entities.Tickets;
 using TelecomBoliviaNet.Domain.Interfaces;
 
+using TelecomBoliviaNet.Application.Interfaces;
+
 namespace TelecomBoliviaNet.Application.Services.Clients;
 
-public class ClientHistoryService
+public class ClientHistoryService : IClientHistoryService
 {
     private readonly IGenericRepository<Payment>           _paymentRepo;
     private readonly IGenericRepository<Invoice>           _invoiceRepo;

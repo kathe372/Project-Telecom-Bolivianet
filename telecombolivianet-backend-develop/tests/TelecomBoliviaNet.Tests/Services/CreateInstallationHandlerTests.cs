@@ -1,3 +1,4 @@
+﻿using TelecomBoliviaNet.Application.Services.Notifications;
 using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
@@ -137,7 +138,13 @@ public class CreateInstallationHandlerTests
             RepoMock.Empty<SupportTicket>().Object);
 
         var result = await handler.Handle(
-            Cmd(ClientId, PlanId, DateTime.UtcNow.AddDays(-1).ToString("yyyy-MM-dd")),
+            // D-12: la fecha se calcula en hora de BOLIVIA, igual que la validación
+            // (CreateInstallationValidator compara contra hoyLocal). Con UtcNow el
+            // test fallaba entre las 20:00 y las 24:00 bolivianas: a esa hora UTC ya
+            // pasó de día, así que AddDays(-1) caía en HOY y "hoy" no es pasado.
+            Cmd(ClientId, PlanId,
+                TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, NotifShared.BoliviaZone)
+                    .Date.AddDays(-1).ToString("yyyy-MM-dd")),
             CancellationToken.None);
 
         result.IsSuccess.Should().BeFalse();
