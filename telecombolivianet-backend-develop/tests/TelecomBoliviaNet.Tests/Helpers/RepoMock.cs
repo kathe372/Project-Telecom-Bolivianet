@@ -29,8 +29,21 @@ public static class RepoMock
     public static Mock<TRepo> Of<TRepo, T>(params T[] items)
         where TRepo : class, IGenericRepository<T>
         where T : Entity
+        => Of<TRepo, T>(items.ToList());
+
+    /// <summary>
+    /// Igual que el anterior, pero sobre una lista que aporta quien llama.
+    ///
+    /// <para>Existe para <c>SpecificRepoMock</c>: los métodos con nombre de
+    /// negocio tienen que consultar EXACTAMENTE la misma lista que muta
+    /// <c>AddAsync</c>. Con dos listas distintas, un test que crea una entidad y
+    /// luego la lee por su método específico no la encontraría — y el fallo
+    /// parecería del código de producción, no del mock.</para>
+    /// </summary>
+    public static Mock<TRepo> Of<TRepo, T>(List<T> list)
+        where TRepo : class, IGenericRepository<T>
+        where T : Entity
     {
-        var list = items.ToList();
         var mock = new Mock<TRepo>();
 
         // GetAll() devuelve IQueryable con soporte async (MockQueryable)

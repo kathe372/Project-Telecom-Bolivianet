@@ -1,5 +1,4 @@
-using MediatR;
-using Microsoft.EntityFrameworkCore;
+﻿using MediatR;
 using TelecomBoliviaNet.Application.DTOs.Tickets;
 using TelecomBoliviaNet.Domain.Entities.Tickets;
 using TelecomBoliviaNet.Domain.Interfaces;
@@ -10,27 +9,14 @@ public record GetSlaAlertsQuery : IRequest<SlaAlertsDto>;
 
 public class GetSlaAlertsHandler : IRequestHandler<GetSlaAlertsQuery, SlaAlertsDto>
 {
-    private readonly IGenericRepository<SupportTicket> _ticketRepo;
+    private readonly ITicketRepository _ticketRepo;
 
-    public GetSlaAlertsHandler(IGenericRepository<SupportTicket> ticketRepo) => _ticketRepo = ticketRepo;
+    public GetSlaAlertsHandler(ITicketRepository ticketRepo) => _ticketRepo = ticketRepo;
 
     public async Task<SlaAlertsDto> Handle(GetSlaAlertsQuery _, CancellationToken ct)
     {
         var now = DateTime.UtcNow;
-        var tickets = await _ticketRepo.GetAll()
-            .IgnoreQueryFilters()
-            .Include(t => t.Client).Include(t => t.AssignedTo)
-            .Where(t => t.DueDate.HasValue &&
-                        t.Status != TicketStatus.Resuelto &&
-                        t.Status != TicketStatus.Cerrado  &&
-                        t.Status != TicketStatus.PendienteCliente)
-            .Select(t => new {
-                t.Id, t.TicketNumber, t.Subject, t.Priority, t.Status,
-                ClientName     = t.Client != null ? t.Client.FullName : "",
-                AssignedToName = t.AssignedTo != null ? t.AssignedTo.FullName : (string?)null,
-                t.CreatedAt, DueDate = t.DueDate!.Value,
-            })
-            .ToListAsync(ct);
+        var tickets = await _ticketRepo.GetSlaTrackedAsync(ct);
 
         var breached  = new List<SlaAlertItemDto>();
         var warning   = new List<SlaAlertItemDto>();

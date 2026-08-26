@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using TelecomBoliviaNet.Domain.Entities.Tickets;
 using TelecomBoliviaNet.Domain.Interfaces;
 using TelecomBoliviaNet.Infrastructure.Data;
@@ -19,4 +19,9 @@ public class ScheduleRepository : IScheduleRepository
         _db.BusinessSchedules
            .Include(s => s.Holidays)
            .FirstOrDefaultAsync(s => s.IsActive && s.IsDefault, ct);
+
+    public Task<BusinessSchedule?> GetActiveByIdAsync(Guid id, CancellationToken ct = default) =>
+        _db.BusinessSchedules.AsNoTracking()
+           .Include(s => s.Holidays)
+           .FirstOrDefaultAsync(s => s.Id == id && s.IsActive, ct);
 }

@@ -124,6 +124,9 @@ public static class DependencyInjection
         services.AddScoped<IClientQrRepository,         ClientQrRepository>();
         services.AddScoped<INotifLogRepository,         NotifLogRepository>();
         services.AddScoped<IPlanChangeRequestRepository, PlanChangeRequestRepository>();
+        services.AddScoped<ISlaPlanRepository,          SlaPlanRepository>();
+        services.AddScoped<ITicketCommentRepository,    TicketCommentRepository>();
+        services.AddScoped<ITicketWorkLogRepository,    TicketWorkLogRepository>();
 
         return services;
     }

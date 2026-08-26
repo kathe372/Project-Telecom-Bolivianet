@@ -20,7 +20,7 @@ public static class SpecificRepoMock
     public static Mock<IInstallationRepository> Installations(params Installation[] items)
     {
         var lista = items.ToList();
-        var mock  = RepoMock.Of<IInstallationRepository, Installation>(items);
+        var mock  = RepoMock.Of<IInstallationRepository, Installation>(lista);
 
         mock.Setup(r => r.GetForCommandAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync((Guid id, CancellationToken _) => lista.FirstOrDefault(i => i.Id == id));
@@ -90,7 +90,7 @@ public static class SpecificRepoMock
     public static Mock<IClientRepository> Clients(params Client[] items)
     {
         var lista = items.ToList();
-        var mock  = RepoMock.Of<IClientRepository, Client>(items);
+        var mock  = RepoMock.Of<IClientRepository, Client>(lista);
 
         mock.Setup(r => r.GetWithPlanAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync((Guid id, CancellationToken _) => lista.FirstOrDefault(c => c.Id == id));
@@ -120,7 +120,7 @@ public static class SpecificRepoMock
     public static Mock<IInvoiceRepository> Invoices(params Invoice[] items)
     {
         var lista = items.ToList();
-        var mock  = RepoMock.Of<IInvoiceRepository, Invoice>(items);
+        var mock  = RepoMock.Of<IInvoiceRepository, Invoice>(lista);
 
         mock.Setup(r => r.GetForClientYearAsync(
                 It.IsAny<Guid>(), It.IsAny<int>(), It.IsAny<CancellationToken>()))
@@ -148,7 +148,7 @@ public static class SpecificRepoMock
     public static Mock<IPlanChangeRequestRepository> PlanChanges(params PlanChangeRequest[] items)
     {
         var lista = items.ToList();
-        var mock  = RepoMock.Of<IPlanChangeRequestRepository, PlanChangeRequest>(items);
+        var mock  = RepoMock.Of<IPlanChangeRequestRepository, PlanChangeRequest>(lista);
 
         mock.Setup(r => r.GetForCommandAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync((Guid id, CancellationToken _) => lista.FirstOrDefault(r => r.Id == id));
@@ -181,7 +181,7 @@ public static class SpecificRepoMock
     public static Mock<ITicketRepository> Tickets(params SupportTicket[] items)
     {
         var lista = items.ToList();
-        var mock  = RepoMock.Of<ITicketRepository, SupportTicket>(items);
+        var mock  = RepoMock.Of<ITicketRepository, SupportTicket>(lista);
 
         mock.Setup(r => r.GetAssignedUserIdAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync((Guid id, CancellationToken _) =>
@@ -200,13 +200,175 @@ public static class SpecificRepoMock
                          && (to   == null || t.CreatedAt <= to))
                 .ToList());
 
+        mock.Setup(r => r.GetSummaryAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((Guid id, CancellationToken _) => lista.FirstOrDefault(t => t.Id == id));
+
+        mock.Setup(r => r.GetDetailAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((Guid id, CancellationToken _) => lista.FirstOrDefault(t => t.Id == id));
+
+        mock.Setup(r => r.GetForClientAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((Guid clientId, CancellationToken _) => lista
+                .Where(t => t.ClientId == clientId)
+                .OrderByDescending(t => t.CreatedAt)
+                .ToList());
+
+        mock.Setup(r => r.GetOverdueSlaAsync(
+                It.IsAny<DateTime>(), It.IsAny<DateTime?>(), It.IsAny<DateTime?>(),
+                It.IsAny<string?>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((DateTime now, DateTime? from, DateTime? to, string? tec, CancellationToken _) => lista
+                .Where(t => t.DueDate.HasValue && t.DueDate.Value < now
+                         && !SlaCerrado.Contains(t.Status)
+                         && (from == null || t.CreatedAt >= from)
+                         && (to   == null || t.CreatedAt <= to)
+                         && (string.IsNullOrWhiteSpace(tec)
+                             || (t.AssignedTo != null
+                                 && t.AssignedTo.FullName.ToUpper().Contains(tec.ToUpper()))))
+                .OrderBy(t => t.DueDate)
+                .ToList());
+
+        mock.Setup(r => r.GetSlaTrackedAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync((CancellationToken _) => lista
+                .Where(t => t.DueDate.HasValue && !SlaCerrado.Contains(t.Status))
+                .Select(t => new SlaTrackedTicket(
+                    t.Id, t.TicketNumber, t.Subject, t.Priority, t.Status,
+                    t.Client?.FullName ?? "", t.AssignedTo?.FullName,
+                    t.CreatedAt, t.DueDate!.Value))
+                .ToList());
+
+        // El filtrado real vive en el repositorio; aquí se reproduce lo que los
+        // tests del listado necesitan distinguir (estado, prioridad, asignado).
+        mock.Setup(r => r.GetPagedAsync(
+                It.IsAny<TicketListFilter>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((TicketListFilter f, CancellationToken _) =>
+            {
+                var q = lista.AsEnumerable();
+
+                if (!string.IsNullOrEmpty(f.Status) && f.Status != "all"
+                    && Enum.TryParse<TicketStatus>(f.Status, out var st))
+                    q = q.Where(t => t.Status == st);
+
+                if (!string.IsNullOrEmpty(f.Priority) && f.Priority != "all"
+                    && Enum.TryParse<TicketPriority>(f.Priority, out var pr))
+                    q = q.Where(t => t.Priority == pr);
+
+                if (!string.IsNullOrEmpty(f.Type) && f.Type != "all"
+                    && Enum.TryParse<TicketType>(f.Type, out var tp))
+                    q = q.Where(t => t.Type == tp);
+
+                if (f.AssignedToId.HasValue)
+                    q = q.Where(t => t.AssignedToUserId == f.AssignedToId.Value);
+
+                if (f.OverdueSlaBefore is DateTime antes)
+                    q = q.Where(t => t.DueDate.HasValue && t.DueDate.Value < antes
+                                  && !SlaCerrado.Contains(t.Status));
+
+                if (f.SlaCompliant.HasValue)
+                    q = q.Where(t => t.SlaCompliant == f.SlaCompliant.Value);
+
+                var todos = q.OrderBy(t => t.CreatedAt).ToList();
+                var pag   = todos.Skip((f.Page - 1) * f.PageSize).Take(f.PageSize).ToList();
+                return (pag, todos.Count);
+            });
+
+        return mock;
+    }
+
+    private static readonly TicketStatus[] SlaCerrado =
+    [
+        TicketStatus.Resuelto,
+        TicketStatus.Cerrado,
+        TicketStatus.PendienteCliente,
+    ];
+
+    public static Mock<ITicketCommentRepository> Comments(params TicketComment[] items)
+    {
+        var lista = items.ToList();
+        var mock  = RepoMock.Of<ITicketCommentRepository, TicketComment>(lista);
+
+        mock.Setup(r => r.GetForTicketAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((Guid ticketId, CancellationToken _) => lista
+                .Where(c => c.TicketId == ticketId).OrderBy(c => c.CreatedAt).ToList());
+
+        return mock;
+    }
+
+    public static Mock<ITicketWorkLogRepository> WorkLogs(params TicketWorkLog[] items)
+    {
+        var lista = items.ToList();
+        var mock  = RepoMock.Of<ITicketWorkLogRepository, TicketWorkLog>(lista);
+
+        mock.Setup(r => r.GetForTicketAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((Guid ticketId, CancellationToken _) => lista
+                .Where(w => w.TicketId == ticketId).OrderByDescending(w => w.LoggedAt).ToList());
+
+        return mock;
+    }
+
+    public static Mock<ITicketVisitRepository> Visits(params TicketVisit[] items)
+    {
+        var lista = items.ToList();
+        var mock  = RepoMock.Of<ITicketVisitRepository, TicketVisit>(lista);
+
+        mock.Setup(r => r.GetForTicketAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((Guid ticketId, CancellationToken _) => lista
+                .Where(v => v.TicketId == ticketId).OrderBy(v => v.ScheduledAt).ToList());
+
+        mock.Setup(r => r.GetTechnicianDayAsync(
+                It.IsAny<Guid>(), It.IsAny<DateTime>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((Guid tec, DateTime fecha, CancellationToken _) => lista
+                .Where(v => v.TechnicianId == tec && v.ScheduledAt.Date == fecha.Date
+                         && v.Status != VisitStatus.Cancelada)
+                .OrderBy(v => v.ScheduledAt)
+                .ToList());
+
+        mock.Setup(r => r.GetCalendarRangeAsync(
+                It.IsAny<DateTime>(), It.IsAny<DateTime>(), It.IsAny<Guid?>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync((DateTime desde, DateTime hasta, Guid? tec, CancellationToken _) => lista
+                .Where(v => v.Status == VisitStatus.Programada
+                         && v.ScheduledAt.Date >= desde.Date && v.ScheduledAt.Date <= hasta.Date
+                         && (tec == null || v.TechnicianId == tec))
+                .OrderBy(v => v.ScheduledAt)
+                .ToList());
+
+        return mock;
+    }
+
+    public static Mock<ISlaPlanRepository> SlaPlans(params SlaPlan[] items)
+    {
+        var lista = items.ToList();
+        var mock  = RepoMock.Of<ISlaPlanRepository, SlaPlan>(lista);
+
+        mock.Setup(r => r.GetActiveByPriorityAsync(
+                It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((string priority, CancellationToken _) =>
+                lista.FirstOrDefault(p => p.Priority == priority && p.IsActive));
+
+        return mock;
+    }
+
+    /// <summary>
+    /// IScheduleRepository no hereda del genérico —solo tiene dos lecturas— así
+    /// que este mock se arma desde cero en vez de partir de RepoMock.
+    /// </summary>
+    public static Mock<IScheduleRepository> Schedules(BusinessSchedule? schedule = null)
+    {
+        var mock = new Mock<IScheduleRepository>();
+
+        mock.Setup(r => r.GetActiveAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(schedule);
+
+        mock.Setup(r => r.GetActiveByIdAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((Guid id, CancellationToken _) =>
+                schedule is not null && schedule.Id == id ? schedule : null);
+
         return mock;
     }
 
     public static Mock<IPaymentRepository> Payments(params Payment[] items)
     {
         var lista = items.ToList();
-        var mock  = RepoMock.Of<IPaymentRepository, Payment>(items);
+        var mock  = RepoMock.Of<IPaymentRepository, Payment>(lista);
 
         mock.Setup(r => r.GetHistoryForClientAsync(
                 It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
@@ -221,7 +383,7 @@ public static class SpecificRepoMock
     public static Mock<IDistributionBoxRepository> Boxes(params DistributionBox[] items)
     {
         var lista = items.ToList();
-        var mock  = RepoMock.Of<IDistributionBoxRepository, DistributionBox>(items);
+        var mock  = RepoMock.Of<IDistributionBoxRepository, DistributionBox>(lista);
 
         mock.Setup(r => r.GetByIdWithZoneAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync((Guid id, CancellationToken _) => lista.FirstOrDefault(b => b.Id == id));

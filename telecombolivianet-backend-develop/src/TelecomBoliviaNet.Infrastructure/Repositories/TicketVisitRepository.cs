@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using TelecomBoliviaNet.Domain.Entities.Tickets;
 using TelecomBoliviaNet.Domain.Interfaces;
 using TelecomBoliviaNet.Infrastructure.Data;
@@ -43,4 +43,12 @@ public class TicketVisitRepository : GenericRepository<TicketVisit>, ITicketVisi
 
         return q.OrderBy(v => v.ScheduledAt).ToListAsync(ct);
     }
+
+    public Task<List<TicketVisit>> GetForTicketAsync(
+        Guid ticketId, CancellationToken ct = default)
+        => _db.TicketVisits.AsNoTracking()
+            .Include(v => v.Technician)
+            .Where(v => v.TicketId == ticketId)
+            .OrderBy(v => v.ScheduledAt)
+            .ToListAsync(ct);
 }

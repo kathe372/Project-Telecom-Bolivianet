@@ -1,4 +1,4 @@
-using TelecomBoliviaNet.Domain.Entities.Tickets;
+﻿using TelecomBoliviaNet.Domain.Entities.Tickets;
 
 namespace TelecomBoliviaNet.Domain.Interfaces;
 
@@ -23,4 +23,10 @@ public interface ITicketVisitRepository : IGenericRepository<TicketVisit>
     /// </summary>
     Task<List<TicketVisit>> GetCalendarRangeAsync(
         DateTime desde, DateTime hasta, Guid? tecnicoId, CancellationToken ct = default);
+
+    /// <summary>
+    /// Visitas de un ticket en orden cronológico, con el técnico asignado —
+    /// incluidas las canceladas: la ficha cuenta el historial completo.
+    /// </summary>
+    Task<List<TicketVisit>> GetForTicketAsync(Guid ticketId, CancellationToken ct = default);
 }

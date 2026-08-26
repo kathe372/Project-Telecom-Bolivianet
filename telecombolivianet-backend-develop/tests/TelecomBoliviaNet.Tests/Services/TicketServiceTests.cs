@@ -69,7 +69,7 @@ public class TicketServiceTests
     }
 
     private (CreateTicketHandler handler,
-             Mock<IGenericRepository<SupportTicket>> ticketRepo)
+             Mock<ITicketRepository> ticketRepo)
         MakeHandler(
             Client?     client  = null,
             UserSystem? tecnico = null,
@@ -79,15 +79,15 @@ public class TicketServiceTests
         var resolvedClient  = client  ?? MakeClient();
         var resolvedTecnico = tecnico ?? MakeTecnico();
 
-        var ticketRepo  = RepoMock.Of(existingTickets?.ToArray() ?? Array.Empty<SupportTicket>());
+        var ticketRepo  = SpecificRepoMock.Tickets(existingTickets?.ToArray() ?? Array.Empty<SupportTicket>());
         var clientRepo  = RepoMock.Of(resolvedClient);
         var userRepo    = RepoMock.Of(resolvedTecnico);
-        var commentRepo = RepoMock.Empty<TicketComment>();
-        var workLogRepo = RepoMock.Empty<TicketWorkLog>();
-        var visitRepo   = RepoMock.Empty<TicketVisit>();
-        var slaPlanRepo = RepoMock.Of(slaPlans?.ToArray() ?? Array.Empty<SlaPlan>());
+        var commentRepo = SpecificRepoMock.Comments();
+        var workLogRepo = SpecificRepoMock.WorkLogs();
+        var visitRepo   = SpecificRepoMock.Visits();
+        var slaPlanRepo = SpecificRepoMock.SlaPlans(slaPlans?.ToArray() ?? Array.Empty<SlaPlan>());
         var notifRepo   = RepoMock.Empty<TicketNotification>();
-        var scheduleRepo = RepoMock.Empty<BusinessSchedule>();
+        var scheduleRepo = SpecificRepoMock.Schedules();
 
         var helper = new TicketHelper(
             ticketRepo.Object, commentRepo.Object, workLogRepo.Object,
@@ -139,15 +139,15 @@ public class TicketServiceTests
     [Fact]
     public async Task Create_ClientNotFound_ReturnsFail()
     {
-        var ticketRepo  = RepoMock.Empty<SupportTicket>();
+        var ticketRepo  = SpecificRepoMock.Tickets();
         var clientRepo  = SpecificRepoMock.Clients(); // sin clientes
         var userRepo    = RepoMock.Of(MakeTecnico());
-        var commentRepo = RepoMock.Empty<TicketComment>();
-        var workLogRepo = RepoMock.Empty<TicketWorkLog>();
-        var visitRepo   = RepoMock.Empty<TicketVisit>();
-        var slaPlanRepo = RepoMock.Empty<SlaPlan>();
+        var commentRepo = SpecificRepoMock.Comments();
+        var workLogRepo = SpecificRepoMock.WorkLogs();
+        var visitRepo   = SpecificRepoMock.Visits();
+        var slaPlanRepo = SpecificRepoMock.SlaPlans();
         var notifRepo   = RepoMock.Empty<TicketNotification>();
-        var scheduleRepo = RepoMock.Empty<BusinessSchedule>();
+        var scheduleRepo = SpecificRepoMock.Schedules();
 
         var helper = new TicketHelper(
             ticketRepo.Object, commentRepo.Object, workLogRepo.Object,
@@ -264,15 +264,15 @@ public class TicketServiceTests
             Status   = UserStatus.Activo,
         };
 
-        var ticketRepo  = RepoMock.Empty<SupportTicket>();
+        var ticketRepo  = SpecificRepoMock.Tickets();
         var clientRepo  = SpecificRepoMock.Clients(MakeClient());
         var userRepo    = RepoMock.Of(operador);
-        var commentRepo = RepoMock.Empty<TicketComment>();
-        var workLogRepo = RepoMock.Empty<TicketWorkLog>();
-        var visitRepo   = RepoMock.Empty<TicketVisit>();
-        var slaPlanRepo = RepoMock.Empty<SlaPlan>();
+        var commentRepo = SpecificRepoMock.Comments();
+        var workLogRepo = SpecificRepoMock.WorkLogs();
+        var visitRepo   = SpecificRepoMock.Visits();
+        var slaPlanRepo = SpecificRepoMock.SlaPlans();
         var notifRepo   = RepoMock.Empty<TicketNotification>();
-        var scheduleRepo = RepoMock.Empty<BusinessSchedule>();
+        var scheduleRepo = SpecificRepoMock.Schedules();
 
         var helper = new TicketHelper(
             ticketRepo.Object, commentRepo.Object, workLogRepo.Object,

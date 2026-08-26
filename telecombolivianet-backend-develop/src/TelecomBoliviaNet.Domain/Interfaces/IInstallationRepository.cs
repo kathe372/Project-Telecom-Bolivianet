@@ -37,6 +37,13 @@ public interface IInstallationRepository : IGenericRepository<Installation>
     /// </summary>
     Task<Installation?> GetForCommandAsync(Guid id, CancellationToken ct = default);
 
+    /// <summary>
+    /// Instalación que generó un ticket, con su caja NAP y la zona de esa caja.
+    /// La ficha de un ticket de prospecto saca de aquí la ubicación: sin Client,
+    /// no hay otro sitio donde estén.
+    /// </summary>
+    Task<Installation?> GetByTicketAsync(Guid ticketId, CancellationToken ct = default);
+
     /// <summary>¿Tiene este cliente una instalación sin cerrar?</summary>
     Task<bool> HasOpenForClientAsync(Guid clientId, CancellationToken ct = default);
 

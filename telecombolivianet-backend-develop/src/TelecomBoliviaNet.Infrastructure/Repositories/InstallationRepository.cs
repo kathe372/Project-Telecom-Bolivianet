@@ -41,6 +41,11 @@ public class InstallationRepository : GenericRepository<Installation>, IInstalla
             .Select(i => new ClientBoxRef(i.DistributionBoxId!.Value, i.DistributionBox!.Codigo))
             .FirstOrDefaultAsync(ct);
 
+    public Task<Installation?> GetByTicketAsync(Guid ticketId, CancellationToken ct = default)
+        => _db.Installations.AsNoTracking()
+            .Include(i => i.DistributionBox).ThenInclude(b => b!.Zone)
+            .FirstOrDefaultAsync(i => i.TicketId == ticketId, ct);
+
     public Task<Installation?> GetForCommandAsync(Guid id, CancellationToken ct = default)
         => _db.Installations
             .Include(i => i.Client)

@@ -1,5 +1,4 @@
-using Microsoft.EntityFrameworkCore;
-using TelecomBoliviaNet.Application.DTOs.Tickets;
+﻿using TelecomBoliviaNet.Application.DTOs.Tickets;
 using TelecomBoliviaNet.Application.Interfaces;
 using TelecomBoliviaNet.Domain.Entities.Auth;
 using TelecomBoliviaNet.Domain.Entities.Clients;
@@ -13,25 +12,25 @@ namespace TelecomBoliviaNet.Application.Tickets.Helpers;
 
 public class TicketHelper
 {
-    private readonly IGenericRepository<SupportTicket>      _ticketRepo;
-    private readonly IGenericRepository<TicketComment>      _commentRepo;
-    private readonly IGenericRepository<TicketWorkLog>      _workLogRepo;
-    private readonly IGenericRepository<TicketVisit>        _visitRepo;
-    private readonly IGenericRepository<SlaPlan>            _slaPlanRepo;
+    private readonly ITicketRepository                  _ticketRepo;
+    private readonly ITicketCommentRepository           _commentRepo;
+    private readonly ITicketWorkLogRepository           _workLogRepo;
+    private readonly ITicketVisitRepository               _visitRepo;
+    private readonly ISlaPlanRepository                       _slaPlanRepo;
     private readonly IGenericRepository<TicketNotification> _notifRepo;
-    private readonly IGenericRepository<BusinessSchedule>   _scheduleRepo;
-    private readonly IGenericRepository<Installation>       _instRepo;
+    private readonly IScheduleRepository             _scheduleRepo;
+    private readonly IInstallationRepository             _instRepo;
     private readonly INotifPublisher                        _notifPublisher;
 
     public TicketHelper(
-        IGenericRepository<SupportTicket>      ticketRepo,
-        IGenericRepository<TicketComment>      commentRepo,
-        IGenericRepository<TicketWorkLog>      workLogRepo,
-        IGenericRepository<TicketVisit>        visitRepo,
-        IGenericRepository<SlaPlan>            slaPlanRepo,
+        ITicketRepository                  ticketRepo,
+        ITicketCommentRepository           commentRepo,
+        ITicketWorkLogRepository           workLogRepo,
+        ITicketVisitRepository               visitRepo,
+        ISlaPlanRepository                       slaPlanRepo,
         IGenericRepository<TicketNotification> notifRepo,
-        IGenericRepository<BusinessSchedule>   scheduleRepo,
-        IGenericRepository<Installation>       instRepo,
+        IScheduleRepository             scheduleRepo,
+        IInstallationRepository             instRepo,
         INotifPublisher                        notifPublisher)
     {
         _ticketRepo     = ticketRepo;
@@ -46,27 +45,16 @@ public class TicketHelper
     }
 
     public async Task<SupportTicket?> LoadAsync(Guid id) =>
-        await _ticketRepo.GetAll()
-            .AsNoTracking()
-            .Include(t => t.Client).Include(t => t.AssignedTo).Include(t => t.CreatedBy)
-            .FirstOrDefaultAsync(t => t.Id == id);
+        await _ticketRepo.GetSummaryAsync(id);
 
     public async Task<TicketDetailDto?> BuildDetailAsync(Guid ticketId)
     {
-        var t = await _ticketRepo.GetAll()
-            .AsNoTracking()
-            .IgnoreQueryFilters()
-            .Include(t => t.Client).ThenInclude(c => c!.Plan)
-            .Include(t => t.AssignedTo).Include(t => t.CreatedBy)
-            .FirstOrDefaultAsync(x => x.Id == ticketId);
+        var t = await _ticketRepo.GetDetailAsync(ticketId);
         if (t is null) return null;
 
-        var comments = await _commentRepo.GetAll().AsNoTracking().Include(c => c.Author)
-            .Where(c => c.TicketId == ticketId).OrderBy(c => c.CreatedAt).ToListAsync();
-        var workLogs = await _workLogRepo.GetAll().AsNoTracking().Include(w => w.User)
-            .Where(w => w.TicketId == ticketId).OrderByDescending(w => w.LoggedAt).ToListAsync();
-        var visits = await _visitRepo.GetAll().AsNoTracking().Include(v => v.Technician)
-            .Where(v => v.TicketId == ticketId).OrderBy(v => v.ScheduledAt).ToListAsync();
+        var comments = await _commentRepo.GetForTicketAsync(ticketId);
+        var workLogs = await _workLogRepo.GetForTicketAsync(ticketId);
+        var visits   = await _visitRepo.GetForTicketAsync(ticketId);
 
         // Ticket de un prospecto (sin Client): la ubicación/caja NAP/zona no
         // viven en un Client sino en la Installation que generó este ticket
@@ -74,9 +62,7 @@ public class TicketHelper
         // mapa"/"Ver en mapa de cobertura" quedaban sin datos para la mayoría
         // de los tickets de instalación agendados por el bot.
         Installation? inst = t.ClientId is null
-            ? await _instRepo.GetAll().AsNoTracking()
-                .Include(i => i.DistributionBox).ThenInclude(b => b!.Zone)
-                .FirstOrDefaultAsync(i => i.TicketId == ticketId)
+            ? await _instRepo.GetByTicketAsync(ticketId)
             : null;
 
         return new TicketDetailDto(
@@ -114,9 +100,7 @@ public class TicketHelper
     public async Task<DateTime?> GetDueDateFromSlaAsync(
         TicketPriority priority, DateTime? startTime = null)
     {
-        var plan = await _slaPlanRepo.GetAll()
-            .AsNoTracking()
-            .FirstOrDefaultAsync(p => p.Priority == priority.ToString() && p.IsActive);
+        var plan = await _slaPlanRepo.GetActiveByPriorityAsync(priority.ToString());
         if (plan is null) return null;
         var from = startTime ?? DateTime.UtcNow;
 
@@ -124,10 +108,8 @@ public class TicketHelper
             return from.AddMinutes(plan.ResolutionMinutes);
 
         var schedule = plan.BusinessScheduleId.HasValue
-            ? await _scheduleRepo.GetAll().AsNoTracking().Include(s => s.Holidays)
-                  .FirstOrDefaultAsync(s => s.Id == plan.BusinessScheduleId.Value && s.IsActive)
-            : await _scheduleRepo.GetAll().AsNoTracking().Include(s => s.Holidays)
-                  .FirstOrDefaultAsync(s => s.IsDefault && s.IsActive);
+            ? await _scheduleRepo.GetActiveByIdAsync(plan.BusinessScheduleId.Value)
+            : await _scheduleRepo.GetActiveAsync();
 
         if (schedule is null || schedule.Is24x7)
             return from.AddMinutes(plan.ResolutionMinutes);

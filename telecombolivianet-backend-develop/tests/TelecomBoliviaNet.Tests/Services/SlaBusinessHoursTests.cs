@@ -119,15 +119,15 @@ public class SlaBusinessHoursTests
     private static UpdateTicketHandler MakeHandler(
         SupportTicket ticket, SlaPlan plan, BusinessSchedule? schedule = null)
     {
-        var ticketRepo   = RepoMock.Of(ticket);
-        var commentRepo  = RepoMock.Empty<TicketComment>();
-        var workLogRepo  = RepoMock.Empty<TicketWorkLog>();
-        var visitRepo    = RepoMock.Empty<TicketVisit>();
-        var slaPlanRepo  = RepoMock.Of(plan);
+        var ticketRepo   = SpecificRepoMock.Tickets(ticket);
+        var commentRepo  = SpecificRepoMock.Comments();
+        var workLogRepo  = SpecificRepoMock.WorkLogs();
+        var visitRepo    = SpecificRepoMock.Visits();
+        var slaPlanRepo  = SpecificRepoMock.SlaPlans(plan);
         var notifRepo    = RepoMock.Empty<TicketNotification>();
         var scheduleRepo = schedule is not null
-            ? RepoMock.Of(schedule)
-            : RepoMock.Empty<BusinessSchedule>();
+            ? SpecificRepoMock.Schedules(schedule)
+            : SpecificRepoMock.Schedules();
 
         var helper = new TicketHelper(
             ticketRepo.Object, commentRepo.Object, workLogRepo.Object,
@@ -344,13 +344,13 @@ public class SlaBusinessHoursTests
         var start  = new DateTime(2025, 1, 6, 10, 0, 0, DateTimeKind.Utc);
         var ticket = MakeTicket(start);
 
-        var ticketRepo   = RepoMock.Of(ticket);
-        var commentRepo  = RepoMock.Empty<TicketComment>();
-        var workLogRepo  = RepoMock.Empty<TicketWorkLog>();
-        var visitRepo    = RepoMock.Empty<TicketVisit>();
-        var slaPlanRepo  = RepoMock.Empty<SlaPlan>(); // no hay planes SLA
+        var ticketRepo   = SpecificRepoMock.Tickets(ticket);
+        var commentRepo  = SpecificRepoMock.Comments();
+        var workLogRepo  = SpecificRepoMock.WorkLogs();
+        var visitRepo    = SpecificRepoMock.Visits();
+        var slaPlanRepo  = SpecificRepoMock.SlaPlans(); // no hay planes SLA
         var notifRepo    = RepoMock.Empty<TicketNotification>();
-        var scheduleRepo = RepoMock.Empty<BusinessSchedule>();
+        var scheduleRepo = SpecificRepoMock.Schedules();
 
         var helper = new TicketHelper(
             ticketRepo.Object, commentRepo.Object, workLogRepo.Object,
