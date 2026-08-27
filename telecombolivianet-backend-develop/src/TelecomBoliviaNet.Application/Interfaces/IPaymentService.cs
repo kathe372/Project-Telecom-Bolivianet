@@ -1,20 +1,19 @@
-using TelecomBoliviaNet.Application.DTOs.Common;
 using TelecomBoliviaNet.Application.DTOs.Payments;
 using TelecomBoliviaNet.Domain.Primitives;
 
 namespace TelecomBoliviaNet.Application.Interfaces;
 
+/// <summary>
+/// Anular un cobro. Las lecturas están en <see cref="IPaymentQueryService"/>,
+/// los informes en <see cref="IPaymentReportService"/> y los recordatorios en
+/// <see cref="IOverdueReminderService"/>.
+///
+/// <para>Adjuntar el comprobante vive en <c>IReceiptImageService</c>: tener aquí
+/// una segunda copia hizo que el controlador usara la versión con el bug (pasaba
+/// el contentType donde va la carpeta).</para>
+/// </summary>
 public interface IPaymentService
 {
-    Task<PagedResult<PaymentListItemDto>>               GetAllAsync(PaymentFilterDto filter);
-    Task<PaymentDetailDto?>                             GetByIdAsync(Guid id);
-    // Adjuntar el comprobante vive en IReceiptImageService: tener aquí una segunda copia hizo
-    // que el controlador usara la versión con el bug (pasaba el contentType donde va la carpeta).
-    Task<Result<VoidPaymentResultDto>>                  VoidPaymentAsync(
+    Task<Result<VoidPaymentResultDto>> VoidPaymentAsync(
         Guid paymentId, string justification, Guid actorId, string actorName, string ip);
-    Task<CollectionReportDto>                           GetCollectionReportAsync(DateTime from, DateTime to);
-    Task<DuplicateCheckResultDto>                       CheckDuplicateAsync(Guid clientId, decimal amount, DateTime paidAt);
-    Task<ReminderJobResultDto>                          SendOverdueRemindersAsync(Guid? actorId = null, string actorName = "Sistema");
-    Task<Result<CollectionReportByOperatorDto>>         GetCollectionByOperatorAsync(
-        DateTime from, DateTime to, Guid? operatorId);
 }

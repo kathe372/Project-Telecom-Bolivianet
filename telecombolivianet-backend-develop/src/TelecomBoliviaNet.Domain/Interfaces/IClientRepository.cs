@@ -53,6 +53,16 @@ public interface IClientRepository : IGenericRepository<Client>
     /// </summary>
     Task<(List<Client> Items, int Total)> GetPagedAsync(
         ClientListFilter filter, CancellationToken ct = default);
+
+    /// <summary>
+    /// Clientes con al menos una factura vencida y servicio aún vivo (activo o
+    /// suspendido), con sus facturas cargadas. Alimenta el recordatorio masivo.
+    ///
+    /// <para>Los dados de baja quedan fuera por el filtro global: reclamarle una
+    /// deuda a quien ya no es cliente se resuelve por otra vía, no por WhatsApp
+    /// automático.</para>
+    /// </summary>
+    Task<List<Client>> GetWithOverdueInvoicesAsync(CancellationToken ct = default);
 }
 
 /// <summary>

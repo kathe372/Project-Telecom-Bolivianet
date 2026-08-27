@@ -3,25 +3,28 @@ using TelecomBoliviaNet.Application.Constants;
 using TelecomBoliviaNet.Application.DTOs.Common;
 using TelecomBoliviaNet.Application.DTOs.Payments;
 using TelecomBoliviaNet.Application.Interfaces;
-using TelecomBoliviaNet.Domain.Entities.Auth;
 using TelecomBoliviaNet.Domain.Entities.Clients;
 using TelecomBoliviaNet.Domain.Interfaces;
-using TelecomBoliviaNet.Domain.Primitives;
 
 namespace TelecomBoliviaNet.Application.Services.Payments;
 
+/// <summary>
+/// Las tres lecturas del módulo de Pagos, extraídas de <c>PaymentService</c> (F5).
+///
+/// <para>Existía ya un archivo con este nombre, pero era una copia anterior a las
+/// correcciones de rendimiento del informe y no la usaba nadie: se eliminó (D-20)
+/// y la extracción se rehízo desde el código vigente.</para>
+///
+/// <para>Compone <c>IQueryable</c> a propósito: el listado filtra por seis
+/// criterios opcionales y un método de repositorio por combinación sería peor
+/// que esto. Es la excepción que documenta ADR-001.</para>
+/// </summary>
 public class PaymentQueryService : IPaymentQueryService
 {
-    private readonly IGenericRepository<Payment>    _paymentRepo;
-    private readonly IGenericRepository<UserSystem> _userRepo;
+    private readonly IGenericRepository<Payment> _paymentRepo;
 
-    public PaymentQueryService(
-        IGenericRepository<Payment>    paymentRepo,
-        IGenericRepository<UserSystem> userRepo)
-    {
-        _paymentRepo = paymentRepo;
-        _userRepo    = userRepo;
-    }
+    public PaymentQueryService(IGenericRepository<Payment> paymentRepo)
+        => _paymentRepo = paymentRepo;
 
     public async Task<PagedResult<PaymentListItemDto>> GetAllAsync(PaymentFilterDto filter)
     {
@@ -64,7 +67,7 @@ public class PaymentQueryService : IPaymentQueryService
             .ToListAsync();
 
         return new PagedResult<PaymentListItemDto>(
-            payments.Select(MapToListItem), total, filter.PageNumber, filter.PageSize);
+            payments.Select(PaymentMapper.ToListItem), total, filter.PageNumber, filter.PageSize);
     }
 
     public async Task<PaymentDetailDto?> GetByIdAsync(Guid id)
@@ -77,6 +80,12 @@ public class PaymentQueryService : IPaymentQueryService
 
         if (p is null) return null;
 
+        // Misma constante que usa la validación real de la anulación. Antes aquí
+        // había un 30 literal: si alguien cambiaba VoidPaymentWindowDays, la UI
+        // seguía ofreciendo "Anular" durante 30 días y el backend lo rechazaba.
+        var canVoid = (DateTime.UtcNow - p.RegisteredAt).TotalDays
+                      <= AppConstants.Security.VoidPaymentWindowDays;
+
         return new PaymentDetailDto(
             p.Id, p.ClientId,
             p.Client?.TbnCode   ?? "—",
@@ -86,96 +95,33 @@ public class PaymentQueryService : IPaymentQueryService
             p.PaidAt, p.RegisteredAt,
             p.RegisteredBy?.FullName ?? "Sistema",
             p.FromWhatsApp, p.ReceiptImageUrl, p.PhysicalReceiptNumber,
-            BuildCoveredMonths(p),
-            CanVoid:  (DateTime.UtcNow - p.RegisteredAt).TotalDays <= AppConstants.Security.VoidPaymentWindowDays,
-            IsVoided: p.IsVoided);
+            PaymentMapper.CoveredMonths(p), canVoid, p.IsVoided);
     }
 
-    public async Task<CollectionReportDto> GetCollectionReportAsync(DateTime from, DateTime to)
+    public async Task<DuplicateCheckResultDto> CheckDuplicateAsync(
+        Guid clientId, decimal amount, DateTime paidAt)
     {
-        var utcFrom = from.ToUniversalTime();
-        var utcTo   = to.ToUniversalTime().AddDays(1);
+        var threeDaysAgo = paidAt.AddDays(-3).ToUniversalTime();
+        var paidAtUtc    = paidAt.ToUniversalTime().AddDays(1);
 
-        var payments = await _paymentRepo.GetAll()
-            .Include(p => p.Client).ThenInclude(c => c!.Plan)
+        var existing = await _paymentRepo.GetAll()
             .Include(p => p.RegisteredBy)
-            .Include(p => p.PaymentInvoices).ThenInclude(pi => pi.Invoice)
-            .Where(p => p.PaidAt >= utcFrom && p.PaidAt < utcTo && !p.IsVoided)
-            .ToListAsync();
+            .Where(p => p.ClientId == clientId
+                     && p.Amount   == amount
+                     && p.PaidAt   >= threeDaysAgo
+                     && p.PaidAt   <= paidAtUtc
+                     && p.Amount   > 0
+                     // Un pago ANULADO no es un duplicado: sin este filtro, tras
+                     // anular un pago mal registrado el sistema bloqueaba volver a
+                     // registrarlo corregido.
+                     && !p.IsVoided)
+            .FirstOrDefaultAsync();
 
-        var total   = payments.Sum(p => p.Amount);
-        var count   = payments.Count;
-        var avg     = count > 0 ? Math.Round(total / count, 2) : 0;
-        var cash    = payments.Where(p => p.Method == PaymentMethod.Efectivo).Sum(p => p.Amount);
-        var deposit = payments.Where(p => p.Method == PaymentMethod.DepositoBancario).Sum(p => p.Amount);
-        var qr      = payments.Where(p => p.Method == PaymentMethod.QR).Sum(p => p.Amount);
+        if (existing is null)
+            return new DuplicateCheckResultDto(false, null, null, null, null, null);
 
-        var byUser = payments
-            .GroupBy(p => p.RegisteredBy?.FullName ?? "Sistema")
-            .Select(g => new CollectionByUserDto(g.Key, g.Count(), g.Sum(p => p.Amount)))
-            .OrderByDescending(u => u.Total);
-
-        return new CollectionReportDto(from, to, total, count, avg,
-            cash, deposit, qr, byUser, payments.Select(MapToListItem));
+        return new DuplicateCheckResultDto(
+            true, existing.Id, existing.PaidAt, existing.Amount,
+            existing.Method.ToString(), existing.RegisteredBy?.FullName);
     }
-
-    public async Task<Result<CollectionReportByOperatorDto>> GetCollectionByOperatorAsync(
-        DateTime from, DateTime to, Guid? operatorId)
-    {
-        var utcFrom = from.ToUniversalTime();
-        var utcTo   = to.ToUniversalTime().AddDays(1);
-
-        var query = _paymentRepo.GetAll()
-            .Include(p => p.Client)
-            .Include(p => p.RegisteredBy)
-            .Include(p => p.PaymentInvoices).ThenInclude(pi => pi.Invoice)
-            .Where(p => p.PaidAt >= utcFrom && p.PaidAt < utcTo && !p.IsVoided);
-
-        if (operatorId.HasValue)
-            query = query.Where(p => p.RegisteredByUserId == operatorId.Value);
-
-        var payments  = await query.OrderByDescending(p => p.PaidAt).ToListAsync();
-        var operators = await _userRepo.GetAll()
-            .Where(u => !u.IsDeleted)
-            .OrderBy(u => u.FullName)
-            .Select(u => new OperatorDropdownDto(u.Id, u.FullName))
-            .ToListAsync();
-
-        return Result<CollectionReportByOperatorDto>.Success(new CollectionReportByOperatorDto(
-            from, to,
-            payments.Sum(p => p.Amount),
-            payments.Count,
-            operatorId.HasValue ? payments.FirstOrDefault()?.RegisteredBy?.FullName : null,
-            payments.Select(p => new PaymentReportRowDto(
-                p.Id, p.Client?.TbnCode ?? "—", p.Client?.FullName ?? "—",
-                p.Amount, p.Method.ToString(), p.Bank, p.BankReference,
-                p.PaidAt, p.RegisteredBy?.FullName ?? "Sistema",
-                p.PhysicalReceiptNumber, p.FromWhatsApp)).ToList(),
-            operators));
-    }
-
-    private static PaymentListItemDto MapToListItem(Payment p) =>
-        new(p.Id, p.ClientId,
-            p.Client?.TbnCode       ?? "—",
-            p.Client?.FullName      ?? "—",
-            p.Amount, p.Method.ToString(), p.Bank, p.BankReference,
-            p.PaidAt, p.RegisteredAt,
-            p.RegisteredBy?.FullName ?? "Sistema",
-            p.FromWhatsApp, p.ReceiptImageUrl, p.PhysicalReceiptNumber,
-            BuildCoveredMonths(p),
-            p.Client?.Plan?.Name    ?? "—",
-            p.IsVoided);
-
-    private static readonly System.Globalization.CultureInfo _esCulture =
-        System.Globalization.CultureInfo.GetCultureInfo("es-BO");
-
-    private static IEnumerable<string> BuildCoveredMonths(Payment p) =>
-        p.PaymentInvoices.Select(pi =>
-        {
-            if (pi.Invoice?.Type == InvoiceType.Instalacion) return "Instalación";
-            if (pi.Invoice is null) return "—";
-            var s = new DateTime(pi.Invoice.Year, pi.Invoice.Month, 1)
-                        .ToString("MMMM yyyy", _esCulture);
-            return char.ToUpper(s[0]) + s[1..];
-        });
 }

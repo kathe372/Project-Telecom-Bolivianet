@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using TelecomBoliviaNet.Application.DTOs.Payments;
 using TelecomBoliviaNet.Application.Interfaces;
@@ -222,7 +222,7 @@ public class PaymentVoidCharacterizationTests : IClassFixture<CustomWebApplicati
 
         // Sin este comportamiento, tras anular un pago mal registrado el sistema
         // bloqueaba volver a registrarlo corregido.
-        var svc = esc.Scope.ServiceProvider.GetRequiredService<IPaymentService>();
+        var svc = esc.Scope.ServiceProvider.GetRequiredService<IPaymentQueryService>();
         var check = await svc.CheckDuplicateAsync(esc.ClientId, 100m, DateTime.UtcNow);
 
         check.IsPossibleDuplicate.Should().BeFalse();

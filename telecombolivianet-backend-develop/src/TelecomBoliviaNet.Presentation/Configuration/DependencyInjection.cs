@@ -165,16 +165,19 @@ public static class DependencyInjection
         services.AddScoped<IInvoiceNumberService>(sp => sp.GetRequiredService<InvoiceNumberService>());
         services.AddScoped<IInvoiceOperationsService, InvoiceOperationsService>();
 
+        services.AddScoped<CreditReversalCalculator>();
         services.AddScoped<PaymentService>();
         services.AddScoped<IPaymentService>(sp => sp.GetRequiredService<PaymentService>());
+        // F5 — las otras tres cuartas partes de lo que era PaymentService.
+        services.AddScoped<IPaymentQueryService,   PaymentQueryService>();
+        services.AddScoped<IPaymentReportService,  PaymentReportService>();
+        services.AddScoped<IOverdueReminderService, OverdueReminderService>();
         services.AddScoped<ICreditLedger, CreditLedgerService>();
         services.AddScoped<IPaymentCreditService, PaymentCreditService>();
         services.AddScoped<CashCloseService>();
         services.AddScoped<ICashCloseService>(sp => sp.GetRequiredService<CashCloseService>());
         services.AddScoped<ReceiptImageService>();
         services.AddScoped<IReceiptImageService>(sp => sp.GetRequiredService<ReceiptImageService>());
-        services.AddScoped<PaymentQueryService>();
-        services.AddScoped<IPaymentQueryService>(sp => sp.GetRequiredService<PaymentQueryService>());
         services.AddScoped<IClientAttachmentService, ClientAttachmentService>();
         services.AddScoped<TicketNumberService>();
         services.AddScoped<IBotProxyService, BotProxyService>();

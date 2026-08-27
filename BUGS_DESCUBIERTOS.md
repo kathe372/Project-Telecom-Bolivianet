@@ -97,6 +97,47 @@ Reescrito con salida temprana: `if (current.Count == 0) return;`.
 
 ---
 
+## F5 — Fase 5 (2026-08-26)
+
+### 🟠 D-20 · `PaymentQueryService`: una copia obsoleta, registrada y con dos bugs ya corregidos — **ELIMINADA**
+
+Estaba en el repositorio desde el commit inicial. 181 líneas que duplicaban cuatro
+métodos de `PaymentService`, registrada en el contenedor
+(`services.AddScoped<IPaymentQueryService, …>`) y **consumida por nadie**: ni el
+controlador, ni otro servicio, ni un test.
+
+Lo grave no es la duplicación, es **qué versión duplicaba**. Los dos informes de
+recaudación de `PaymentService` se habían corregido para agregar los totales en
+SQL sobre el rango completo; la copia se quedó con la versión anterior:
+
+```csharp
+// PaymentService (vigente): total sobre TODAS las filas del rango
+var totals = await baseQuery.GroupBy(_ => 1).Select(g => new { Total = g.Sum(...) })...
+
+// PaymentQueryService (copia): total sobre las filas que se trajeron a memoria
+var payments = await query.OrderByDescending(p => p.PaidAt).ToListAsync();
+...  payments.Sum(p => p.Amount), payments.Count
+```
+
+`GetCollectionByOperatorAsync` además deducía el nombre del operador de
+`payments.FirstOrDefault()?.RegisteredBy?.FullName` en vez de buscarlo en la lista
+de operadores.
+
+**Por qué era una mina y no solo código muerto:** al estar registrada, bastaba con
+que alguien inyectara `IPaymentQueryService` —el nombre más natural del mundo para
+"consultas de pagos"— para reintroducir en silencio un bug de totales incorrectos
+que ya se había arreglado.
+
+**Qué se hizo:** se eliminaron la clase y su interfaz, y la extracción de F5 se
+rehízo desde el código vigente. El nombre `PaymentQueryService` se reutiliza a
+propósito: es el correcto, y ahora contiene lo correcto.
+
+**Lección:** una extracción a medias que nadie termina de cablear no es neutra.
+Envejece por separado del original y se convierte en una trampa con nombre
+atractivo.
+
+---
+
 ## Caza de bugs (2026-08-24)
 
 Barrido dirigido tras F0–F4, con sondas escritas para intentar **romper** el

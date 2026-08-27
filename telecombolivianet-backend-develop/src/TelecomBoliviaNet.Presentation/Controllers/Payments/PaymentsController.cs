@@ -1,4 +1,4 @@
-using Microsoft.AspNetCore.Authorization;
+﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using TelecomBoliviaNet.Application.DTOs.Payments;
 using TelecomBoliviaNet.Application.Interfaces;
@@ -12,20 +12,29 @@ namespace TelecomBoliviaNet.Presentation.Controllers.Payments;
 [Route("api/payments")]
 public class PaymentsController : BaseController
 {
-    private readonly IPaymentService           _svc;
-    private readonly IPaymentCreditService      _creditSvc;
-    private readonly ICashCloseService         _cashCloseSvc;
-    private readonly IReceiptImageService      _receiptImageSvc;
-    private readonly AuditService              _audit;
+    private readonly IPaymentService          _svc;
+    private readonly IPaymentQueryService     _querySvc;
+    private readonly IPaymentReportService    _reportSvc;
+    private readonly IOverdueReminderService  _reminderSvc;
+    private readonly IPaymentCreditService    _creditSvc;
+    private readonly ICashCloseService        _cashCloseSvc;
+    private readonly IReceiptImageService     _receiptImageSvc;
+    private readonly AuditService             _audit;
 
     public PaymentsController(
-        IPaymentService svc,
-        IPaymentCreditService      creditSvc,
-        ICashCloseService cashCloseSvc,
-        IReceiptImageService receiptImageSvc,
-        AuditService audit)
+        IPaymentService         svc,
+        IPaymentQueryService    querySvc,
+        IPaymentReportService   reportSvc,
+        IOverdueReminderService reminderSvc,
+        IPaymentCreditService   creditSvc,
+        ICashCloseService       cashCloseSvc,
+        IReceiptImageService    receiptImageSvc,
+        AuditService            audit)
     {
         _svc             = svc;
+        _querySvc        = querySvc;
+        _reportSvc       = reportSvc;
+        _reminderSvc     = reminderSvc;
         _creditSvc       = creditSvc;
         _cashCloseSvc    = cashCloseSvc;
         _receiptImageSvc = receiptImageSvc;
@@ -35,13 +44,13 @@ public class PaymentsController : BaseController
     [HttpGet]
     [Authorize(Policy = "AdminOnly")]
     public async Task<IActionResult> GetAll([FromQuery] PaymentFilterDto filter)
-        => OkResult(await _svc.GetAllAsync(filter));
+        => OkResult(await _querySvc.GetAllAsync(filter));
 
     [HttpGet("{id:guid}")]
     [Authorize(Policy = "AdminOnly")]
     public async Task<IActionResult> GetById(Guid id)
     {
-        var p = await _svc.GetByIdAsync(id);
+        var p = await _querySvc.GetByIdAsync(id);
         if (p is null) return NotFoundResult("Pago no encontrado.");
         return OkResult(p);
     }
@@ -93,7 +102,7 @@ public class PaymentsController : BaseController
         if (from > to)
             return BadRequestResult("La fecha de inicio no puede ser posterior a la fecha fin.");
 
-        var report = await _svc.GetCollectionReportAsync(from, to);
+        var report = await _reportSvc.GetCollectionReportAsync(from, to);
         return OkResult(report);
     }
 
@@ -102,7 +111,7 @@ public class PaymentsController : BaseController
     public async Task<IActionResult> CheckDuplicate(
         [FromQuery] Guid clientId, [FromQuery] decimal amount, [FromQuery] DateTime paidAt)
     {
-        var result = await _svc.CheckDuplicateAsync(clientId, amount, paidAt);
+        var result = await _querySvc.CheckDuplicateAsync(clientId, amount, paidAt);
         return OkResult(result);
     }
 
@@ -110,7 +119,7 @@ public class PaymentsController : BaseController
     [Authorize(Policy = "AdminOnly")]
     public async Task<IActionResult> SendReminders()
     {
-        var result = await _svc.SendOverdueRemindersAsync(CurrentUserId, CurrentUserName);
+        var result = await _reminderSvc.SendOverdueRemindersAsync(CurrentUserId, CurrentUserName);
         return OkResult(result);
     }
 
@@ -169,7 +178,7 @@ public class PaymentsController : BaseController
         [FromQuery] DateTime to,
         [FromQuery] Guid? operatorId)
     {
-        var result = await _svc.GetCollectionByOperatorAsync(from, to, operatorId);
+        var result = await _reportSvc.GetCollectionByOperatorAsync(from, to, operatorId);
         if (!result.IsSuccess) return BadRequestResult(result.ErrorMessage);
         return OkResult(result.Value);
     }
@@ -181,7 +190,7 @@ public class PaymentsController : BaseController
         [FromQuery] DateTime to,
         [FromQuery] Guid? operatorId)
     {
-        var reportResult = await _svc.GetCollectionByOperatorAsync(from, to, operatorId);
+        var reportResult = await _reportSvc.GetCollectionByOperatorAsync(from, to, operatorId);
         if (!reportResult.IsSuccess) return BadRequestResult(reportResult.ErrorMessage);
         var report = reportResult.Value!;
 

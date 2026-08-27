@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -85,9 +85,9 @@ public class BillingBackgroundJob : BackgroundService
                     if (JobSchedule.ShouldRunMonthly(nowBolivia, lastReminder, dayOfMonth: 7, hour: 9))
                     {
                         _logger.LogInformation("Ejecutando job de RECORDATORIOS {Month}/{Year}", month, year);
-                        var paymentSvc = scopeR.ServiceProvider
-                            .GetRequiredService<TelecomBoliviaNet.Application.Services.Payments.PaymentService>();
-                        await paymentSvc.SendOverdueRemindersAsync();
+                        var reminderSvc = scopeR.ServiceProvider
+                            .GetRequiredService<TelecomBoliviaNet.Application.Interfaces.IOverdueReminderService>();
+                        await reminderSvc.SendOverdueRemindersAsync();
                         await JobRunTracker.MarkRanAsync(
                             db, SystemConfigKeys.BillingLastReminderMonth, monthKey, stoppingToken);
                     }

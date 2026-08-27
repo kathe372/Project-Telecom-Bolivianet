@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using TelecomBoliviaNet.Application.Constants;
 using TelecomBoliviaNet.Application.DTOs.Payments;
@@ -111,10 +111,11 @@ public class ConstantsConsistencyTests : IClassFixture<CustomWebApplicationFacto
         var esc  = await SeedPagoRegistradoHaceAsync(dias);
         using var _ = esc.Scope;
 
-        var svc = esc.Scope.ServiceProvider.GetRequiredService<IPaymentService>();
+        var svc      = esc.Scope.ServiceProvider.GetRequiredService<IPaymentService>();
+        var querySvc = esc.Scope.ServiceProvider.GetRequiredService<IPaymentQueryService>();
 
         // Lo que la UI muestra…
-        var detalle = await svc.GetByIdAsync(esc.InvoiceId);
+        var detalle = await querySvc.GetByIdAsync(esc.InvoiceId);
         detalle.Should().NotBeNull();
 
         // …y lo que el backend permite de verdad.

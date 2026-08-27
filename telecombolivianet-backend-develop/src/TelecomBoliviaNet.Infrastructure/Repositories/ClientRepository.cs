@@ -49,6 +49,13 @@ public class ClientRepository : GenericRepository<Client>, IClientRepository
             .OrderBy(c => c.CreatedAt)
             .ToListAsync(ct);
 
+    public Task<List<Client>> GetWithOverdueInvoicesAsync(CancellationToken ct = default)
+        => _db.Clients
+            .Include(c => c.Invoices)
+            .Where(c => (c.Status == ClientStatus.Activo || c.Status == ClientStatus.Suspendido)
+                     && c.Invoices.Any(i => i.Status == InvoiceStatus.Vencida))
+            .ToListAsync(ct);
+
     public async Task<(List<Client> Items, int Total)> GetPagedAsync(
         ClientListFilter filter, CancellationToken ct = default)
     {
