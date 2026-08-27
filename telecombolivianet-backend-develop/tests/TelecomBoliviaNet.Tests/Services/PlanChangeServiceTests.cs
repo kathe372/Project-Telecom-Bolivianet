@@ -83,10 +83,15 @@ public class PlanChangeServiceTests
         return notif.Object;
     }
 
+    // F5: la clase se partió en pedir / resolver / consultar. La fábrica sigue
+    // devolviendo lo mismo en las cuatro primeras posiciones y añade los dos
+    // servicios nuevos al final, para que cada test toque solo lo que le importa.
     private (PlanChangeService svc,
              Mock<IPlanChangeRequestRepository> changeRepo,
              Mock<IGenericRepository<Invoice>> invoiceRepo,
-             Mock<INotifPublisher> notif)
+             Mock<INotifPublisher> notif,
+             PlanChangeRequestService requestSvc,
+             PlanChangeQueryService querySvc)
         MakeService(
             IEnumerable<PlanChangeRequest>? changes  = null,
             IEnumerable<Invoice>?           invoices = null,
@@ -108,17 +113,25 @@ public class PlanChangeServiceTests
             It.IsAny<string>(), It.IsAny<Dictionary<string, string>>(), It.IsAny<Guid?>()))
             .Returns(Task.CompletedTask);
 
-        var svc = new PlanChangeService(
-            changeRepo.Object, clientRepo.Object, planRepo.Object,
-            ticketRepo.Object,
-            MakeAudit(), MakeUow(), notifMock.Object,
+        var planNotifier = new PlanChangeNotifier(
+            notifMock.Object,
             new Mock<IChatbotDirectNotifier>().Object,
+            NullLogger<PlanChangeNotifier>.Instance);
+
+        var svc = new PlanChangeService(
+            changeRepo.Object, clientRepo.Object, ticketRepo.Object,
+            MakeAudit(), MakeUow(), planNotifier,
+            new InvoiceProrationService(invoiceRepo.Object, MakeCreditLedger()));
+
+        var requestSvc = new PlanChangeRequestService(
+            changeRepo.Object, clientRepo.Object, planRepo.Object, ticketRepo.Object,
+            MakeAudit(), MakeUow(),
             new Mock<IInternalAlertService>().Object,
-            new InvoiceProrationService(invoiceRepo.Object, MakeCreditLedger()),
-            NullLogger<PlanChangeService>.Instance,
             MakeTicketNumSvc());
 
-        return (svc, changeRepo, invoiceRepo, notifMock);
+        var querySvc = new PlanChangeQueryService(changeRepo.Object);
+
+        return (svc, changeRepo, invoiceRepo, notifMock, requestSvc, querySvc);
     }
 
     // ════════════════════════════════════════════════════════════════════════
@@ -128,9 +141,9 @@ public class PlanChangeServiceTests
     [Fact]
     public async Task SolicitarCambio_CreaRegistroPendiente()
     {
-        var (svc, changeRepo, _, _) = MakeService();
+        var (svc, changeRepo, _, _, requestSvc, querySvc) = MakeService();
 
-        var result = await svc.RequestChangeAsync(
+        var result = await requestSvc.RequestChangeAsync(
             ClientId, NewPlanId, null, ActorId, "Admin", "127.0.0.1");
 
         result.IsSuccess.Should().BeTrue();
@@ -145,9 +158,9 @@ public class PlanChangeServiceTests
     [Fact]
     public async Task SolicitarCambio_FechaEfectivaEs1roDeMesSiguiente()
     {
-        var (svc, changeRepo, _, _) = MakeService();
+        var (svc, changeRepo, _, _, requestSvc, querySvc) = MakeService();
 
-        await svc.RequestChangeAsync(ClientId, NewPlanId, null, ActorId, "Admin", "127.0.0.1");
+        await requestSvc.RequestChangeAsync(ClientId, NewPlanId, null, ActorId, "Admin", "127.0.0.1");
 
         var hoy      = DateTime.UtcNow;
         var expected = new DateTime(hoy.Year, hoy.Month, 1, 0, 0, 0, DateTimeKind.Utc).AddMonths(1);
@@ -165,9 +178,9 @@ public class PlanChangeServiceTests
             ClientId = ClientId, Status = PlanChangeStatus.Pendiente,
             OldPlanId = OldPlanId, NewPlanId = NewPlanId,
         };
-        var (svc, _, _, _) = MakeService(changes: [pending]);
+        var (svc, _, _, _, requestSvc, querySvc) = MakeService(changes: [pending]);
 
-        var result = await svc.RequestChangeAsync(
+        var result = await requestSvc.RequestChangeAsync(
             ClientId, NewPlanId, null, ActorId, "Admin", "127.0.0.1");
 
         result.IsSuccess.Should().BeFalse();
@@ -177,9 +190,9 @@ public class PlanChangeServiceTests
     [Fact]
     public async Task SolicitarCambio_MismoPlan_RetornaError()
     {
-        var (svc, _, _, _) = MakeService();
+        var (svc, _, _, _, requestSvc, querySvc) = MakeService();
 
-        var result = await svc.RequestChangeAsync(
+        var result = await requestSvc.RequestChangeAsync(
             ClientId, OldPlanId, null, ActorId, "Admin", "127.0.0.1");
 
         result.IsSuccess.Should().BeFalse();
@@ -190,9 +203,9 @@ public class PlanChangeServiceTests
     public async Task SolicitarCambio_PlanInactivo_RetornaError()
     {
         var planInactivo = MakePlan(NewPlanId, "Plan Inactivo", 200m, active: false);
-        var (svc, _, _, _) = MakeService(newPlan: planInactivo);
+        var (svc, _, _, _, requestSvc, querySvc) = MakeService(newPlan: planInactivo);
 
-        var result = await svc.RequestChangeAsync(
+        var result = await requestSvc.RequestChangeAsync(
             ClientId, NewPlanId, null, ActorId, "Admin", "127.0.0.1");
 
         result.IsSuccess.Should().BeFalse();
@@ -203,9 +216,9 @@ public class PlanChangeServiceTests
     public async Task SolicitarCambio_LlamaSaveChangesAntesDeCommit()
     {
         // FIX-A: verifica que AddAsync + SaveChangesAsync se llaman (no solo AddAsync + CommitAsync vacío)
-        var (svc, changeRepo, _, _) = MakeService();
+        var (svc, changeRepo, _, _, requestSvc, querySvc) = MakeService();
 
-        await svc.RequestChangeAsync(ClientId, NewPlanId, null, ActorId, "Admin", "127.0.0.1");
+        await requestSvc.RequestChangeAsync(ClientId, NewPlanId, null, ActorId, "Admin", "127.0.0.1");
 
         changeRepo.Verify(r => r.SaveChangesAsync(), Times.Once);
     }
@@ -231,8 +244,8 @@ public class PlanChangeServiceTests
             RequestedAt = DateTime.UtcNow,
         };
 
-        var (svc, _, _, _) = MakeService(changes: [pending]);
-        var items = await svc.GetPendingAsync();
+        var (svc, _, _, _, requestSvc, querySvc) = MakeService(changes: [pending]);
+        var items = await querySvc.GetPendingAsync();
 
         items.Should().BeOfType<List<PlanChangeItemDto>>();
         items.Should().HaveCount(1);
@@ -256,9 +269,9 @@ public class PlanChangeServiceTests
             OldPlanId = OldPlanId, NewPlanId = NewPlanId,
             EffectiveDate = DateTime.UtcNow.AddMonths(1), RequestedAt = DateTime.UtcNow,
         };
-        var (svc, _, _, _) = MakeService(changes: [p1, p2]);
+        var (svc, _, _, _, requestSvc, querySvc) = MakeService(changes: [p1, p2]);
 
-        var items = await svc.GetPendingAsync(clientId: ClientId);
+        var items = await querySvc.GetPendingAsync(clientId: ClientId);
         items.Should().HaveCount(1);
     }
 
@@ -267,9 +280,9 @@ public class PlanChangeServiceTests
     {
         var aprobado  = new PlanChangeRequest { ClientId = ClientId, Status = PlanChangeStatus.Aprobado,  OldPlanId = OldPlanId, NewPlanId = NewPlanId, EffectiveDate = DateTime.UtcNow, RequestedAt = DateTime.UtcNow };
         var rechazado = new PlanChangeRequest { ClientId = ClientId, Status = PlanChangeStatus.Rechazado, OldPlanId = OldPlanId, NewPlanId = NewPlanId, EffectiveDate = DateTime.UtcNow, RequestedAt = DateTime.UtcNow };
-        var (svc, _, _, _) = MakeService(changes: [aprobado, rechazado]);
+        var (svc, _, _, _, requestSvc, querySvc) = MakeService(changes: [aprobado, rechazado]);
 
-        var items = await svc.GetPendingAsync();
+        var items = await querySvc.GetPendingAsync();
         items.Should().BeEmpty();
     }
 
@@ -287,9 +300,9 @@ public class PlanChangeServiceTests
         var rechazado = new PlanChangeRequest { ClientId = ClientId, Status = PlanChangeStatus.Rechazado, OldPlan = oldPlan, NewPlan = newPlan, OldPlanId = OldPlanId, NewPlanId = NewPlanId, EffectiveDate = DateTime.UtcNow, RequestedAt = DateTime.UtcNow.AddDays(-5), RejectionReason = "No disponible" };
         var pendiente = new PlanChangeRequest { ClientId = ClientId, Status = PlanChangeStatus.Pendiente, OldPlan = oldPlan, NewPlan = newPlan, OldPlanId = OldPlanId, NewPlanId = NewPlanId, EffectiveDate = DateTime.UtcNow.AddMonths(1), RequestedAt = DateTime.UtcNow };
 
-        var (svc, _, _, _) = MakeService(changes: [aprobado, rechazado, pendiente]);
+        var (svc, _, _, _, requestSvc, querySvc) = MakeService(changes: [aprobado, rechazado, pendiente]);
 
-        var historial = await svc.GetHistorialAsync(ClientId);
+        var historial = await querySvc.GetHistorialAsync(ClientId);
 
         historial.Should().HaveCount(3);
         historial.Should().Contain(h => h.Status == "Aprobado");
@@ -303,9 +316,9 @@ public class PlanChangeServiceTests
         var otroId = Guid.NewGuid();
         var mio   = new PlanChangeRequest { ClientId = ClientId, Status = PlanChangeStatus.Aprobado, OldPlanId = OldPlanId, NewPlanId = NewPlanId, EffectiveDate = DateTime.UtcNow, RequestedAt = DateTime.UtcNow };
         var otro  = new PlanChangeRequest { ClientId = otroId,   Status = PlanChangeStatus.Aprobado, OldPlanId = OldPlanId, NewPlanId = NewPlanId, EffectiveDate = DateTime.UtcNow, RequestedAt = DateTime.UtcNow };
-        var (svc, _, _, _) = MakeService(changes: [mio, otro]);
+        var (svc, _, _, _, requestSvc, querySvc) = MakeService(changes: [mio, otro]);
 
-        var historial = await svc.GetHistorialAsync(ClientId);
+        var historial = await querySvc.GetHistorialAsync(ClientId);
         historial.Should().HaveCount(1);
     }
 
@@ -329,7 +342,7 @@ public class PlanChangeServiceTests
             EffectiveDate = DateTime.UtcNow.AddMonths(1),
         };
 
-        var (svc, changeRepo, invoiceRepo, _) = MakeService(changes: [pending]);
+        var (svc, changeRepo, invoiceRepo, _, requestSvc, querySvc) = MakeService(changes: [pending]);
 
         var result = await svc.ApproveChangeAsync(
             cambioId, midMonth: false, ActorId, "Admin", "127.0.0.1");
@@ -362,7 +375,7 @@ public class PlanChangeServiceTests
             EffectiveDate = DateTime.UtcNow.AddMonths(1),
         };
 
-        var (svc, changeRepo, _, _) = MakeService(changes: [pending]);
+        var (svc, changeRepo, _, _, requestSvc, querySvc) = MakeService(changes: [pending]);
         changeRepo.Setup(r => r.SaveChangesAsync())
             .ThrowsAsync(new DbUpdateConcurrencyException());
 
@@ -389,7 +402,7 @@ public class PlanChangeServiceTests
             EffectiveDate = DateTime.UtcNow.AddMonths(1),
         };
 
-        var (svc, _, _, notif) = MakeService(changes: [pending]);
+        var (svc, _, _, notif, requestSvc, querySvc) = MakeService(changes: [pending]);
         notif.Setup(n => n.PublishAsync(
                 It.IsAny<NotifType>(), It.IsAny<Guid>(), It.IsAny<string>(),
                 It.IsAny<Dictionary<string, string>>(), It.IsAny<Guid?>()))
@@ -412,7 +425,7 @@ public class PlanChangeServiceTests
         var cli      = MakeClient(OldPlanId, oldPlan);
         var pending  = new PlanChangeRequest { Id = cambioId, ClientId = ClientId, Client = cli, NewPlanId = NewPlanId, NewPlan = newPlan, Status = PlanChangeStatus.Pendiente, EffectiveDate = DateTime.UtcNow.AddMonths(1) };
 
-        var (svc, changeRepo, _, _) = MakeService(changes: [pending]);
+        var (svc, changeRepo, _, _, requestSvc, querySvc) = MakeService(changes: [pending]);
 
         await svc.ApproveChangeAsync(cambioId, midMonth: false, ActorId, "Admin", "127.0.0.1");
 
@@ -443,7 +456,7 @@ public class PlanChangeServiceTests
         var cli      = MakeClient(OldPlanId, MakePlan(OldPlanId, "Plan Cobre", 100m));
         var pending  = PendienteDeAprobar(cambioId, cli, MakePlan(NewPlanId, "Plan Plata", 150m));
 
-        var (svc, _, _, _) = MakeService(changes: [pending], client: cli);
+        var (svc, _, _, _, requestSvc, querySvc) = MakeService(changes: [pending], client: cli);
 
         var result = await svc.ApproveChangeAsync(cambioId, midMonth: false, ActorId, "Admin", "127.0.0.1");
 
@@ -461,7 +474,7 @@ public class PlanChangeServiceTests
         var cli      = MakeClient(OldPlanId, MakePlan(OldPlanId, "Plan Cobre", 100m));
         var pending  = PendienteDeAprobar(cambioId, cli, MakePlan(NewPlanId, "Plan Plata", 150m));
 
-        var (svc, _, _, notifMock) = MakeService(changes: [pending], client: cli);
+        var (svc, _, _, notifMock, requestSvc, querySvc) = MakeService(changes: [pending], client: cli);
 
         await svc.ApproveChangeAsync(cambioId, midMonth: false, ActorId, "Admin", "127.0.0.1");
 
@@ -480,7 +493,7 @@ public class PlanChangeServiceTests
         var cli      = MakeClient(OldPlanId, MakePlan(OldPlanId, "Plan Cobre", 100m));
         var pending  = PendienteDeAprobar(cambioId, cli, MakePlan(NewPlanId, "Plan Plata", 150m));
 
-        var (svc, _, _, notifMock) = MakeService(changes: [pending], client: cli);
+        var (svc, _, _, notifMock, requestSvc, querySvc) = MakeService(changes: [pending], client: cli);
 
         await svc.ApproveChangeAsync(cambioId, midMonth: true, ActorId, "Admin", "127.0.0.1");
 
@@ -506,7 +519,7 @@ public class PlanChangeServiceTests
         var cli      = MakeClient(OldPlanId, oldPlan);
         var pending  = new PlanChangeRequest { Id = cambioId, ClientId = ClientId, Client = cli, NewPlanId = NewPlanId, NewPlan = newPlan, Status = PlanChangeStatus.Pendiente, EffectiveDate = DateTime.UtcNow.AddMonths(1) };
 
-        var (svc, changeRepo, invoiceRepo, _) = MakeService(changes: [pending]);
+        var (svc, changeRepo, invoiceRepo, _, requestSvc, querySvc) = MakeService(changes: [pending]);
 
         var result = await svc.ApproveChangeAsync(cambioId, midMonth: true, ActorId, "Admin", "127.0.0.1");
 
@@ -554,7 +567,7 @@ public class PlanChangeServiceTests
             EffectiveDate = hoy.AddMonths(1),
         };
 
-        var (svc, changeRepo, invoiceRepo, _) = MakeService(changes: [pending], invoices: [facturaActual]);
+        var (svc, changeRepo, invoiceRepo, _, requestSvc, querySvc) = MakeService(changes: [pending], invoices: [facturaActual]);
 
         var result = await svc.ApproveChangeAsync(cambioId, midMonth: true, ActorId, "Admin", "127.0.0.1");
 
@@ -584,7 +597,7 @@ public class PlanChangeServiceTests
         var factura  = new Invoice { Id = Guid.NewGuid(), ClientId = ClientId, Type = InvoiceType.Mensualidad, Status = InvoiceStatus.Pendiente, Year = hoy.Year, Month = hoy.Month, Amount = 100m, IssuedAt = hoy, DueDate = hoy.AddDays(5) };
         var pending  = new PlanChangeRequest { Id = cambioId, ClientId = ClientId, Client = cli, NewPlanId = NewPlanId, NewPlan = newPlan, Status = PlanChangeStatus.Pendiente, EffectiveDate = hoy.AddMonths(1) };
 
-        var (svc, changeRepo, _, _) = MakeService(changes: [pending], invoices: [factura]);
+        var (svc, changeRepo, _, _, requestSvc, querySvc) = MakeService(changes: [pending], invoices: [factura]);
 
         await svc.ApproveChangeAsync(cambioId, midMonth: true, ActorId, "Admin", "127.0.0.1");
 
@@ -609,7 +622,7 @@ public class PlanChangeServiceTests
             NewPlanId = NewPlanId, NewPlan = newPlan,
             Status = PlanChangeStatus.Pendiente, EffectiveDate = DateTime.UtcNow.AddMonths(1),
         };
-        var (svc, _, _, _) = MakeService(changes: [pending]);
+        var (svc, _, _, _, requestSvc, querySvc) = MakeService(changes: [pending]);
 
         var result = await svc.ApproveChangeAsync(cambioId, midMonth: true, ActorId, "Admin", "127.0.0.1");
 
@@ -630,7 +643,7 @@ public class PlanChangeServiceTests
             NewPlanId = NewPlanId, NewPlan = newPlan,
             Status = PlanChangeStatus.Pendiente, EffectiveDate = DateTime.UtcNow.AddMonths(1),
         };
-        var (svc, _, invoiceRepo, _) = MakeService(changes: [pending]);
+        var (svc, _, invoiceRepo, _, requestSvc, querySvc) = MakeService(changes: [pending]);
 
         var result = await svc.ApproveChangeAsync(cambioId, midMonth: false, ActorId, "Admin", "127.0.0.1");
 
@@ -658,7 +671,7 @@ public class PlanChangeServiceTests
             NewPlanId = NewPlanId, NewPlan = newPlan,
             Status = PlanChangeStatus.Pendiente, EffectiveDate = hoy.AddMonths(1),
         };
-        var (svc, _, invoiceRepo, _) = MakeService(changes: [pending], invoices: [prorrataPrevia]);
+        var (svc, _, invoiceRepo, _, requestSvc, querySvc) = MakeService(changes: [pending], invoices: [prorrataPrevia]);
 
         await svc.ApproveChangeAsync(cambioId, midMonth: true, ActorId, "Admin", "127.0.0.1");
 
@@ -672,7 +685,7 @@ public class PlanChangeServiceTests
     {
         var cambioId = Guid.NewGuid();
         var cambio   = new PlanChangeRequest { Id = cambioId, ClientId = ClientId, Status = PlanChangeStatus.Aprobado, OldPlanId = OldPlanId, NewPlanId = NewPlanId };
-        var (svc, _, _, _) = MakeService(changes: [cambio]);
+        var (svc, _, _, _, requestSvc, querySvc) = MakeService(changes: [cambio]);
 
         var result = await svc.ApproveChangeAsync(cambioId, false, ActorId, "Admin", "127.0.0.1");
 
@@ -689,7 +702,7 @@ public class PlanChangeServiceTests
     {
         var cambioId = Guid.NewGuid();
         var pending  = new PlanChangeRequest { Id = cambioId, ClientId = ClientId, Status = PlanChangeStatus.Pendiente, OldPlanId = OldPlanId, NewPlanId = NewPlanId };
-        var (svc, changeRepo, _, _) = MakeService(changes: [pending]);
+        var (svc, changeRepo, _, _, requestSvc, querySvc) = MakeService(changes: [pending]);
 
         var result = await svc.RejectChangeAsync(
             cambioId, "No cumple requisitos", ActorId, "Admin", "127.0.0.1");
@@ -708,7 +721,7 @@ public class PlanChangeServiceTests
     {
         var cambioId = Guid.NewGuid();
         var pending  = new PlanChangeRequest { Id = cambioId, ClientId = ClientId, Status = PlanChangeStatus.Pendiente, OldPlanId = OldPlanId, NewPlanId = NewPlanId };
-        var (svc, changeRepo, _, _) = MakeService(changes: [pending]);
+        var (svc, changeRepo, _, _, requestSvc, querySvc) = MakeService(changes: [pending]);
 
         await svc.RejectChangeAsync(cambioId, "Motivo", ActorId, "Admin", "127.0.0.1");
 
@@ -723,7 +736,7 @@ public class PlanChangeServiceTests
         var oldPlan  = MakePlan(OldPlanId, "Plan Cobre", 100m);
         var cli      = MakeClient(OldPlanId, oldPlan);
         var pending  = new PlanChangeRequest { Id = cambioId, ClientId = ClientId, Client = cli, Status = PlanChangeStatus.Pendiente, OldPlanId = OldPlanId, NewPlanId = NewPlanId };
-        var (svc, _, _, notifMock) = MakeService(changes: [pending]);
+        var (svc, _, _, notifMock, requestSvc, querySvc) = MakeService(changes: [pending]);
 
         await svc.RejectChangeAsync(cambioId, "Motivo de prueba", ActorId, "Admin", "127.0.0.1");
 
@@ -749,7 +762,7 @@ public class PlanChangeServiceTests
     {
         var cambioId = Guid.NewGuid();
         var cambio   = new PlanChangeRequest { Id = cambioId, ClientId = ClientId, Status = PlanChangeStatus.Rechazado, OldPlanId = OldPlanId, NewPlanId = NewPlanId };
-        var (svc, _, _, _) = MakeService(changes: [cambio]);
+        var (svc, _, _, _, requestSvc, querySvc) = MakeService(changes: [cambio]);
 
         var result = await svc.RejectChangeAsync(cambioId, "Motivo", ActorId, "Admin", "127.0.0.1");
 

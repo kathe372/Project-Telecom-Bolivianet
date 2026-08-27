@@ -1,4 +1,4 @@
-using TelecomBoliviaNet.Application.DTOs.Clients;
+﻿using TelecomBoliviaNet.Application.DTOs.Clients;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using TelecomBoliviaNet.Application.Interfaces;
@@ -10,12 +10,23 @@ namespace TelecomBoliviaNet.Presentation.Controllers.Clients;
 [Authorize(Policy = "AdminOrTecnico")]
 public class PlanChangeController : BaseController
 {
-    private readonly IPlanChangeService _svc;
-    public PlanChangeController(IPlanChangeService svc) => _svc = svc;
+    private readonly IPlanChangeService        _svc;
+    private readonly IPlanChangeRequestService _requestSvc;
+    private readonly IPlanChangeQueryService   _querySvc;
+
+    public PlanChangeController(
+        IPlanChangeService        svc,
+        IPlanChangeRequestService requestSvc,
+        IPlanChangeQueryService   querySvc)
+    {
+        _svc        = svc;
+        _requestSvc = requestSvc;
+        _querySvc   = querySvc;
+    }
 
     [HttpGet("pending")]
     public async Task<IActionResult> GetPending([FromQuery] Guid? clientId = null)
-        => OkResult(await _svc.GetPendingAsync(clientId));
+        => OkResult(await _querySvc.GetPendingAsync(clientId));
 
     [HttpPost("/api/clients/{clientId:guid}/plan-change")]
     [Authorize(Policy = "AllRoles")]
@@ -23,7 +34,7 @@ public class PlanChangeController : BaseController
         Guid clientId,
         [FromBody] RequestChangeDto dto)
     {
-        var result = await _svc.RequestChangeAsync(
+        var result = await _requestSvc.RequestChangeAsync(
             clientId, dto.NewPlanId, dto.Notes,
             CurrentUserId, CurrentUserName, ClientIp);
 
@@ -61,6 +72,6 @@ public class PlanChangeController : BaseController
     [HttpGet("/api/clients/{clientId:guid}/plan-changes")]
     [Authorize(Policy = "AllRoles")]
     public async Task<IActionResult> GetHistorial(Guid clientId)
-        => OkResult(await _svc.GetHistorialAsync(clientId));
+        => OkResult(await _querySvc.GetHistorialAsync(clientId));
 }
 

@@ -912,7 +912,14 @@ Son 50 iteraciones de 2 minutos. Es tedioso, y es lo que separa un refactor segu
 
 ### Avance (2026-08-26)
 
-Clases de Application > 250 líneas: **9 → 7**. Constructores > 6 deps: **16**.
+Clases de Application > 250 líneas: **9 → 6**. Peor constructor: **12 → 12**
+(quedan `PaymentCreditService` y `CreateInstallationCommand`).
+
+> ⚠️ **La métrica "constructores > 6" engaña.** Subió de 16 a 17 mientras el
+> código mejoraba: partir una clase de 12 dependencias en dos de 8 y 7 añade una
+> clase por encima del umbral y quita una muy por encima. Lo que hay que mirar es
+> **el peor constructor** y **cuántas responsabilidades** tiene cada clase, no
+> cuántas cruzan una línea arbitraria.
 
 Medir con `python scripts/contar-dependencias.py` — contar las comas del
 constructor a ojo se salta el último parámetro, y así reporté 9 y 6 donde eran
@@ -923,10 +930,12 @@ constructor a ojo se salta el último parámetro, y así reporté 9 y 6 donde er
 | `PaymentService` | 565 → 230 líneas · 12 → 10 deps · + 5 clases nuevas |
 | `BillingService` | 458 → 249 líneas · 8 → 7 deps · + `InvoiceBackfillService`, `InvoiceStatusService` |
 | `ProrationCalculator` al dominio | 12 tests de tabla, sin montar ningún servicio |
+| `PlanChangeService` | 362 → 197 líneas · 12 → 7 deps · + `PlanChangeRequestService` (8), `PlanChangeQueryService` (1), `PlanChangeNotifier` (3) |
 
-Pendiente: `InvoiceQueryService` (419), `PlanChangeService` (362, 12 deps),
-`PaymentCreditService` (344, 12 deps), `BotProxyService` (332),
-`InvoiceOperationsService` (281), `AuthService` (255), y `AppDbContext` (847).
+Pendiente: `InvoiceQueryService` (419), `PaymentCreditService` (344, 12 deps),
+`BotProxyService` (332), `InvoiceOperationsService` (281), `AuthService` (255),
+`CreateInstallationCommand` (12 deps), `RegisterClientCommand` (11 deps), y el
+paso 5.4 completo — `AppDbContext` (847 líneas) a `Data/Config/`.
 
 ---
 

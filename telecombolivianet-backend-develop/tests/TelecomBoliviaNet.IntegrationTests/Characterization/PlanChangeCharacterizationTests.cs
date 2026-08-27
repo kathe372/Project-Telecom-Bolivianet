@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using TelecomBoliviaNet.Application.Interfaces;
 using TelecomBoliviaNet.Domain.Entities.Auth;
@@ -88,9 +88,13 @@ public class PlanChangeCharacterizationTests : IClassFixture<CustomWebApplicatio
     private static IPlanChangeService Svc(Escenario esc) =>
         esc.Scope.ServiceProvider.GetRequiredService<IPlanChangeService>();
 
+    // F5: pedir el cambio se mudó a su propio servicio; resolverlo sigue en el otro.
+    private static IPlanChangeRequestService RequestSvc(Escenario esc) =>
+        esc.Scope.ServiceProvider.GetRequiredService<IPlanChangeRequestService>();
+
     private static async Task<Guid> SolicitarAsync(Escenario esc, Guid nuevoPlan)
     {
-        var res = await Svc(esc).RequestChangeAsync(
+        var res = await RequestSvc(esc).RequestChangeAsync(
             esc.ClientId, nuevoPlan, "Solicitud de caracterización",
             esc.ActorId, "Admin Caracterización", "::1");
         res.IsSuccess.Should().BeTrue(res.ErrorMessage);
@@ -151,7 +155,7 @@ public class PlanChangeCharacterizationTests : IClassFixture<CustomWebApplicatio
 
         await SolicitarAsync(esc, esc.PlanPremium);
 
-        var segunda = await Svc(esc).RequestChangeAsync(
+        var segunda = await RequestSvc(esc).RequestChangeAsync(
             esc.ClientId, esc.PlanPremium, null, esc.ActorId, "Admin Caracterización", "::1");
 
         segunda.IsSuccess.Should().BeFalse();
@@ -164,7 +168,7 @@ public class PlanChangeCharacterizationTests : IClassFixture<CustomWebApplicatio
         var esc = await SeedAsync();
         using var _ = esc.Scope;
 
-        var res = await Svc(esc).RequestChangeAsync(
+        var res = await RequestSvc(esc).RequestChangeAsync(
             esc.ClientId, esc.PlanBasico, null, esc.ActorId, "Admin Caracterización", "::1");
 
         res.IsSuccess.Should().BeFalse();

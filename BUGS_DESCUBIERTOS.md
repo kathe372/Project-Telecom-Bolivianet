@@ -136,6 +136,29 @@ propósito: es el correcto, y ahora contiene lo correcto.
 Envejece por separado del original y se convierte en una trampa con nombre
 atractivo.
 
+### 🟡 OBS-01 · Cambio de plan: el aviso de aprobación traga errores, el de rechazo no
+
+Los cuatro `catch (Exception)` de `PlanChangeService` se revisaron uno por uno al
+partir la clase, como pedía el plan. Tres hacen `rollback` y relanzan —correcto—.
+El cuarto, el de la notificación de aprobación, traga el error a propósito y bien:
+el aviso sale DESPUÉS de confirmar la transacción, y que WhatsApp esté caído no
+puede deshacer un cambio de plan ya aprobado.
+
+Pero **el aviso de rechazo no tiene esa protección**. Si falla:
+
+1. el rechazo ya está confirmado en base,
+2. la excepción sube y el operador ve un error por algo que sí se guardó,
+3. y el asiento de auditoría `PLAN_CHANGE_REJECTED`, que va después, **no se
+   escribe** — queda un rechazo aplicado sin rastro de quién lo hizo.
+
+La asimetría no parece deliberada. **No se tocó**: cambiarlo altera lo que ve el
+operador y es una decisión de negocio, no una limpieza de refactor. Queda anotado
+en el `<remarks>` de `PlanChangeNotifier.NotifyRejectedAsync`.
+
+**Para decidir:** ¿el aviso de rechazo debe comportarse como el de aprobación
+(registrar el fallo y seguir, garantizando la auditoría)? Mi recomendación es que
+sí, por el punto 3.
+
 ---
 
 ## Caza de bugs (2026-08-24)

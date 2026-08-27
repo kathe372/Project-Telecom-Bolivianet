@@ -3,7 +3,6 @@
 // EF cuando el token xmin detecta una modificación concurrente. Ya no queda
 // ninguna consulta de EF en este archivo.
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Logging;
 using TelecomBoliviaNet.Application.DTOs.Clients;
 using TelecomBoliviaNet.Application.Interfaces;
 using TelecomBoliviaNet.Application.Services.Auth;
@@ -19,132 +18,42 @@ using TelecomBoliviaNet.Domain.Services;
 
 namespace TelecomBoliviaNet.Application.Services.Clients;
 
+/// <summary>
+/// Resolver una solicitud de cambio de plan: aprobarla —aplicándola ya o
+/// dejándola para fin de mes— o rechazarla.
+///
+/// <para>Pedirla está en <see cref="PlanChangeRequestService"/> y las lecturas en
+/// <see cref="PlanChangeQueryService"/>. Eran 362 líneas y doce dependencias en
+/// una sola clase (F5).</para>
+/// </summary>
 public class PlanChangeService : IPlanChangeService
 {
     private readonly IPlanChangeRequestRepository _changeRepo;
     private readonly IClientRepository             _clientRepo;
-    private readonly IGenericRepository<Plan>               _planRepo;
     private readonly ITicketRepository      _ticketRepo;
     private readonly AuditService                           _audit;
     private readonly IUnitOfWork                            _uow;
-    private readonly INotifPublisher                        _notif;
-    private readonly IChatbotDirectNotifier                 _chatbotNotifier;
-    private readonly IInternalAlertService                  _alertSvc;
+    private readonly PlanChangeNotifier                     _planNotifier;
     private readonly InvoiceProrationService                _proration;
-    private readonly ILogger<PlanChangeService>             _logger;
-    private readonly TicketNumberService                    _ticketNumSvc;
 
     public PlanChangeService(
         IPlanChangeRequestRepository changeRepo,
         IClientRepository            clientRepo,
-        IGenericRepository<Plan>              planRepo,
         ITicketRepository     ticketRepo,
         AuditService                          audit,
         IUnitOfWork                           uow,
-        INotifPublisher                       notif,
-        IChatbotDirectNotifier                chatbotNotifier,
-        IInternalAlertService                 alertSvc,
-        InvoiceProrationService               proration,
-        ILogger<PlanChangeService>            logger,
-        TicketNumberService                   ticketNumSvc)
+        PlanChangeNotifier                    planNotifier,
+        InvoiceProrationService               proration)
     {
         _changeRepo      = changeRepo;
         _clientRepo      = clientRepo;
-        _planRepo        = planRepo;
         _ticketRepo      = ticketRepo;
         _audit           = audit;
         _uow             = uow;
-        _notif           = notif;
-        _chatbotNotifier = chatbotNotifier;
-        _alertSvc        = alertSvc;
+        _planNotifier    = planNotifier;
         _proration       = proration;
-        _logger          = logger;
-        _ticketNumSvc    = ticketNumSvc;
     }
 
-    public async Task<Result<Guid>> RequestChangeAsync(
-        Guid clientId, Guid newPlanId, string? notes,
-        Guid actorId, string actorName, string ip)
-    {
-        var client = await _clientRepo.GetWithPlanAsync(clientId);
-
-        if (client is null)
-            return Result<Guid>.Failure("Cliente no encontrado.");
-        if (client.PlanId == newPlanId)
-            return Result<Guid>.Failure("El cliente ya tiene ese plan.");
-
-        var newPlan = await _planRepo.GetByIdAsync(newPlanId);
-        if (newPlan is null || !newPlan.IsActive)
-            return Result<Guid>.Failure("El plan seleccionado no existe o está inactivo.");
-
-        var tienePendiente = await _changeRepo.AnyAsync(r =>
-            r.ClientId == clientId && r.Status == PlanChangeStatus.Pendiente);
-        if (tienePendiente)
-            return Result<Guid>.Failure("El cliente ya tiene una solicitud de cambio de plan pendiente.");
-
-        var hoy           = DateTime.UtcNow;
-        var effectiveDate = new DateTime(hoy.Year, hoy.Month, 1, 0, 0, 0, DateTimeKind.Utc)
-                                .AddMonths(1);
-
-        var ticket = new SupportTicket
-        {
-            TicketNumber    = await _ticketNumSvc.NextAsync(),
-            ClientId        = clientId,
-            Subject         = $"[Cambio de Plan] {client.TbnCode} – {client.FullName} → {newPlan.Name}",
-            Type            = TicketType.CambioPlan,
-            Priority        = TicketPriority.Baja,
-            Status          = TicketStatus.Abierto,
-            Origin          = TicketOrigin.Manual,
-            Description     = $"Solicitud de cambio de plan:\n" +
-                              $"Plan actual: {client.Plan?.Name ?? "—"}\n" +
-                              $"Plan nuevo:  {newPlan.Name}\n" +
-                              $"Fecha efectiva: {effectiveDate:dd/MM/yyyy}\n" +
-                              (notes is not null ? $"Notas: {notes}" : ""),
-            CreatedByUserId = actorId,
-            CreatedAt       = DateTime.UtcNow,
-        };
-
-        var cambio = new PlanChangeRequest
-        {
-            ClientId       = clientId,
-            OldPlanId      = client.PlanId,
-            NewPlanId      = newPlanId,
-            TicketId       = ticket.Id,
-            Status         = PlanChangeStatus.Pendiente,
-            EffectiveDate  = effectiveDate,
-            MidMonthChange = false,
-            Notes          = notes,
-            RequestedAt    = DateTime.UtcNow,
-            RequestedById  = actorId,
-        };
-
-        await _uow.BeginTransactionAsync();
-        try
-        {
-            await _ticketRepo.AddAsync(ticket);
-            await _changeRepo.AddAsync(cambio);
-            await _changeRepo.SaveChangesAsync();
-            await _uow.CommitAsync();
-        }
-        catch (Exception)
-        {
-            await _uow.RollbackAsync();
-            throw;
-        }
-
-        await _audit.LogAsync("Clientes", "PLAN_CHANGE_REQUESTED",
-            $"Cambio de plan solicitado: {client.TbnCode} — {client.Plan?.Name} → {newPlan.Name}",
-            actorId, actorName, ip);
-
-        await _alertSvc.CreateForRoleAsync(
-            role:    "Admin",
-            type:    "PLAN_CHANGE_PENDIENTE",
-            title:   $"Solicitud de cambio de plan — {client.TbnCode}",
-            message: $"{client.Plan?.Name} → {newPlan.Name}",
-            link:    $"/clients/{clientId}?tab=planchange");
-
-        return Result<Guid>.Success(cambio.Id);
-    }
 
     public async Task<Result<bool>> ApproveChangeAsync(
         Guid cambioId, bool midMonth,
@@ -223,7 +132,7 @@ public class PlanChangeService : IPlanChangeService
         // lo manda ApplyScheduledPlanChangesJob al aplicarlo; anunciarlo aquí sería mentirle al
         // cliente durante todo el resto del mes.
         if (midMonth)
-            await NotifyApprovalAsync(client, newPlan, midMonth: true);
+            await _planNotifier.NotifyApprovedAsync(client, newPlan, midMonth: true);
 
         await _audit.LogAsync("Clientes", "PLAN_CHANGE_APPROVED",
             $"Cambio de plan aprobado: {client.TbnCode} → {newPlan.Name}" +
@@ -233,32 +142,6 @@ public class PlanChangeService : IPlanChangeService
         return Result<bool>.Success(true);
     }
 
-    private async Task NotifyApprovalAsync(Client client, Plan newPlan, bool midMonth)
-    {
-        try
-        {
-            if (midMonth && !string.IsNullOrWhiteSpace(client.PhoneMain))
-            {
-                var sentDirect = await _chatbotNotifier.SendPlanChangeConfirmationAsync(
-                    client.PhoneMain, client.FullName, newPlan.Name);
-                if (sentDirect) return;
-            }
-
-            await _notif.PublishAsync(
-                NotifType.CAMBIO_PLAN, client.Id, client.PhoneMain,
-                new Dictionary<string, string>
-                {
-                    ["nombre"]  = client.FullName,
-                    ["plan"]    = newPlan.Name,
-                    ["empresa"] = "TelecomBoliviaNet",
-                });
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex,
-                "Cambio de plan aprobado pero falló la notificación al cliente {ClientId}", client.Id);
-        }
-    }
 
     public async Task<Result<bool>> RejectChangeAsync(
         Guid cambioId, string motivo,
@@ -302,61 +185,13 @@ public class PlanChangeService : IPlanChangeService
         }
 
         if (cambio.Client is not null)
-        {
-            // Tipo propio para el rechazo: antes se enviaba CAMBIO_PLAN con el
-            // plan solicitado, así que el cliente leía "tu plan cambió a X"
-            // exactamente cuando se le acababa de denegar ese cambio.
-            await _notif.PublishAsync(
-                NotifType.CAMBIO_PLAN_RECHAZADO,
-                cambio.Client.Id,
-                cambio.Client.PhoneMain,
-                new Dictionary<string, string>
-                {
-                    ["nombre"]  = cambio.Client.FullName,
-                    ["plan"]    = cambio.NewPlan?.Name ?? "—",
-                    ["motivo"]  = motivo,
-                    ["empresa"] = "TelecomBoliviaNet",
-                });
-        }
+            await _planNotifier.NotifyRejectedAsync(
+                cambio.Client, cambio.NewPlan?.Name, motivo);
 
         await _audit.LogAsync("Clientes", "PLAN_CHANGE_REJECTED",
             $"Cambio de plan rechazado: {cambio.ClientId} — {motivo}",
             actorId, actorName, ip);
 
         return Result<bool>.Success(true);
-    }
-
-    public async Task<List<PlanChangeItemDto>> GetPendingAsync(Guid? clientId = null)
-    {
-        var items = await _changeRepo.GetPendingAsync(clientId);
-
-        return items.Select(r => new PlanChangeItemDto(
-            r.Id,
-            ClienteTbn:    r.Client?.TbnCode  ?? "—",
-            ClienteNombre: r.Client?.FullName  ?? "—",
-            PlanAnterior:  r.OldPlan?.Name     ?? "—",
-            PlanNuevo:     r.NewPlan?.Name      ?? "—",
-            FechaEfectiva: r.EffectiveDate.ToString("yyyy-MM-dd"),
-            Notes:         r.Notes,
-            SolicitadoAt:  r.RequestedAt.ToString("O")
-        )).ToList();
-    }
-
-    public async Task<List<PlanChangeHistoryDto>> GetHistorialAsync(Guid clientId)
-    {
-        var items = await _changeRepo.GetHistoryForClientAsync(clientId);
-
-        return items.Select(r => new PlanChangeHistoryDto(
-            r.Id,
-            PlanAnterior:   r.OldPlan?.Name ?? "—",
-            PlanNuevo:      r.NewPlan?.Name  ?? "—",
-            Status:         r.Status.ToString(),
-            FechaEfectiva:  r.EffectiveDate.ToString("yyyy-MM-dd"),
-            MidMonthChange: r.MidMonthChange,
-            SolicitadoAt:   r.RequestedAt.ToString("O"),
-            ProcesadoAt:    r.ProcessedAt?.ToString("O"),
-            MotivoRechazo:  r.RejectionReason,
-            Notes:          r.Notes
-        )).ToList();
     }
 }

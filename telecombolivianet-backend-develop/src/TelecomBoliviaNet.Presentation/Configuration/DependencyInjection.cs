@@ -243,6 +243,10 @@ public static class DependencyInjection
         services.AddHostedService<ApplyScheduledPlanChangesJob>();
         services.AddScoped<PlanChangeService>();
         services.AddScoped<IPlanChangeService>(sp => sp.GetRequiredService<PlanChangeService>());
+        // F5 — pedir, resolver, consultar y avisar dejan de ser la misma clase.
+        services.AddScoped<PlanChangeNotifier>();
+        services.AddScoped<IPlanChangeRequestService, PlanChangeRequestService>();
+        services.AddScoped<IPlanChangeQueryService,   PlanChangeQueryService>();
 
         services.AddScoped<IInternalAlertService, InternalAlertService>();
 
