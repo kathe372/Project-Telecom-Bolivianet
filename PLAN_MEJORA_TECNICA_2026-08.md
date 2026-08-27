@@ -933,6 +933,7 @@ constructor a ojo se salta el último parámetro, y así reporté 9 y 6 donde er
 | `PlanChangeService` | 362 → 197 líneas · 12 → 7 deps · + `PlanChangeRequestService` (8), `PlanChangeQueryService` (1), `PlanChangeNotifier` (3) |
 | `AppDbContext` (paso 5.4) | 847 → **102** líneas · 45 configuraciones nuevas en `Data/Config/` (47 con las dos que ya existían) |
 | `PaymentCreditService` | 344 → 257 líneas · 12 → 11 deps · + `PaymentAllocator` (2), `CreditRefundService` (3) |
+| `BotProxyService` | 332 líneas y una interfaz de 11 métodos → `BotMonitorProxy` (193), `BotOutboundProxy` (75), `BotRagProxy` (63) sobre `BotProxyBase` (66), con tres interfaces segregadas |
 
 #### Cómo se verificó la mudanza del mapeo
 
@@ -958,9 +959,21 @@ en ejecución no las conserva): 31 filas antes y después.
 renombrar entidades y propiedades al inglés es exactamente el cambio que puede
 mover una columna sin que nadie se entere.
 
-Pendiente: `InvoiceQueryService` (419), `BotProxyService` (332, 11 `catch`),
-`InvoiceOperationsService` (281), `AuthService` (255),
+Pendiente: `InvoiceQueryService` (419), `InvoiceOperationsService` (281),
+`InvoiceDtos` (259, es un fichero de DTOs), `AuthService` (255),
 `CreateInstallationCommand` (12 deps) y `RegisterClientCommand` (11 deps).
+
+#### Por qué se partió el proxy del chatbot, que no era una god-class
+
+Es un adaptador delgado sobre un solo servicio, así que el criterio de líneas no
+era el argumento. El argumento fue **ISP**: una interfaz de once métodos que
+inyectaban cinco consumidores, y **cuatro de ellos usaban exactamente uno**.
+`UpdateClientCommand` dependía de once métodos para invalidar una identidad.
+
+De paso, los once `catch (Exception)` idénticos —con su motivo escrito en uno
+solo— pasan a una única política en `BotProxyBase.SinRomperElPanelAsync`.
+Ver OBS-02: esa política colapsa "el bot dijo que no" con "el bot no responde",
+y ahora arreglarlo sería una edición en vez de once.
 
 ---
 

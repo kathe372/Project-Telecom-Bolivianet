@@ -182,6 +182,34 @@ requiere partir el método en dos —el outbox dentro, el intento por HTTP fuera
 best-effort—, que es un cambio mayor y con su propio riesgo. Queda documentado en
 el `<summary>` de `PlanChangeNotifier`.
 
+### 🟡 OBS-02 · El proxy del chatbot no distingue "el bot dijo que no" de "el bot no responde"
+
+Los once `catch (Exception)` de `BotProxyService` se revisaron al partir la clase
+(F5). Todos hacen lo mismo y por una razón buena: el chatbot es un servicio
+aparte que puede estar caído o desplegándose, y que lo esté no debe tumbar el
+panel de administración entero.
+
+El problema es lo que esa política **colapsa** en las operaciones que devuelven
+`bool` —tomar una conversación, devolverla, borrar un documento del RAG, mandar
+un mensaje—:
+
+```csharp
+catch (Exception ex) { _log.LogWarning(ex, "..."); return false; }
+```
+
+`false` significa a la vez *"el bot rechazó la operación"* y *"no se pudo hablar
+con el bot"*. El operador ve el mismo mensaje en los dos casos y no sabe si tiene
+sentido reintentar. En las lecturas pasa lo análogo: una lista vacía es
+indistinguible de "no hay conversaciones".
+
+**No se cambió.** Arreglarlo bien significa devolver un `Result` en vez de `bool`
+y tocar el controlador y el frontend, que es una decisión de producto sobre qué
+ve el operador, no una limpieza de refactor.
+
+**Lo que sí mejoró:** la política estaba copiada once veces y su motivo escrito
+una sola. Ahora vive en `BotProxyBase.SinRomperElPanelAsync`, así que el día que
+se decida distinguir los dos casos es **una** edición y no once.
+
 ---
 
 ## Caza de bugs (2026-08-24)

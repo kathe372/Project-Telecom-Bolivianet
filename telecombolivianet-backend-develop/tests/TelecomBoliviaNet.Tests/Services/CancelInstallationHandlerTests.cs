@@ -72,7 +72,7 @@ public class CancelInstallationHandlerTests
         IGenericRepository<SupportTicket> ticketRepo,
         Mock<IBoxReservationService>?     boxReservation = null,
         int?                              cancelMinHours = null,
-        Mock<IBotProxyService>?           botProxy       = null)
+        Mock<IBotMonitorProxy>?           botProxy       = null)
         => new(instRepo, ticketRepo, ConfigWithCancelHours(cancelMinHours), MakeAudit(),
                (boxReservation ?? new Mock<IBoxReservationService>()).Object,
                botProxy?.Object);
@@ -255,7 +255,7 @@ public class CancelInstallationHandlerTests
         inst.ProspectName  = "Juan Prospecto";
         inst.ProspectPhone = "59171435981";
 
-        var botProxy = new Mock<IBotProxyService>();
+        var botProxy = new Mock<IBotMonitorProxy>();
         var handler  = MakeHandler(
             SpecificRepoMock.Installations(inst).Object, RepoMock.Empty<SupportTicket>().Object,
             botProxy: botProxy);
@@ -272,7 +272,7 @@ public class CancelInstallationHandlerTests
     public async Task TC_CANCEL_13_ClientCancel_DoesNotSelfNotify()
     {
         var inst     = MakeInstallation(hoursAhead: 26);
-        var botProxy = new Mock<IBotProxyService>();
+        var botProxy = new Mock<IBotMonitorProxy>();
         var handler  = MakeHandler(
             SpecificRepoMock.Installations(inst).Object, RepoMock.Empty<SupportTicket>().Object,
             botProxy: botProxy);

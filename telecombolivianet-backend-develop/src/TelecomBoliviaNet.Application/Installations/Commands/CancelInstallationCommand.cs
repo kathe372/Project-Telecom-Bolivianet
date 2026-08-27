@@ -30,7 +30,7 @@ public class CancelInstallationHandler : IRequestHandler<CancelInstallationComma
     private readonly IGenericRepository<SystemConfig>  _configRepo;
     private readonly AuditService                      _audit;
     private readonly IBoxReservationService            _boxReservation;
-    private readonly IBotProxyService?                 _botProxy;
+    private readonly IBotMonitorProxy?                 _botProxy;
     private readonly ILogger<CancelInstallationHandler>? _logger;
 
     public CancelInstallationHandler(
@@ -39,7 +39,7 @@ public class CancelInstallationHandler : IRequestHandler<CancelInstallationComma
         IGenericRepository<SystemConfig>  configRepo,
         AuditService                      audit,
         IBoxReservationService            boxReservation,
-        IBotProxyService?                 botProxy = null,
+        IBotMonitorProxy?                 botProxy = null,
         ILogger<CancelInstallationHandler>? logger = null)
     {
         _instRepo       = instRepo;

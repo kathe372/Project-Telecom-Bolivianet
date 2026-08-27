@@ -45,7 +45,7 @@ public class SendInstallationRemindersJob : BackgroundService
         using var scope  = _scopeFactory.CreateScope();
         var db           = scope.ServiceProvider.GetRequiredService<AppDbContext>();
         var publisher    = scope.ServiceProvider.GetRequiredService<INotifPublisher>();
-        var botProxy     = scope.ServiceProvider.GetRequiredService<IBotProxyService>();
+        var botProxy     = scope.ServiceProvider.GetRequiredService<IBotOutboundProxy>();
 
         var installations = await db.Set<Installation>()
             .Include(i => i.Client)

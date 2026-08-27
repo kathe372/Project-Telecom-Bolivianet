@@ -1,4 +1,4 @@
-using MediatR;
+﻿using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using TelecomBoliviaNet.Application.Dashboard.Queries;
@@ -121,9 +121,9 @@ public class GetDashNotifHandler : IRequestHandler<GetDashNotifQuery, DashNotifD
 
 public class GetDashChatbotHandler : IRequestHandler<GetDashChatbotQuery, DashChatbotDto>
 {
-    private readonly IBotProxyService            _botProxy;
+    private readonly IBotMonitorProxy            _botProxy;
     private readonly ILogger<GetDashChatbotHandler> _logger;
-    public GetDashChatbotHandler(IBotProxyService botProxy, ILogger<GetDashChatbotHandler> logger) { _botProxy = botProxy; _logger = logger; }
+    public GetDashChatbotHandler(IBotMonitorProxy botProxy, ILogger<GetDashChatbotHandler> logger) { _botProxy = botProxy; _logger = logger; }
 
     public async Task<DashChatbotDto> Handle(GetDashChatbotQuery _, CancellationToken ct)
     {

@@ -1,4 +1,4 @@
-using Microsoft.AspNetCore.Authorization;
+﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using TelecomBoliviaNet.Application.DTOs.Bot;
 using TelecomBoliviaNet.Application.Interfaces;
@@ -10,15 +10,19 @@ namespace TelecomBoliviaNet.Presentation.Controllers.Bot;
 [Authorize(Policy = "AdminOrOperadorOrTecnico")]
 public class ConversationsController : BaseController
 {
-    private readonly IBotProxyService  _proxy;
+    private readonly IBotMonitorProxy  _proxy;
+    private readonly IBotRagProxy      _rag;
     private readonly IBotConfigService _config;
-    private readonly CompanyQrService _companyQr;
+    private readonly CompanyQrService  _companyQr;
 
     public ConversationsController(
-        IBotProxyService proxy, IBotConfigService config,
-        CompanyQrService companyQr)
+        IBotMonitorProxy  proxy,
+        IBotRagProxy      rag,
+        IBotConfigService config,
+        CompanyQrService  companyQr)
     {
         _proxy     = proxy;
+        _rag       = rag;
         _config    = config;
         _companyQr = companyQr;
     }
@@ -164,7 +168,7 @@ public class ConversationsController : BaseController
     [HttpGet("~/api/rag/documents")]
     [Authorize(Policy = "AdminOnly")]
     public async Task<IActionResult> GetRagDocuments()
-        => OkResult(await _proxy.RagListDocumentsAsync());
+        => OkResult(await _rag.RagListDocumentsAsync());
 
     [HttpPost("~/api/rag/documents")]
     [Authorize(Policy = "AdminOnly")]
@@ -175,7 +179,7 @@ public class ConversationsController : BaseController
         if (file.Length > 20 * 1024 * 1024)
             return BadRequestResult("El archivo no puede superar 20 MB.");
 
-        var result = await _proxy.RagUploadDocumentAsync(file, title);
+        var result = await _rag.RagUploadDocumentAsync(file, title);
         return result is null
             ? StatusCode(502, new { error = "Error al subir documento al chatbot.", code = "RAG_UPLOAD_ERROR" })
             : StatusCode(201, new { success = true, data = result });
@@ -185,7 +189,7 @@ public class ConversationsController : BaseController
     [Authorize(Policy = "AdminOnly")]
     public async Task<IActionResult> DeleteRagDocument(string id)
     {
-        var ok = await _proxy.RagDeleteDocumentAsync(id);
+        var ok = await _rag.RagDeleteDocumentAsync(id);
         return ok ? NoContent() : StatusCode(502, new { error = "Error al eliminar documento.", code = "RAG_DELETE_ERROR" });
     }
 }

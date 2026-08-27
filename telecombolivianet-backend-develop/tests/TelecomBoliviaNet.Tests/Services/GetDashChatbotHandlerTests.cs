@@ -1,4 +1,4 @@
-using FluentAssertions;
+﻿using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
 using TelecomBoliviaNet.Application.Dashboard.Queries;
@@ -17,7 +17,7 @@ namespace TelecomBoliviaNet.Tests.Services;
 /// </summary>
 public class GetDashChatbotHandlerTests
 {
-    private static GetDashChatbotHandler BuildHandler(IBotProxyService botProxy)
+    private static GetDashChatbotHandler BuildHandler(IBotMonitorProxy botProxy)
         => new(botProxy, NullLogger<GetDashChatbotHandler>.Instance);
 
     // ── TC-DASH-CHAT-01: chatbot disponible — IsAvailable y tasas correctas ──
@@ -31,7 +31,7 @@ public class GetDashChatbotHandlerTests
             HoyConversaciones:   3,
             HoyMensajes:         15);
 
-        var botProxy = new Mock<IBotProxyService>();
+        var botProxy = new Mock<IBotMonitorProxy>();
         botProxy.Setup(b => b.GetStatsAsync()).ReturnsAsync(stats);
 
         var result = await BuildHandler(botProxy.Object).Handle(new GetDashChatbotQuery(), CancellationToken.None);
@@ -48,7 +48,7 @@ public class GetDashChatbotHandlerTests
     [Fact]
     public async Task Handle_ChatbotLanzaExcepcion_RetornaIsAvailableFalseYMetricasEnCero()
     {
-        var botProxy = new Mock<IBotProxyService>();
+        var botProxy = new Mock<IBotMonitorProxy>();
         botProxy.Setup(b => b.GetStatsAsync())
                 .ThrowsAsync(new HttpRequestException("Connection refused"));
 
@@ -74,7 +74,7 @@ public class GetDashChatbotHandlerTests
             HoyConversaciones:   0,
             HoyMensajes:         0);
 
-        var botProxy = new Mock<IBotProxyService>();
+        var botProxy = new Mock<IBotMonitorProxy>();
         botProxy.Setup(b => b.GetStatsAsync()).ReturnsAsync(stats);
 
         var result = await BuildHandler(botProxy.Object).Handle(new GetDashChatbotQuery(), CancellationToken.None);

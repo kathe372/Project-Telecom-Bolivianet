@@ -15,7 +15,7 @@ namespace TelecomBoliviaNet.Tests.Services;
 
 /// <summary>
 /// 2026-08-05: al editar un cliente, si cambia PhoneMain/PhoneSecondary se le
-/// avisa al chatbot (IBotProxyService.InvalidateIdentityAsync) para que la
+/// avisa al chatbot (IBotOutboundProxy.InvalidateIdentityAsync) para que la
 /// sesión de WhatsApp de esos números se re-verifique de inmediato en vez de
 /// esperar hasta el chequeo periódico (hasta 2h) — ver ClientIdentificationHandler.
 /// </summary>
@@ -47,9 +47,9 @@ public class UpdateClientHandlerTests
             HasTvCable:      false,
             OnuSerialNumber: null);
 
-    private static (UpdateClientHandler Handler, Mock<IBotProxyService> BotProxy) MakeHandler(Client client, Plan plan)
+    private static (UpdateClientHandler Handler, Mock<IBotOutboundProxy> BotProxy) MakeHandler(Client client, Plan plan)
     {
-        var botProxy = new Mock<IBotProxyService>();
+        var botProxy = new Mock<IBotOutboundProxy>();
         botProxy.Setup(b => b.InvalidateIdentityAsync(It.IsAny<string>())).ReturnsAsync(true);
 
         var handler = new UpdateClientHandler(
@@ -132,7 +132,7 @@ public class UpdateClientHandlerTests
     {
         var client = TestEntityFactory.MakeClient(phoneMain: "70000001");
         var plan   = MakePlan(client.PlanId);
-        var botProxy = new Mock<IBotProxyService>();
+        var botProxy = new Mock<IBotOutboundProxy>();
         botProxy.Setup(b => b.InvalidateIdentityAsync(It.IsAny<string>())).ReturnsAsync(false);
         var handler = new UpdateClientHandler(
             SpecificRepoMock.Clients(client).Object, RepoMock.Of(plan).Object, MakeAudit(), botProxy.Object);

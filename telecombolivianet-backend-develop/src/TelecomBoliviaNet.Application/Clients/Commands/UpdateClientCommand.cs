@@ -32,13 +32,13 @@ public class UpdateClientHandler : IRequestHandler<UpdateClientCommand, Result>
     private readonly IClientRepository _clientRepo;
     private readonly IGenericRepository<Plan>   _planRepo;
     private readonly AuditService               _audit;
-    private readonly IBotProxyService           _botProxy;
+    private readonly IBotOutboundProxy           _botProxy;
 
     public UpdateClientHandler(
         IClientRepository clientRepo,
         IGenericRepository<Plan>   planRepo,
         AuditService               audit,
-        IBotProxyService           botProxy)
+        IBotOutboundProxy           botProxy)
     {
         _clientRepo = clientRepo;
         _planRepo   = planRepo;

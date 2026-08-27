@@ -185,7 +185,11 @@ public static class DependencyInjection
         services.AddScoped<IReceiptImageService>(sp => sp.GetRequiredService<ReceiptImageService>());
         services.AddScoped<IClientAttachmentService, ClientAttachmentService>();
         services.AddScoped<TicketNumberService>();
-        services.AddScoped<IBotProxyService, BotProxyService>();
+        // F5 — una interfaz de once métodos donde cuatro de sus cinco
+        // consumidores usaban exactamente uno.
+        services.AddScoped<IBotMonitorProxy,  BotMonitorProxy>();
+        services.AddScoped<IBotRagProxy,      BotRagProxy>();
+        services.AddScoped<IBotOutboundProxy, BotOutboundProxy>();
         services.AddScoped<IBotConfigService, BotConfigService>();
         services.AddScoped<CompanyQrService>();
         services.AddHttpClient("ChatbotMonitor")
