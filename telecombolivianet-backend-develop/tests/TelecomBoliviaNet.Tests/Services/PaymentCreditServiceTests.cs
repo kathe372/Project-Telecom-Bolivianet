@@ -313,4 +313,74 @@ public class PaymentCreditServiceTests
         result.IsSuccess.Should().BeFalse();
         result.ErrorMessage.Should().Contain("Cliente no encontrado");
     }
+
+    // ── Nada posterior al commit puede desmentir un cobro confirmado ────────
+    //
+    // Este test PASABA ya antes de sacar el bloque post-commit del try, porque
+    // AuditService traga sus propias excepciones. Se deja igualmente: fija la
+    // garantía de extremo a extremo —un fallo al auditar no convierte un cobro
+    // confirmado en un fracaso— para que siga sujeta si alguien cambia
+    // AuditService o añade una llamada nueva ahí abajo.
+
+    [Fact]
+    public async Task SiFallaLaAuditoria_ElCobroSigueSiendoUnExito()
+    {
+        var client  = MakeClient();
+        var invoice = MakeInvoice(amount: 149m);
+
+        var auditRoto = new Mock<IGenericRepository<AuditLog>>();
+        auditRoto.Setup(r => r.AddAsync(It.IsAny<AuditLog>()))
+                 .ThrowsAsync(new InvalidOperationException("base caída al escribir el asiento"));
+
+        var uow = new Mock<IUnitOfWork>();
+        uow.Setup(u => u.BeginTransactionAsync(default)).Returns(Task.CompletedTask);
+        uow.Setup(u => u.CommitAsync(default)).Returns(Task.CompletedTask);
+        uow.Setup(u => u.RollbackAsync(default)).Returns(Task.CompletedTask);
+
+        var paymentRepo = RepoMock.Empty<Payment>();
+        var invoiceRepo = RepoMock.Of(invoice);
+        var seqGen      = new Mock<ISequenceGenerator>();
+        seqGen.Setup(g => g.NextReceiptNumberAsync()).ReturnsAsync("REC-0001");
+
+        var svc = new PaymentCreditService(
+            paymentRepo.Object,
+            SpecificRepoMock.Clients(client).Object,
+            new PaymentAllocator(invoiceRepo.Object, RepoMock.Empty<PaymentInvoice>().Object),
+            RepoMock.Empty<PaymentReceipt>().Object,
+            seqGen.Object,
+            new Mock<INotifPublisher>().Object,
+            new AuditService(auditRoto.Object, NullLogger<AuditService>.Instance),
+            uow.Object,
+            new Mock<IPublisher>().Object,
+            MakeCreditLedger(),
+            NullLogger<PaymentCreditService>.Instance);
+
+        var result = await svc.RegisterPaymentWithCreditAsync(
+            MakeDto(149m, invoice.Id), Guid.NewGuid(), "Admin", "127.0.0.1");
+
+        result.IsSuccess.Should().BeTrue(
+            "el pago se confirmó; decirle al operador que se revirtió le haría cobrar dos veces");
+        uow.Verify(u => u.CommitAsync(default), Times.Once);
+        uow.Verify(u => u.RollbackAsync(default), Times.Never,
+            "no se puede deshacer lo que ya está confirmado");
+    }
+
+    [Fact]
+    public async Task MetodoDePagoInvalido_SeRechazaAntesDeAbrirTransaccion()
+    {
+        var client  = MakeClient();
+        var invoice = MakeInvoice(amount: 149m);
+        var h       = MakeService(client, invoice);
+
+        var dto = MakeDto(149m, invoice.Id) with { Method = "Bitcoin" };
+
+        var result = await h.Service.RegisterPaymentWithCreditAsync(
+            dto, Guid.NewGuid(), "Admin", "127.0.0.1");
+
+        result.IsSuccess.Should().BeFalse();
+        result.ErrorMessage.Should().Contain("Bitcoin",
+            "es un error de entrada del operador: hay que decirle qué corregir, " +
+            "no darle un 'error al registrar el pago' genérico");
+        h.PaymentRepo.Verify(r => r.AddAsync(It.IsAny<Payment>()), Times.Never);
+    }
 }

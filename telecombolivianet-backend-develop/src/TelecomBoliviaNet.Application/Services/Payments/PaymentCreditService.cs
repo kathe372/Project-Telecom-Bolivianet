@@ -11,6 +11,7 @@ using TelecomBoliviaNet.Domain.Entities.Clients;
 using TelecomBoliviaNet.Domain.Entities.Notifications;
 using TelecomBoliviaNet.Domain.Entities.Payments;
 using TelecomBoliviaNet.Domain.Interfaces;
+using TelecomBoliviaNet.Domain.Services;
 using TelecomBoliviaNet.Domain.Primitives;
 #pragma warning disable CS8981
 using r = TelecomBoliviaNet.Domain.Primitives.Result;
@@ -85,9 +86,19 @@ public class PaymentCreditService : IPaymentCreditService
         if (invoices is null)
             return Result<PaymentRegisteredDto>.Failure(error!);
 
+        // Se valida ANTES de abrir la transacción: un método de pago mal escrito
+        // es un error de entrada del operador, y lanzarlo dentro del try lo
+        // convertía en "Error al registrar el pago", ocultando qué había que
+        // corregir.
+        if (!Enum.TryParse<PaymentMethod>(dto.Method, ignoreCase: true, out var metodoPago))
+            return Result<PaymentRegisteredDto>.Failure($"Método de pago inválido: {dto.Method}");
+
         var deudaTotal            = invoices.Sum(i => i.Outstanding);
-        var (excedente, creditoUsado) = CalculateCredit(dto.Amount, client.CreditBalance, deudaTotal);
+        var (excedente, creditoUsado) = PaymentCreditPolicy.Split(
+            dto.Amount, client.CreditBalance, deudaTotal);
         var prevCredit            = client.CreditBalance;
+
+        (Guid PaymentId, string ReceiptNumber)? confirmado = null;
 
         await _uow.BeginTransactionAsync();
         try
@@ -96,9 +107,7 @@ public class PaymentCreditService : IPaymentCreditService
             {
                 ClientId              = dto.ClientId,
                 Amount                = dto.Amount,
-                Method                = Enum.TryParse<PaymentMethod>(dto.Method, ignoreCase: true, out var pm)
-                    ? pm
-                    : throw new ArgumentException($"Método de pago inválido: {dto.Method}"),
+                Method                = metodoPago,
                 Bank                  = dto.Bank,
                 BankReference         = dto.BankReference,
                 PaidAt                = dto.PaidAt.ToUniversalTime(),
@@ -123,7 +132,8 @@ public class PaymentCreditService : IPaymentCreditService
                     notes: $"Crédito aplicado junto al pago de Bs. {dto.Amount:F2}");
             }
 
-            var excedenteNuevo = excedente - (prevCredit - creditoUsado);
+            var excedenteNuevo = PaymentCreditPolicy.NuevoExcedente(
+                excedente, prevCredit, creditoUsado);
             if (excedenteNuevo > 0)
             {
                 await _creditLedger.RecordAsync(
@@ -161,32 +171,7 @@ public class PaymentCreditService : IPaymentCreditService
 
             await _uow.CommitAsync();
 
-            try { await PublishPaymentNotificationAsync(client, dto.Amount, invoices); }
-            catch (Exception ex)
-            {
-                _logger.LogWarning(ex,
-                    "Best-effort: fallo al publicar notificación de pago para cliente {TbnCode}",
-                    client.TbnCode);
-            }
-
-            await _audit.LogAsync("Pagos", "PAYMENT_REGISTERED_WITH_CREDIT",
-                $"Pago registrado: {client.TbnCode} monto={dto.Amount:F2} excedente={excedente:F2}",
-                userId: actorId, userName: actorName, ip: ip,
-                prevData: JsonSerializer.Serialize(new { PrevCredit = prevCredit }),
-                newData:  JsonSerializer.Serialize(new { NewCredit = excedente, PaymentId = payment.Id }));
-
-            // Best-effort: si el pago saldó la deuda de un suspendido, sugiere reactivación al admin.
-            try { await _mediator.Publish(new PaymentRegisteredEvent(client.Id)); }
-            catch (Exception ex)
-            {
-                _logger.LogWarning(ex,
-                    "Best-effort: fallo al publicar PaymentRegisteredEvent para cliente {ClientId}",
-                    client.Id);
-            }
-
-            return Result<PaymentRegisteredDto>.Success(new PaymentRegisteredDto(
-                payment.Id, receiptNumber, dto.Amount, excedente, creditoUsado,
-                $"Pago registrado. {(excedente > 0 ? $"Crédito a favor: Bs. {excedente:F2}" : string.Empty)}"));
+            confirmado = (payment.Id, receiptNumber);
         }
         catch (Exception ex)
         {
@@ -197,6 +182,52 @@ public class PaymentCreditService : IPaymentCreditService
             return Result<PaymentRegisteredDto>.Failure(
                 "Error al registrar el pago. La operación fue revertida completamente.");
         }
+
+        // ── El cobro YA está confirmado ─────────────────────────────────────
+        //
+        // Esto vivía dentro del try. Hoy nada de aquí abajo rompe —cada llamada
+        // trae su propio catch—, pero si alguna lo hiciera, el catch ejecutaría
+        // un rollback que ya no hace nada y devolvería "revertida completamente"
+        // sobre un pago confirmado: el operador volvería a cobrar. Fuera del try,
+        // esa garantía se ve en vez de depender de que nadie lo olvide.
+        var (paymentId, receipt) = confirmado!.Value;
+
+        try { await PublishPaymentNotificationAsync(client, dto.Amount, invoices); }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex,
+                "Best-effort: fallo al publicar notificación de pago para cliente {TbnCode}",
+                client.TbnCode);
+        }
+
+        // AuditService ya traga los suyos; el try es por si eso cambia.
+        try
+        {
+            await _audit.LogAsync("Pagos", "PAYMENT_REGISTERED_WITH_CREDIT",
+                $"Pago registrado: {client.TbnCode} monto={dto.Amount:F2} excedente={excedente:F2}",
+                userId: actorId, userName: actorName, ip: ip,
+                prevData: JsonSerializer.Serialize(new { PrevCredit = prevCredit }),
+                newData:  JsonSerializer.Serialize(new { NewCredit = excedente, PaymentId = paymentId }));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex,
+                "Pago {PaymentId} registrado pero SIN asiento de auditoría. Revisar manualmente.",
+                paymentId);
+        }
+
+        // Best-effort: si el pago saldó la deuda de un suspendido, sugiere reactivación al admin.
+        try { await _mediator.Publish(new PaymentRegisteredEvent(client.Id)); }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex,
+                "Best-effort: fallo al publicar PaymentRegisteredEvent para cliente {ClientId}",
+                client.Id);
+        }
+
+        return Result<PaymentRegisteredDto>.Success(new PaymentRegisteredDto(
+            paymentId, receipt, dto.Amount, excedente, creditoUsado,
+            $"Pago registrado. {(excedente > 0 ? $"Crédito a favor: Bs. {excedente:F2}" : string.Empty)}"));
     }
 
     /// <summary>
@@ -209,31 +240,6 @@ public class PaymentCreditService : IPaymentCreditService
     /// factura saldada es un error del operador, y convertir ese dinero en saldo a favor sin
     /// avisar sería una sorpresa desagradable.
     /// </summary>
-    /// <summary>
-    /// Cuánto excedente deja el pago y cuánto saldo previo hace falta consumir.
-    ///
-    /// D-15: el crédito solo se toca por lo que el EFECTIVO no alcanza a cubrir.
-    /// Antes se devolvía <c>Math.Min(creditBalance, totalDebt)</c>, que informaba
-    /// crédito consumido aunque el efectivo bastara: un cliente con Bs. 100 a favor
-    /// que pagaba Bs. 50 sobre una deuda de Bs. 50 generaba un asiento de -50 y
-    /// otro de +50. El saldo final salía bien —los dos se anulan— pero su historial
-    /// de crédito mostraba dos movimientos que nunca ocurrieron, y ese historial es
-    /// lo que el operador enseña cuando alguien pregunta de dónde salió su saldo.
-    /// </summary>
-    private static (decimal excedente, decimal creditoUsado) CalculateCredit(
-        decimal amount, decimal creditBalance, decimal totalDebt)
-    {
-        // Solo se echa mano del saldo por la parte que el efectivo no cubre.
-        var faltante    = totalDebt - amount;
-        var creditoUsado = faltante <= 0m
-            ? 0m
-            : Math.Min(creditBalance, faltante);
-
-        var effective = amount + creditBalance;
-        var excedente = effective > totalDebt ? effective - totalDebt : 0m;
-
-        return (excedente, creditoUsado);
-    }
 
     private async Task PublishPaymentNotificationAsync(
         Client client, decimal amount, List<Invoice> invoices)
