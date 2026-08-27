@@ -169,6 +169,38 @@ Build limpio (0 warnings), `SystemConfigKeys.TokenCleanupLastRunDay` existe, `Di
 
 ---
 
+## Estado del plan — 2026-08-27
+
+| Fase | Estado | Nota |
+|---|---|---|
+| **F0** Red de seguridad | ✅ | CI, paridad de esquema, 5 tests de caracterización |
+| **F1** Higiene sin riesgo | ✅ código · ⛔ despliegue | Su criterio incluye "desplegado y verificado" |
+| **F2** Coordinación de jobs | ✅ código · ⛔ producción | Falta observar un ciclo diario real |
+| **F3** Contrato de repositorio | ✅ salvo D-13 | 5 de 27 métodos con varias escrituras revisados |
+| **F4** Sacar EF de Application | ✅ | 77 → 29 archivos · ADR-001 |
+| **F5** Partir servicios grandes | ✅ parcial argumentado | 9 → 2 clases > 250 líneas; el límite de 6 deps no se alcanzó |
+| **F6** Idioma inglés | ⬜ | No empezada. La de mayor radio de impacto |
+| **F7** Performance | ⬜ | No empezada |
+| **F8** Endurecer seguridad | ⬜ | No empezada |
+| **F9** Convención y documentación | ⬜ | No empezada |
+
+**Nada de esto está desplegado.** Se acumulan ~18 commits desde el último
+despliegue a producción (build del 2026-08-07).
+
+### Lo que apareció por el camino y no estaba en el plan
+
+23 hallazgos en `BUGS_DESCUBIERTOS.md` (D-01…D-23) y 3 observaciones abiertas a
+decisión (OBS-01…OBS-03). Los tres últimos —D-21, D-22, D-23— salieron de subir
+reglas de negocio al dominio, no de partir clases por tamaño.
+
+**Ocho reglas ya en `Domain/Services` con ~80 tests de tabla**, todas antes
+escritas en línea entre auditorías y accesos a repositorio: prorrateo del primer
+mes, bloqueo por intentos fallidos, reparto entre efectivo y crédito, días
+laborables, operadores de segmento, plazo de anulación, semáforo de SLA, y el
+significado de un horario 24x7.
+
+---
+
 # FASE 0 — Red de seguridad
 
 > **Duración:** 5 días (era 3; +2 por el paso 0.4) · **Riesgo:** nulo · **Bloquea:** todo
@@ -329,13 +361,13 @@ Congelan el comportamiento **actual**, no el correcto.
 
 ## Criterio de salida
 
-- [ ] Repo bajo git con commit baseline
-- [ ] CI ejecuta los 3 proyectos, verde
-- [ ] `DatabaseFixture.cs` borrado
-- [ ] `baseline.txt` guardado
-- [ ] **Test de paridad de esquema verde** (0.4.b) ← el que desbloquea F5 y F6
-- [ ] 5 tests de caracterización verdes
-- [ ] `BUGS_DESCUBIERTOS.md` creado
+- [x] Repo bajo git con commit baseline
+- [x] CI ejecuta los 3 proyectos, verde
+- [x] `DatabaseFixture.cs` borrado
+- [x] `baseline.txt` guardado
+- [x] **Test de paridad de esquema verde** (0.4.b) ← el que desbloquea F5 y F6
+- [x] 5 tests de caracterización verdes (Billing, PaymentVoid, PlanChange, InstallationComplete, AutoSuspend)
+- [x] `BUGS_DESCUBIERTOS.md` creado — hoy con 23 hallazgos (D-01…D-23) y 3 observaciones
 
 ---
 
@@ -422,10 +454,11 @@ services.AddScoped<IPaymentService>(sp =>
 
 ## Criterio de salida
 
-- [ ] `AddRepositories()` de 44 líneas a 3, con test de resolución verde
-- [ ] Cero `30` y cero `5` mágicos en `PaymentService`/`BillingService`
-- [ ] ≥10 de los 24 servicios con interfaz
-- [ ] Suite verde vs `baseline.txt` · Desplegado y verificado
+- [x] `AddRepositories()` con registro abierto, `DependencyResolutionTests` verde
+- [x] Cero mágicos — el último (`30` en `ClientProjectionHelpers`) cayó con D-22
+- [x] 36 interfaces en `Application/Interfaces`
+- [x] Suite verde vs `baseline.txt`
+- [ ] **Desplegado y verificado — PENDIENTE**
 
 ---
 
@@ -587,10 +620,11 @@ docker compose logs -f backend | grep -i lease
 
 ## Criterio de salida
 
-- [ ] `JobLease` con 2 tests verdes
-- [ ] Grupo A con el tracker **dentro** del lock; grupos B y C envueltos
-- [ ] Prueba con `--scale backend=2` sin duplicados
-- [ ] Suite verde · Observado un ciclo diario completo en producción
+- [x] `JobLease` con 7 tests verdes
+- [x] Grupo A con el tracker **dentro** del lock; grupos B y C envueltos (12 jobs)
+- [x] Prueba con `--scale backend=2` sin duplicados
+- [x] Suite verde
+- [ ] **Observado un ciclo diario completo en producción — PENDIENTE (sin desplegar)**
 
 ---
 
@@ -706,10 +740,10 @@ done
 
 ## Criterio de salida
 
-- [ ] Contrato con separación lectura/escritura/persistencia · Cero `CS0618` · Obsoletos eliminados
-- [ ] Todo handler con >1 escritura: transacción o comentario justificando
-- [ ] Test de atomicidad de `CompleteInstallationCommand` (ambos contadores de la caja)
-- [ ] Suite + caracterización sin cambios
+- [x] Contrato con separación lectura/escritura/persistencia · Cero `CS0618` · Obsoletos eliminados
+- [~] 5 de 27 revisados (los de más riesgo). **D-13 sigue abierto** para los 22 restantes
+- [x] Test de atomicidad de `CompleteInstallationCommand`
+- [x] Suite + caracterización sin cambios
 
 ---
 
