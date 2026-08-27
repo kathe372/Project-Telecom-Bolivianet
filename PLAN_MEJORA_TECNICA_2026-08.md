@@ -931,6 +931,31 @@ constructor a ojo se salta el último parámetro, y así reporté 9 y 6 donde er
 | `BillingService` | 458 → 249 líneas · 8 → 7 deps · + `InvoiceBackfillService`, `InvoiceStatusService` |
 | `ProrationCalculator` al dominio | 12 tests de tabla, sin montar ningún servicio |
 | `PlanChangeService` | 362 → 197 líneas · 12 → 7 deps · + `PlanChangeRequestService` (8), `PlanChangeQueryService` (1), `PlanChangeNotifier` (3) |
+| `AppDbContext` (paso 5.4) | 847 → **102** líneas · 45 configuraciones nuevas en `Data/Config/` (47 con las dos que ya existían) |
+
+#### Cómo se verificó la mudanza del mapeo
+
+`SchemaParityTests` compara tablas y columnas contra `information_schema`, pero
+**no ve** los filtros globales de borrado lógico, las conversiones de enum a
+texto, los índices únicos ni los valores por defecto. Perder un
+`HasQueryFilter(c => !c.IsDeleted)` al mover un bloque no habría roto ningún test
+y en cambio haría aparecer clientes dados de baja en todas las pantallas.
+
+Así que se comparó el **modelo de EF completo**, volcado a texto con
+`ModelDumpTests`, antes y después de la mudanza:
+
+```bash
+TBN_MODEL_DUMP=/tmp/modelo_nuevo.txt dotnet test ... --filter ModelDumpTests
+git stash && TBN_MODEL_DUMP=/tmp/modelo_viejo.txt dotnet test ... && git stash pop
+diff /tmp/modelo_viejo.txt /tmp/modelo_nuevo.txt
+```
+
+888 líneas de modelo, **idénticas**. Las semillas se contaron aparte (el modelo
+en ejecución no las conserva): 31 filas antes y después.
+
+`ModelDumpTests` se queda en el repositorio: **F6 lo va a necesitar**, porque
+renombrar entidades y propiedades al inglés es exactamente el cambio que puede
+mover una columna sin que nadie se entere.
 
 Pendiente: `InvoiceQueryService` (419), `PaymentCreditService` (344, 12 deps),
 `BotProxyService` (332), `InvoiceOperationsService` (281), `AuthService` (255),
