@@ -934,6 +934,7 @@ constructor a ojo se salta el último parámetro, y así reporté 9 y 6 donde er
 | `AppDbContext` (paso 5.4) | 847 → **102** líneas · 45 configuraciones nuevas en `Data/Config/` (47 con las dos que ya existían) |
 | `PaymentCreditService` | 344 → 257 líneas · 12 → 11 deps · + `PaymentAllocator` (2), `CreditRefundService` (3) |
 | `BotProxyService` | 332 líneas y una interfaz de 11 métodos → `BotMonitorProxy` (193), `BotOutboundProxy` (75), `BotRagProxy` (63) sobre `BotProxyBase` (66), con tres interfaces segregadas |
+| `InvoiceQueryService` | 419 → `InvoiceQueryService` (72), `InvoiceStatsService` (111), `InvoiceReportService` (243) y `InvoiceProjections` (57); `ApplyTypeFilter` sube al dominio |
 
 #### Cómo se verificó la mudanza del mapeo
 
@@ -959,8 +960,8 @@ en ejecución no las conserva): 31 filas antes y después.
 renombrar entidades y propiedades al inglés es exactamente el cambio que puede
 mover una columna sin que nadie se entere.
 
-Pendiente: `InvoiceQueryService` (419), `InvoiceOperationsService` (281),
-`InvoiceDtos` (259, es un fichero de DTOs), `AuthService` (255),
+Pendiente: `InvoiceOperationsService` (281), `InvoiceDtos` (259, que es un
+fichero de DTOs y no un servicio), `AuthService` (255),
 `CreateInstallationCommand` (12 deps) y `RegisterClientCommand` (11 deps).
 
 #### Por qué se partió el proxy del chatbot, que no era una god-class

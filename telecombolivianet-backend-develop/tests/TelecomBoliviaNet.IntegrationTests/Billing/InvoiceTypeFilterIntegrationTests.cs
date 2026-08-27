@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using TelecomBoliviaNet.Application.DTOs.Invoices;
 using TelecomBoliviaNet.Application.Interfaces;
@@ -89,6 +89,10 @@ public class InvoiceTypeFilterIntegrationTests : IClassFixture<CustomWebApplicat
     private static IInvoiceQueryService Svc(IServiceScope scope) =>
         scope.ServiceProvider.GetRequiredService<IInvoiceQueryService>();
 
+    // F5: los totales se mudaron a su propio servicio; la grilla se queda aquí.
+    private static IInvoiceStatsService Stats(IServiceScope scope) =>
+        scope.ServiceProvider.GetRequiredService<IInvoiceStatsService>();
+
     // ── Listado ──────────────────────────────────────────────────────────────
 
     [Fact]
@@ -134,7 +138,7 @@ public class InvoiceTypeFilterIntegrationTests : IClassFixture<CustomWebApplicat
     {
         using var scope = await SeedAsync();
 
-        var stats = await Svc(scope).GetMonthStatsAsync(Anio, Mes);
+        var stats = await Stats(scope).GetMonthStatsAsync(Anio, Mes);
 
         Assert.Equal(699m, stats.TotalBilled);   // 149 + 200 + 350
         Assert.Equal(699m, stats.TotalPending);
@@ -146,7 +150,7 @@ public class InvoiceTypeFilterIntegrationTests : IClassFixture<CustomWebApplicat
     {
         using var scope = await SeedAsync();
 
-        var stats = await Svc(scope).GetMonthStatsAsync(Anio, Mes, "Mensualidad");
+        var stats = await Stats(scope).GetMonthStatsAsync(Anio, Mes, "Mensualidad");
 
         Assert.Equal(149m, stats.TotalBilled);
         Assert.Equal(1, stats.CountBilled);
@@ -157,7 +161,7 @@ public class InvoiceTypeFilterIntegrationTests : IClassFixture<CustomWebApplicat
     {
         using var scope = await SeedAsync();
 
-        var stats = await Svc(scope).GetRangeStatsAsync(
+        var stats = await Stats(scope).GetRangeStatsAsync(
             new DateTime(Anio, Mes, 1), new DateTime(Anio, Mes, 28));
 
         Assert.Equal(699m, stats.TotalBilled);

@@ -3,14 +3,32 @@ using TelecomBoliviaNet.Application.DTOs.Invoices;
 
 namespace TelecomBoliviaNet.Application.Interfaces;
 
-public interface IInvoiceQueryService
+/// <summary>Los totales que encabezan la pantalla de Facturación.</summary>
+public interface IInvoiceStatsService
 {
     /// <param name="type">Tipo de factura (nombre de InvoiceType) o null/"all" para todas.</param>
-    Task<InvoiceMonthStatsDto>             GetMonthStatsAsync(int year, int month, string? type = null);
-    Task<InvoiceRangeStatsDto>             GetRangeStatsAsync(DateTime dateFrom, DateTime dateTo, string? type = null);
-    Task<PagedResult<InvoiceDetailDto>>    GetPagedAsync(InvoiceFilterDto filter);
-    Task<IEnumerable<AnnualReportRowDto>>  GetAnnualReportAsync(AnnualReportFilterDto filter);
-    Task<IEnumerable<DebtorDto>>           GetDebtorsAsync(string? search = null, DateTime? from = null, DateTime? to = null);
+    Task<InvoiceMonthStatsDto> GetMonthStatsAsync(int year, int month, string? type = null);
+
+    Task<InvoiceRangeStatsDto> GetRangeStatsAsync(
+        DateTime dateFrom, DateTime dateTo, string? type = null);
+}
+
+/// <summary>La grilla de Facturación.</summary>
+public interface IInvoiceQueryService
+{
+    Task<PagedResult<InvoiceDetailDto>> GetPagedAsync(InvoiceFilterDto filter);
+}
+
+/// <summary>
+/// Los informes de facturación: calendario anual, morosos y exportación.
+/// </summary>
+public interface IInvoiceReportService
+{
+    Task<IEnumerable<AnnualReportRowDto>> GetAnnualReportAsync(AnnualReportFilterDto filter);
+
+    Task<IEnumerable<DebtorDto>> GetDebtorsAsync(
+        string? search = null, DateTime? from = null, DateTime? to = null);
+
     /// <summary>
     /// Filas de un período para exportar. Acepta los mismos filtros que la pantalla
     /// de Facturación para que el archivo descargado contenga lo que el usuario

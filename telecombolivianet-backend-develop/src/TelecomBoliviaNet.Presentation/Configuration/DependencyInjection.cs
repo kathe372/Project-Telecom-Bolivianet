@@ -161,8 +161,10 @@ public static class DependencyInjection
         // F5 — lo que BillingService hacía además de facturar el mes.
         services.AddScoped<IInvoiceBackfillService, InvoiceBackfillService>();
         services.AddScoped<IInvoiceStatusService,   InvoiceStatusService>();
-        services.AddScoped<InvoiceQueryService>();
-        services.AddScoped<IInvoiceQueryService>(sp => sp.GetRequiredService<InvoiceQueryService>());
+        // F5 — InvoiceQueryService eran 419 líneas: totales, grilla y tres informes.
+        services.AddScoped<IInvoiceQueryService,  InvoiceQueryService>();
+        services.AddScoped<IInvoiceStatsService,  InvoiceStatsService>();
+        services.AddScoped<IInvoiceReportService, InvoiceReportService>();
         services.AddHostedService<BillingBackgroundJob>();
         services.AddScoped<InvoiceNumberService>();
         services.AddScoped<IInvoiceNumberService>(sp => sp.GetRequiredService<InvoiceNumberService>());

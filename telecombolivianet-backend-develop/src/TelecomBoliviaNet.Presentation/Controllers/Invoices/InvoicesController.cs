@@ -16,6 +16,8 @@ public class InvoicesController : BaseController
     private readonly IBillingService        _billing;
     private readonly IInvoiceStatusService  _statusSvc;
     private readonly IInvoiceQueryService   _query;
+    private readonly IInvoiceStatsService   _stats;
+    private readonly IInvoiceReportService  _reports;
     private readonly AuditService           _audit;
     private readonly IExportService         _export;
     private readonly ICompanyProfileService _company;
@@ -24,6 +26,8 @@ public class InvoicesController : BaseController
         IBillingService        billing,
         IInvoiceStatusService  statusSvc,
         IInvoiceQueryService   query,
+        IInvoiceStatsService   stats,
+        IInvoiceReportService  reports,
         AuditService           audit,
         IExportService         export,
         ICompanyProfileService company)
@@ -31,6 +35,8 @@ public class InvoicesController : BaseController
         _billing = billing;
         _statusSvc     = statusSvc;
         _query   = query;
+        _stats   = stats;
+        _reports = reports;
         _audit   = audit;
         _export  = export;
         _company = company;
@@ -44,7 +50,7 @@ public class InvoicesController : BaseController
     {
         if (year < 2024 || month < 1 || month > 12)
             return BadRequestResult("Año o mes inválido.");
-        return OkResult(await _query.GetMonthStatsAsync(year, month, type));
+        return OkResult(await _stats.GetMonthStatsAsync(year, month, type));
     }
 
     [HttpGet("stats/range")]
@@ -58,7 +64,7 @@ public class InvoicesController : BaseController
             return BadRequestResult("La fecha de inicio debe ser anterior a la fecha de fin.");
         if ((dateTo - dateFrom).TotalDays > 366)
             return BadRequestResult("El rango no puede superar 366 días.");
-        return OkResult(await _query.GetRangeStatsAsync(dateFrom, dateTo, type));
+        return OkResult(await _stats.GetRangeStatsAsync(dateFrom, dateTo, type));
     }
 
     [HttpGet]
@@ -72,7 +78,7 @@ public class InvoicesController : BaseController
         [FromQuery] string?   search = null,
         [FromQuery] DateTime? from   = null,
         [FromQuery] DateTime? to     = null)
-        => OkResult(await _query.GetDebtorsAsync(search, from, to));
+        => OkResult(await _reports.GetDebtorsAsync(search, from, to));
 
     [HttpGet("annual-report")]
     [Authorize(Policy = "AllRoles")]
@@ -80,7 +86,7 @@ public class InvoicesController : BaseController
     {
         if (filter.Year < 2024)
             return BadRequestResult("Año inválido.");
-        return OkResult(await _query.GetAnnualReportAsync(filter));
+        return OkResult(await _reports.GetAnnualReportAsync(filter));
     }
 
     [HttpGet("billing-preview")]
@@ -126,7 +132,7 @@ public class InvoicesController : BaseController
         if (q.Year < 2024 || q.Month < 1 || q.Month > 12)
             return BadRequestResult("Año o mes inválido.");
 
-        var invoices = (await _query.GetAllForExportAsync(q.Year, q.Month, q.Type, q.Status, q.Search))
+        var invoices = (await _reports.GetAllForExportAsync(q.Year, q.Month, q.Type, q.Status, q.Search))
             .ToList();
 
         var context = ReportContext.Create(
@@ -169,7 +175,7 @@ public class InvoicesController : BaseController
     {
         if (filter.Year < 2024) return BadRequestResult("Año inválido.");
 
-        var rows   = (await _query.GetAnnualReportAsync(filter)).ToList();
+        var rows   = (await _reports.GetAnnualReportAsync(filter)).ToList();
         var report = new AnnualReportExportDto(filter.Year, rows.Select(ToExportRow).ToList());
 
         var context = ReportContext.Create(
