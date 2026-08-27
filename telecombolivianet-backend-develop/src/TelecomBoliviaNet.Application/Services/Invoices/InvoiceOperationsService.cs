@@ -1,95 +1,46 @@
-﻿using Microsoft.Extensions.Logging;
-using TelecomBoliviaNet.Application.Interfaces;
-using TelecomBoliviaNet.Domain.Services;
 using Microsoft.EntityFrameworkCore;
-using TelecomBoliviaNet.Application.DTOs.Invoices;
+using Microsoft.Extensions.Logging;
+using TelecomBoliviaNet.Application.Interfaces;
 using TelecomBoliviaNet.Application.Services.Auth;
 using TelecomBoliviaNet.Domain.Entities.Clients;
 using TelecomBoliviaNet.Domain.Entities.Notifications;
 using TelecomBoliviaNet.Domain.Interfaces;
 using TelecomBoliviaNet.Domain.Primitives;
+using TelecomBoliviaNet.Domain.Services;
 
 namespace TelecomBoliviaNet.Application.Services.Invoices;
 
+/// <summary>
+/// Mover facturas ya emitidas de un estado a otro: una concreta, o todas las de
+/// un mes al marcarlas como enviadas.
+///
+/// <para>Crear cargos extraordinarios y aplicar saldo a favor salieron de aquí
+/// (F5) a <see cref="ExtraordinaryInvoiceService"/> e
+/// <see cref="InvoiceCreditService"/>; eran 281 líneas bajo un nombre que no
+/// decía cuál de las tres cosas hacía.</para>
+///
+/// <para>Distinto de <see cref="InvoiceStatusService"/>, que también cambia
+/// estados pero por decisión del sistema —marcar vencidas en lote— o para
+/// deshacer una factura.</para>
+/// </summary>
 public class InvoiceOperationsService : IInvoiceOperationsService
 {
-    private readonly IGenericRepository<Invoice>  _invoiceRepo;
-    private readonly IGenericRepository<Client>   _clientRepo;
-    private readonly InvoiceNumberService         _invNumSvc;
-    private readonly INotifPublisher              _notif;
-    private readonly AuditService                 _audit;
-    private readonly ICreditLedger                _creditLedger;
-    private readonly ILogger<InvoiceOperationsService>    _logger;
-
-    public static readonly string[] MotivosExtraordinarios =
-        { "Reconexion", "Equipo", "VisitaTecnica", "Instalacion", "Otro" };
+    private readonly IGenericRepository<Invoice>             _invoiceRepo;
+    private readonly INotifPublisher                         _notif;
+    private readonly AuditService                            _audit;
+    private readonly ILogger<InvoiceOperationsService>       _logger;
 
     public InvoiceOperationsService(
-        IGenericRepository<Invoice> invoiceRepo,
-        IGenericRepository<Client>  clientRepo,
-        InvoiceNumberService        invNumSvc,
-        INotifPublisher             notif,
-        AuditService                audit,
-        ICreditLedger               creditLedger,
-        ILogger<InvoiceOperationsService>   logger)
+        IGenericRepository<Invoice>       invoiceRepo,
+        INotifPublisher                   notif,
+        AuditService                      audit,
+        ILogger<InvoiceOperationsService> logger)
     {
-        _invoiceRepo  = invoiceRepo;
-        _clientRepo   = clientRepo;
-        _invNumSvc    = invNumSvc;
-        _notif        = notif;
-        _audit        = audit;
-        _creditLedger = creditLedger;
-        _logger       = logger;
+        _invoiceRepo = invoiceRepo;
+        _notif       = notif;
+        _audit       = audit;
+        _logger      = logger;
     }
-
-
-    public async Task<Result<InvoiceListItemDto>> CreateExtraordinaryAsync(
-        CreateExtraordinaryInvoiceDto dto,
-        Guid actorId, string actorName, string ip)
-    {
-        if (!MotivosExtraordinarios.Contains(dto.Motivo))
-            return Result<InvoiceListItemDto>.Failure(
-                $"Motivo inválido. Debe ser uno de: {string.Join(", ", MotivosExtraordinarios)}");
-
-        if (dto.Amount <= 0)
-            return Result<InvoiceListItemDto>.Failure("El monto debe ser mayor a cero.");
-
-        var client = await _clientRepo.GetByIdAsync(dto.ClientId);
-        if (client is null) return Result<InvoiceListItemDto>.Failure("Cliente no encontrado.");
-
-        var invNumber = await _invNumSvc.NextInvoiceNumberAsync(isExtraordinary: true);
-        var today     = DateTime.UtcNow;
-
-        var invoice = new Invoice
-        {
-            ClientId             = dto.ClientId,
-            Type                 = InvoiceType.Extraordinaria,
-            Status               = InvoiceStatus.Emitida,
-            Year                 = today.Year,
-            Month                = today.Month,
-            Amount               = dto.Amount,
-            AmountPaid           = 0m,
-            IssuedAt             = today,
-            DueDate              = dto.DueDate.ToUniversalTime(),
-            Notes                = dto.Notes,
-            IsExtraordinary      = true,
-            ExtraordinaryReason  = dto.Motivo,
-            InvoiceNumber        = invNumber,
-        };
-
-        await _invoiceRepo.AddAsync(invoice);
-        await _invoiceRepo.SaveChangesAsync();
-
-        await _audit.LogAsync("Facturación", "EXTRAORDINARY_INVOICE_CREATED",
-            $"Factura extraordinaria {invNumber}: {client.TbnCode} Bs.{dto.Amount:F2} motivo={dto.Motivo}",
-            userId: actorId, userName: actorName, ip: ip,
-            newData: System.Text.Json.JsonSerializer.Serialize(new {
-                InvoiceNumber = invNumber, ClientId = dto.ClientId,
-                Amount = dto.Amount, Motivo = dto.Motivo }));
-
-        return Result<InvoiceListItemDto>.Success(MapToListItem(invoice, client));
-    }
-
 
     public async Task<Result> TransicionarEstadoAsync(
         Guid invoiceId, InvoiceStatus nuevoEstado,
@@ -218,64 +169,4 @@ public class InvoiceOperationsService : IInvoiceOperationsService
 
         return facturas.Count;
     }
-
-
-    public async Task<Result> ApplyCreditAsync(
-        Guid invoiceId, Guid actorId, string actorName, string ip)
-    {
-        var invoice = await _invoiceRepo.GetAll()
-            .Include(i => i.Client)
-            .FirstOrDefaultAsync(i => i.Id == invoiceId);
-
-        if (invoice is null) return Result.Failure("Factura no encontrada.");
-        if (invoice.Status == InvoiceStatus.Pagada) return Result.Failure("La factura ya está pagada.");
-        if (invoice.Status == InvoiceStatus.Anulada) return Result.Failure("La factura está anulada.");
-        if (invoice.Client is null) return Result.Failure("Cliente no encontrado.");
-
-        var saldoPendiente = invoice.Amount - invoice.AmountPaid;
-        if (saldoPendiente <= 0) return Result.Failure("La factura no tiene saldo pendiente.");
-
-        var credito = invoice.Client.CreditBalance;
-        if (credito <= 0) return Result.Failure("El cliente no tiene crédito a favor.");
-
-        var (aplicar, _)       = InvoiceDomainService.ApplyCredit(credito, saldoPendiente);
-        invoice.AmountPaid    += aplicar;
-        invoice.CreditApplied += aplicar;
-        invoice.Status         = InvoiceDomainService.CalculateStatus(invoice.Amount, invoice.AmountPaid);
-        invoice.UpdatedAt      = DateTime.UtcNow;
-
-        // El saldo lo ajusta el libro mayor, que además deja el asiento. Antes se
-        // asignaba `CreditBalance` a mano y el consumo no quedaba registrado.
-        await _creditLedger.RecordAsync(
-            invoice.Client, -aplicar, CreditMovementType.AplicadoAFactura,
-            invoiceId: invoice.Id, createdByUserId: actorId,
-            notes: $"Crédito aplicado a la factura {invoice.InvoiceNumber ?? invoice.Id.ToString()}");
-
-        _invoiceRepo.Update(invoice);
-
-        await _invoiceRepo.SaveChangesAsync();
-        _clientRepo.Update(invoice.Client);
-        await _clientRepo.SaveChangesAsync();
-        await _audit.LogAsync("Facturación", "CREDIT_APPLIED_TO_INVOICE",
-            $"Crédito aplicado: factura {invoice.InvoiceNumber} Bs.{aplicar:F2}",
-            userId: actorId, userName: actorName, ip: ip,
-            newData: System.Text.Json.JsonSerializer.Serialize(new {
-                InvoiceId = invoiceId, Aplicado = aplicar,
-                NuevoSaldoCliente = invoice.Client.CreditBalance }));
-
-        return Result.Success();
-    }
-
-
-    private static InvoiceListItemDto MapToListItem(Invoice i, Client c) => new(
-        i.Id,
-        i.InvoiceNumber ?? i.Id.ToString()[..8],
-        c.Id, c.TbnCode, c.FullName,
-        i.Type.ToString(), i.Status.ToString(),
-        i.Year, i.Month,
-        i.Amount, i.AmountPaid, i.CreditApplied,
-        i.IssuedAt, i.DueDate, i.UpdatedAt,
-        i.Notes,
-        i.IsExtraordinary, i.ExtraordinaryReason
-    );
 }

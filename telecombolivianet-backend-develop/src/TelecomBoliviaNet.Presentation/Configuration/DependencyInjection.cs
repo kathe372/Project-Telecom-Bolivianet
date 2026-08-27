@@ -168,7 +168,10 @@ public static class DependencyInjection
         services.AddHostedService<BillingBackgroundJob>();
         services.AddScoped<InvoiceNumberService>();
         services.AddScoped<IInvoiceNumberService>(sp => sp.GetRequiredService<InvoiceNumberService>());
-        services.AddScoped<IInvoiceOperationsService, InvoiceOperationsService>();
+        services.AddScoped<IInvoiceOperationsService,   InvoiceOperationsService>();
+        // F5 — crear cargos y aplicar crédito salen del cajón de "operaciones".
+        services.AddScoped<IExtraordinaryInvoiceService, ExtraordinaryInvoiceService>();
+        services.AddScoped<IInvoiceCreditService,        InvoiceCreditService>();
 
         services.AddScoped<CreditReversalCalculator>();
         services.AddScoped<PaymentService>();

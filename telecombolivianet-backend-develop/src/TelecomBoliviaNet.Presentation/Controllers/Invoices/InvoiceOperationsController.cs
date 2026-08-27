@@ -12,14 +12,24 @@ namespace TelecomBoliviaNet.Presentation.Controllers.Invoices;
 [Authorize(Policy = "AdminOnly")]
 public class InvoiceOperationsController : BaseController
 {
-    private readonly IInvoiceOperationsService _operations;
+    private readonly IInvoiceOperationsService    _operations;
+    private readonly IExtraordinaryInvoiceService _extraordinary;
+    private readonly IInvoiceCreditService        _credit;
 
-    public InvoiceOperationsController(IInvoiceOperationsService operations) => _operations = operations;
+    public InvoiceOperationsController(
+        IInvoiceOperationsService    operations,
+        IExtraordinaryInvoiceService extraordinary,
+        IInvoiceCreditService        credit)
+    {
+        _operations    = operations;
+        _extraordinary = extraordinary;
+        _credit        = credit;
+    }
 
     [HttpPost("extraordinary")]
     public async Task<IActionResult> CreateExtraordinary([FromBody] CreateExtraordinaryInvoiceDto dto)
     {
-        var result = await _operations.CreateExtraordinaryAsync(dto, CurrentUserId, CurrentUserName, ClientIp);
+        var result = await _extraordinary.CreateExtraordinaryAsync(dto, CurrentUserId, CurrentUserName, ClientIp);
         return result.IsSuccess
             ? StatusCode(201, new { success = true, data = result.Value })
             : BadRequestResult(result.ErrorMessage);
@@ -47,7 +57,7 @@ public class InvoiceOperationsController : BaseController
     [HttpPost("{id:guid}/aplicar-credito")]
     public async Task<IActionResult> ApplyCredit(Guid id)
     {
-        var result = await _operations.ApplyCreditAsync(id, CurrentUserId, CurrentUserName, ClientIp);
+        var result = await _credit.ApplyCreditAsync(id, CurrentUserId, CurrentUserName, ClientIp);
         return result.IsSuccess
             ? OkMessage("Crédito aplicado correctamente.")
             : BadRequestResult(result.ErrorMessage);
