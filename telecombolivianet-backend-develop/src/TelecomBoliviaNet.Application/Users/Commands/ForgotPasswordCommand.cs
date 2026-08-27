@@ -57,7 +57,6 @@ public class ForgotPasswordHandler : IRequestHandler<ForgotPasswordCommand, Resu
         {
             pt.Used = true;
             _resetRepo.Update(pt);
-            await _resetRepo.SaveChangesAsync();
         }
 
         var token = Guid.NewGuid().ToString("N");
@@ -70,6 +69,12 @@ public class ForgotPasswordHandler : IRequestHandler<ForgotPasswordCommand, Resu
             SentTo    = UserMapper.MaskEmail(user.Email),
         };
         await _resetRepo.AddAsync(resetToken);
+
+        // D-13 — Un solo guardado para invalidar los enlaces anteriores y emitir
+        // el nuevo. Antes se confirmaba uno por cada token viejo dentro del bucle
+        // y otro al final: si fallaba el último, el usuario se quedaba con todos
+        // sus enlaces anulados y ninguno nuevo, sin poder recuperar la cuenta
+        // hasta volver a pedirlo. De paso desaparece el guardado por iteración.
         await _resetRepo.SaveChangesAsync();
 
         var frontendUrl = _config["App:FrontendUrl"]?.TrimEnd('/') ?? "http://localhost";

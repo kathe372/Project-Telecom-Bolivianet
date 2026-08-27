@@ -501,11 +501,50 @@ se ejecute la suite.
 > diferencia: D-03 eran los jobs de producción corriendo contra la base de test;
 > ésta es el propio test atado al calendario. Misma familia, causas distintas.
 
+### 🔴 D-24 · El enlace de recuperación de contraseña podía quedar reutilizable — **CORREGIDO**
+
+Salió al revisar la prioridad media de D-13. `ResetPasswordCommand` hacía esto:
+
+```csharp
+_repo.Update(user);
+await _repo.SaveChangesAsync();        // ← contraseña cambiada, confirmado
+resetToken.Used = true;
+_resetRepo.Update(resetToken);
+await _resetRepo.SaveChangesAsync();   // ← si esto falla…
+```
+
+Si el segundo guardado fallaba —una caída de base entre uno y otro basta— la
+contraseña quedaba cambiada y **el token de recuperación seguía sin marcar como
+usado**. Un enlace pensado para un solo uso pasaba a admitir varios, y cualquiera
+con acceso a ese correo podía volver a cambiar la contraseña dentro de su hora de
+validez.
+
+No hacía falta una transacción: los dos repositorios comparten `DbContext`, así
+que basta con mutar ambos y guardar **una** vez.
+
+Mismo tratamiento en `ForgotPasswordCommand` y `ResendActivationCommand`, donde
+además había un `SaveChangesAsync` **dentro del bucle** que invalidaba los enlaces
+anteriores — uno por token. Si fallaba al crear el nuevo, el usuario se quedaba
+con todos sus enlaces anulados y ninguno válido, sin poder recuperar la cuenta
+hasta volver a pedirlo.
+
 ### 🟠 D-13 · Métodos con varias escrituras y sin transacción — **PRIORIDAD ALTA CERRADA (5/5)**
 
 **Estado 2026-08-27:** medido por MÉTODO, no por archivo —dos guardados en
-métodos distintos no comparten riesgo—, quedan **24**. El recuento se reproduce
+métodos distintos no comparten riesgo—, quedan **18**. El recuento se reproduce
 con `python scripts/escrituras-sin-transaccion.py`.
+
+**El triaje que cambió el enfoque.** Todos los repositorios comparten el mismo
+`DbContext`, así que un `SaveChangesAsync` persiste todo lo pendiente. El riesgo
+solo existe si hay **mutaciones después del primer guardado**; si no las hay, los
+guardados siguientes no hacen nada y la operación ya era atómica. Y solo UN método
+en todo Application hace una consulta entre dos guardados
+(`InitialChargesService`, que ya va dentro de la transacción de su llamador), así
+que en el resto el guardado intermedio **no hace falta para nada**.
+
+Conclusión: para la mayoría la corrección no es añadir una transacción, es
+**dejar un solo guardado**. Sin `IUnitOfWork`, sin dependencia nueva, y más
+correcto. Se aplicó a los seis de esta tanda.
 
 Los cinco de prioridad alta, resueltos, y **no todos igual**:
 

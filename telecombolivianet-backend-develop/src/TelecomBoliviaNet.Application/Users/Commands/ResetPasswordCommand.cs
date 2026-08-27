@@ -53,11 +53,19 @@ public class ResetPasswordHandler : IRequestHandler<ResetPasswordCommand, Result
         user.RequiresPasswordChange = false;
         user.FailedLoginAttempts    = 0;
         user.UpdatedAt              = DateTime.UtcNow;
-        _repo.Update(user);
-        await _repo.SaveChangesAsync();
         resetToken.Used = true;
+
+        _repo.Update(user);
         _resetRepo.Update(resetToken);
-        await _resetRepo.SaveChangesAsync();
+
+        // D-13 — Un solo guardado, y aquí importa de verdad: antes la contraseña
+        // se confirmaba primero y el token se marcaba usado después, en dos
+        // transacciones. Si la segunda fallaba, la contraseña quedaba cambiada y
+        // el enlace de recuperación SEGUÍA SIENDO VÁLIDO: un enlace de un solo
+        // uso pasaba a admitir varios, y quien tuviera ese correo podía volver a
+        // cambiarla. Ambos repositorios comparten DbContext, así que este
+        // SaveChanges los persiste juntos.
+        await _repo.SaveChangesAsync();
         await _email.SendPasswordChangedNotificationAsync(user.Email, user.FullName);
 
         return Result.Success();

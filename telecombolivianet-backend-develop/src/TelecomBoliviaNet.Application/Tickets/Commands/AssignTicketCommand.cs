@@ -58,13 +58,17 @@ public class AssignTicketHandler : IRequestHandler<AssignTicketCommand, Result<T
 
         _ticketRepo.Update(ticket);
 
-        await _ticketRepo.SaveChangesAsync();
-        await _commentRepo.AddAsync(new TicketComment
+                await _commentRepo.AddAsync(new TicketComment
         {
             TicketId = ticket.Id, AuthorId = cmd.ActorId,
             Type     = CommentType.NotaInterna,
             Body     = $"👤 Ticket asignado a {tech.FullName}.", CreatedAt = DateTime.UtcNow,
         });
+
+        // D-13 — Un solo guardado: el cambio de estado y la nota que lo explica
+        // comparten DbContext, así que este SaveChanges los persiste juntos en la
+        // misma transacción implícita de EF. Antes se confirmaban por separado y
+        // un fallo en el segundo dejaba el ticket cambiado sin rastro de por qué.
         await _commentRepo.SaveChangesAsync();
 
         await _audit.LogAsync("Tickets", "TICKET_ASSIGNED",

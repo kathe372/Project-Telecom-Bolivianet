@@ -152,6 +152,10 @@ public class ScheduleVisitHandler : IRequestHandler<ScheduleVisitCommand, Result
                 Message   = $"VISITA_PROGRAMADA: {ticket.TicketNumber} — {fechaLocal} con {techName}",
                 SentAt    = DateTime.UtcNow,
             });
+            // D-13 — Este guardado va aparte A PROPÓSITO y no se une al de la
+            // visita: registra que el aviso YA salió por el outbox. Meterlo en la
+            // misma transacción permitiría deshacer el registro de un mensaje que
+            // el cliente ya recibió, que es peor que perder el registro.
             await _notifRepo.SaveChangesAsync();
         }
 

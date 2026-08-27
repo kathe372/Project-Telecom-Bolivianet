@@ -135,7 +135,6 @@ public class ChangeTicketStatusHandler : IRequestHandler<ChangeTicketStatusComma
 
         _ticketRepo.Update(ticket);
 
-        await _ticketRepo.SaveChangesAsync();
         var pauseInfo = ticket.SlaTotalPausedMinutes > 0
             ? $" ({ticket.SlaTotalPausedMinutes}min acumulados en espera)" : string.Empty;
         var historyText = (newStatus, prevStatus) switch
@@ -153,6 +152,11 @@ public class ChangeTicketStatusHandler : IRequestHandler<ChangeTicketStatusComma
             TicketId = ticket.Id, AuthorId = cmd.ActorId,
             Type = CommentType.NotaInterna, Body = historyText, CreatedAt = DateTime.UtcNow,
         });
+
+        // D-13 — Un solo guardado: el cambio de estado y la nota que lo explica
+        // comparten DbContext, así que este SaveChanges los persiste juntos en la
+        // misma transacción implícita de EF. Antes se confirmaban por separado y
+        // un fallo en el segundo dejaba el ticket cambiado sin rastro de por qué.
         await _commentRepo.SaveChangesAsync();
 
         await _audit.LogAsync("Tickets", "STATUS_CHANGED",
