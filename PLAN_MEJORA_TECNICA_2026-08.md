@@ -905,10 +905,38 @@ Son 50 iteraciones de 2 minutos. Es tedioso, y es lo que separa un refactor segu
 
 ## Criterio de salida
 
-- [ ] Ninguna clase de Application > **250 líneas** · Ningún constructor > **6 dependencias**
-- [ ] `AppDbContext` ≤ 100 líneas · 50 archivos en `Data/Config/`
-- [ ] **Test de paridad de esquema verde tras cada entidad movida**
-- [ ] Cero delegadores `[Obsolete]` · Suite + caracterización sin cambios
+- [~] Ninguna clase de Application > **250 líneas** · Ningún constructor > **6 dependencias**
+      → 9 → **2** clases, ambas excepciones aceptadas (ver abajo). El peor
+      constructor bajó de 12 a 11; **el límite de 6 no se alcanzó** y se explica
+      por qué más abajo.
+- [~] `AppDbContext` ≤ 100 líneas · 50 archivos en `Data/Config/`
+      → **102 líneas** y **47 archivos**. Las dos líneas de más son el comentario
+      que documenta cuál es la red de seguridad de la mudanza; los tres archivos
+      de menos, que 44 entidades no son 47.
+- [x] **Test de paridad de esquema verde tras cada entidad movida**
+      → y además el modelo EF completo comparado antes/después: 888 líneas idénticas
+- [x] Cero delegadores `[Obsolete]` (verificado: no hay ninguno) ·
+      Suite + caracterización sin cambios (992 tests verdes)
+
+### Las dos clases que se quedan por encima de 250
+
+| Clase | Líneas | Por qué |
+|---|---|---|
+| `InvoiceDtos` | 259 | Es un fichero de `record`s, no un servicio. Partirlo movería ruido de sitio. |
+| `PaymentCreditService` | 263 | Una sola transacción: registrar un cobro toca pago, facturas, libro mayor, cliente, recibo, auditoría, aviso y evento de dominio. Ya se le extrajo el reparto, la devolución de crédito, la consulta del recibo y la aritmética. Lo que queda es la operación. |
+
+### Sobre el límite de 6 dependencias
+
+**No se alcanzó, y forzarlo empeoraría el código.** Los cinco constructores que
+siguen por encima coordinan operaciones que deben ser atómicas; repartirlas entre
+más clases dispersaría una transacción sin quitar acoplamiento real.
+
+Lo que sí se corrigió fue el acoplamiento **falso**: `CreateInstallationHandler`
+pedía cuatro dependencias que no usaba en ninguna línea —estaban ahí para
+construir su validador con `new`—, `PaymentService` arrastraba un `IFileStorage`
+cuyo único uso se había borrado meses antes, e `InvoiceQueryService` inyectaba un
+repositorio que no aparecía en el fichero. Esas sí eran deuda; las otras son la
+forma del problema.
 
 ### Avance (2026-08-26)
 
