@@ -199,10 +199,14 @@ public class InstallationHandlerTests
         var userRepo   = SpecificRepoMock.Users(MakeTecnico());
         var ticketRepo = SpecificRepoMock.Tickets();
         var handler    = new CreateInstallationHandler(
-            instRepo.Object, clientRepo.Object, planRepo.Object,
-            userRepo.Object, ticketRepo.Object,
+            instRepo.Object, ticketRepo.Object,
             SpecificRepoMock.Visits().Object, SpecificRepoMock.Boxes().Object,
-            MakeAudit(), ZeroCapacity(), NoopReservation(), MakeTicketNumSvc(),
+            MakeAudit(),
+            // F5: el validador se inyecta en vez de construirse dentro del handler.
+            new CreateInstallationValidator(
+                instRepo.Object, clientRepo.Object, planRepo.Object,
+                userRepo.Object, ZeroCapacity()),
+            NoopReservation(), MakeTicketNumSvc(),
             new TicketBalancingService(ticketRepo.Object, userRepo.Object));
 
         var dto = new CreateInstallationDto
@@ -234,13 +238,17 @@ public class InstallationHandlerTests
     {
         var handler = new CreateInstallationHandler(
             SpecificRepoMock.Installations().Object,
-            SpecificRepoMock.Clients().Object,
-            RepoMock.Of<Plan>(MakePlan()).Object,
-            SpecificRepoMock.Users(MakeTecnico()).Object,
             SpecificRepoMock.Tickets().Object,
             SpecificRepoMock.Visits().Object,
             SpecificRepoMock.Boxes().Object,
-            MakeAudit(), ZeroCapacity(), NoopReservation(), MakeTicketNumSvc(),
+            MakeAudit(),
+            new CreateInstallationValidator(
+                SpecificRepoMock.Installations().Object,
+                SpecificRepoMock.Clients().Object,
+                RepoMock.Of<Plan>(MakePlan()).Object,
+                SpecificRepoMock.Users(MakeTecnico()).Object,
+                ZeroCapacity()),
+            NoopReservation(), MakeTicketNumSvc(),
             new TicketBalancingService(SpecificRepoMock.Tickets().Object, SpecificRepoMock.Users().Object));
 
         var dto = new CreateInstallationDto
@@ -267,13 +275,17 @@ public class InstallationHandlerTests
     {
         var handler = new CreateInstallationHandler(
             SpecificRepoMock.Installations().Object,
-            SpecificRepoMock.Clients(MakeClient()).Object,
-            RepoMock.Of<Plan>(MakePlan(active: false)).Object,
-            SpecificRepoMock.Users(MakeTecnico()).Object,
             SpecificRepoMock.Tickets().Object,
             SpecificRepoMock.Visits().Object,
             SpecificRepoMock.Boxes().Object,
-            MakeAudit(), ZeroCapacity(), NoopReservation(), MakeTicketNumSvc(),
+            MakeAudit(),
+            new CreateInstallationValidator(
+                SpecificRepoMock.Installations().Object,
+                SpecificRepoMock.Clients(MakeClient()).Object,
+                RepoMock.Of<Plan>(MakePlan(active: false)).Object,
+                SpecificRepoMock.Users(MakeTecnico()).Object,
+                ZeroCapacity()),
+            NoopReservation(), MakeTicketNumSvc(),
             new TicketBalancingService(SpecificRepoMock.Tickets().Object, SpecificRepoMock.Users().Object));
 
         var dto = new CreateInstallationDto

@@ -24,39 +24,30 @@ public record RegisterClientCommand(
 public class RegisterClientHandler : IRequestHandler<RegisterClientCommand, Result<ClientListItemDto>>
 {
     private readonly IGenericRepository<Client>         _clientRepo;
-    private readonly IGenericRepository<Invoice>        _invoiceRepo;
-    private readonly IGenericRepository<Payment>        _paymentRepo;
-    private readonly IGenericRepository<PaymentInvoice> _piRepo;
     private readonly IGenericRepository<Plan>           _planRepo;
     private readonly IGenericRepository<Installation>   _instRepo;
     private readonly ITbnService                        _tbn;
     private readonly AuditService                       _audit;
-    private readonly IInvoiceBackfillService            _backfill;
+    private readonly IInitialChargesService            _initialCharges;
     private readonly IUnitOfWork                        _uow;
     private readonly ILogger<RegisterClientHandler>     _logger;
 
     public RegisterClientHandler(
         IGenericRepository<Client>         clientRepo,
-        IGenericRepository<Invoice>        invoiceRepo,
-        IGenericRepository<Payment>        paymentRepo,
-        IGenericRepository<PaymentInvoice> piRepo,
         IGenericRepository<Plan>           planRepo,
         IGenericRepository<Installation>   instRepo,
         ITbnService                        tbn,
         AuditService                       audit,
-        IInvoiceBackfillService            backfill,
+        IInitialChargesService             initialCharges,
         IUnitOfWork                        uow,
         ILogger<RegisterClientHandler>     logger)
     {
         _clientRepo  = clientRepo;
-        _invoiceRepo = invoiceRepo;
-        _paymentRepo = paymentRepo;
-        _piRepo      = piRepo;
         _planRepo    = planRepo;
         _instRepo    = instRepo;
         _tbn         = tbn;
         _audit       = audit;
-        _backfill      = backfill;
+        _initialCharges = initialCharges;
         _uow         = uow;
         _logger      = logger;
     }
@@ -133,68 +124,9 @@ public class RegisterClientHandler : IRequestHandler<RegisterClientCommand, Resu
                 await _instRepo.SaveChangesAsync();
             }
 
-            var instInvoice = new Invoice
-            {
-                ClientId = client.Id,
-                Type     = InvoiceType.Instalacion,
-                Status   = dto.PaidInstallation ? InvoiceStatus.Pagada : InvoiceStatus.Pendiente,
-                Year     = now.Year,
-                Month    = 0,
-                Amount   = dto.InstallationCost,
-                IssuedAt = now,
-                DueDate  = now.AddDays(AppConstants.Time.InvoiceDueDays)
-            };
-            await _invoiceRepo.AddAsync(instInvoice);
-            if (dto.PaidInstallation) invoiceIds.Add(instInvoice.Id);
-
-            await _clientRepo.SaveChangesAsync();
-            await _backfill.GenerateBackfillInvoicesAsync(client, plan.MonthlyPrice);
-            await _invoiceRepo.SaveChangesAsync();
-
-            if (dto.PaidFirstMonth)
-            {
-                var installDate       = client.InstallationDate;
-                var firstMonthInvoice = await _invoiceRepo.GetAll()
-                    .FirstOrDefaultAsync(i =>
-                        i.ClientId == client.Id &&
-                        i.Year     == installDate.Year  &&
-                        i.Month    == installDate.Month &&
-                        i.Type     == InvoiceType.Mensualidad, ct);
-
-                if (firstMonthInvoice is not null)
-                {
-                    firstMonthInvoice.Status    = InvoiceStatus.Pagada;
-                    firstMonthInvoice.UpdatedAt = DateTime.UtcNow;
-                    _invoiceRepo.Update(firstMonthInvoice);
-                    await _invoiceRepo.SaveChangesAsync();
-                    invoiceIds.Add(firstMonthInvoice.Id);
-                }
-            }
-
-            if (invoiceIds.Count > 0 && paymentMethod is not null)
-            {
-                var paidInvoices = await _invoiceRepo.GetAll()
-                    .Where(i => invoiceIds.Contains(i.Id))
-                    .ToListAsync(ct);
-
-                var payment = new Payment
-                {
-                    ClientId              = client.Id,
-                    Amount                = paidInvoices.Sum(i => i.Amount),
-                    Method                = paymentMethod.Value,
-                    Bank                  = dto.Bank,
-                    PhysicalReceiptNumber = dto.PhysicalReceiptNumber,
-                    PaidAt                = DateTime.UtcNow,
-                    RegisteredByUserId    = cmd.ActorId,
-                    FromWhatsApp          = false
-                };
-                await _paymentRepo.AddAsync(payment);
-                var piEntries = invoiceIds
-                    .Select(invId => new PaymentInvoice { PaymentId = payment.Id, InvoiceId = invId })
-                    .ToList();
-                await _piRepo.AddRangeAsync(piEntries);
-                await _paymentRepo.SaveChangesAsync();
-            }
+            // Los cobros del alta van DENTRO de esta transacción: un cliente sin
+            // sus cargos, o unos cargos sin cliente, no es un estado que deba existir.
+            await _initialCharges.ApplyAsync(client, plan, dto, paymentMethod, cmd.ActorId, ct);
 
             await _uow.CommitAsync();
         }

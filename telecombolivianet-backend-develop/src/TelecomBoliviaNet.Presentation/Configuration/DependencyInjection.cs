@@ -164,6 +164,8 @@ public static class DependencyInjection
         services.AddScoped<IBillingService>(sp => sp.GetRequiredService<BillingService>());
         // F5 — lo que BillingService hacía además de facturar el mes.
         services.AddScoped<IInvoiceBackfillService, InvoiceBackfillService>();
+        // F5 — los cobros del alta salen de RegisterClientHandler.
+        services.AddScoped<IInitialChargesService,  InitialChargesService>();
         services.AddScoped<IInvoiceStatusService,   InvoiceStatusService>();
         // F5 — InvoiceQueryService eran 419 líneas: totales, grilla y tres informes.
         services.AddScoped<IInvoiceQueryService,  InvoiceQueryService>();
@@ -194,6 +196,9 @@ public static class DependencyInjection
         services.AddScoped<IReceiptImageService>(sp => sp.GetRequiredService<ReceiptImageService>());
         services.AddScoped<IClientAttachmentService, ClientAttachmentService>();
         services.AddScoped<TicketNumberService>();
+        // F5 — lo construía a mano CreateInstallationHandler, que arrastraba
+        // cuatro dependencias solo para eso.
+        services.AddScoped<CreateInstallationValidator>();
         // F5 — una interfaz de once métodos donde cuatro de sus cinco
         // consumidores usaban exactamente uno.
         services.AddScoped<IBotMonitorProxy,  BotMonitorProxy>();

@@ -35,29 +35,31 @@ public class CreateInstallationHandler
     private readonly TicketNumberService                  _ticketNumSvc;
     private readonly TicketBalancingService               _balanceoSvc;
 
+    // F5: eran doce dependencias, y CUATRO de ellas —cliente, plan, usuario y
+    // el calculador de huecos— no las usaba este handler en ninguna línea:
+    // estaban solo para construir el validador a mano con `new`. Ahora el
+    // validador se inyecta como cualquier otro colaborador y esas cuatro
+    // desaparecen de aquí.
     public CreateInstallationHandler(
-        IInstallationRepository             instRepo,
-        IClientRepository                   clientRepo,
-        IGenericRepository<Plan>            planRepo,
-        IGenericRepository<UserSystem>      userRepo,
-        IGenericRepository<SupportTicket>   ticketRepo,
-        IGenericRepository<TicketVisit>     visitRepo,
-        IDistributionBoxRepository boxRepo,
-        AuditService                        audit,
-        ISlotCalculatorService              slotCalc,
-        IBoxReservationService              boxReservation,
-        TicketNumberService                 ticketNumSvc,
-        TicketBalancingService              balanceoSvc)
+        IInstallationRepository           instRepo,
+        IGenericRepository<SupportTicket> ticketRepo,
+        IGenericRepository<TicketVisit>   visitRepo,
+        IDistributionBoxRepository        boxRepo,
+        AuditService                      audit,
+        CreateInstallationValidator       validator,
+        IBoxReservationService            boxReservation,
+        TicketNumberService               ticketNumSvc,
+        TicketBalancingService            balanceoSvc)
     {
         _instRepo       = instRepo;
         _ticketRepo     = ticketRepo;
         _visitRepo      = visitRepo;
         _boxRepo        = boxRepo;
         _audit          = audit;
+        _validator      = validator;
         _boxReservation = boxReservation;
         _ticketNumSvc   = ticketNumSvc;
         _balanceoSvc    = balanceoSvc;
-        _validator      = new CreateInstallationValidator(instRepo, clientRepo, planRepo, userRepo, slotCalc);
     }
 
     public async Task<Result<InstallationCreatedDto>> Handle(

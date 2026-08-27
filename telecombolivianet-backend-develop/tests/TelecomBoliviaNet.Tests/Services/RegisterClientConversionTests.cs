@@ -1,3 +1,4 @@
+using TelecomBoliviaNet.Application.Services.Clients;
 ﻿using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
@@ -66,13 +67,18 @@ public class RegisterClientConversionTests
         var tbn = new Mock<ITbnService>();
         tbn.Setup(t => t.GenerateNextAsync()).ReturnsAsync("TBN-100");
 
-        return new RegisterClientHandler(
-            clients, invoices,
+        // F5: los cobros del alta salieron a su propio servicio.
+        var initialCharges = new InitialChargesService(
+            invoices,
             RepoMock.Empty<Payment>().Object,
             RepoMock.Empty<PaymentInvoice>().Object,
+            backfill);
+
+        return new RegisterClientHandler(
+            clients,
             RepoMock.Of<Plan>(MakePlan()).Object,
             instRepo,
-            tbn.Object, MakeAudit(), backfill,
+            tbn.Object, MakeAudit(), initialCharges,
             new Mock<IUnitOfWork>().Object,
             NullLogger<RegisterClientHandler>.Instance);
     }

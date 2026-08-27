@@ -74,11 +74,14 @@ public class CreateInstallationHandlerTests
         ITicketRepository                ticketRepo,
         int                               committedCapacity = 0,
         IBoxReservationService?           boxReservation    = null)
-        => new(instRepo, clientRepo, planRepo, userRepo, ticketRepo,
+        // F5: el validador se inyecta en vez de construirse dentro del handler.
+        => new(instRepo, ticketRepo,
                SpecificRepoMock.Visits().Object,
                SpecificRepoMock.Boxes().Object,
                MakeAudit(),
-               FixedCapacity(committedCapacity),
+               new CreateInstallationValidator(
+                   instRepo, clientRepo, planRepo, userRepo,
+                   FixedCapacity(committedCapacity)),
                boxReservation ?? new Mock<IBoxReservationService>().Object,
                MakeTicketNumSvc(),
                new TicketBalancingService(ticketRepo, userRepo));

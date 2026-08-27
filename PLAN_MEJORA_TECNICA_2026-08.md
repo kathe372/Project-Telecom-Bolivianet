@@ -937,6 +937,8 @@ constructor a ojo se salta el último parámetro, y así reporté 9 y 6 donde er
 | `InvoiceQueryService` | 419 → `InvoiceQueryService` (72), `InvoiceStatsService` (111), `InvoiceReportService` (243) y `InvoiceProjections` (57); `ApplyTypeFilter` sube al dominio |
 | `InvoiceOperationsService` | 281 → 172 · + `ExtraordinaryInvoiceService` (96), `InvoiceCreditService` (81); 7 → 4 deps |
 | `AuthService` | 255 → 194 · + `SessionService` (89), `PasswordChangeService` (68); `LoginLockoutPolicy` sube al dominio con 13 tests de tabla |
+| `CreateInstallationHandler` | 12 → 9 deps · cuatro solo existían para construir el validador con `new` |
+| `RegisterClientHandler` | 221 → 153 líneas · 11 → 8 deps · + `InitialChargesService` (4) |
 
 #### Cómo se verificó la mudanza del mapeo
 
@@ -962,8 +964,8 @@ en ejecución no las conserva): 31 filas antes y después.
 renombrar entidades y propiedades al inglés es exactamente el cambio que puede
 mover una columna sin que nadie se entere.
 
-Pendiente: `CreateInstallationCommand` (12 deps) y `RegisterClientCommand`
-(11 deps).
+Peor constructor: **12 → 11** (`PaymentCreditService`, ya documentado). Ninguna
+clase de Application queda por encima de 250 líneas salvo las dos anotadas.
 
 De las nueve clases de Application que superaban las 250 líneas al empezar F5
 quedan **dos**: `InvoiceDtos` (259), que es un fichero de records y no un
