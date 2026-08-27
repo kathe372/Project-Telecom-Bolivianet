@@ -176,7 +176,7 @@ Build limpio (0 warnings), `SystemConfigKeys.TokenCleanupLastRunDay` existe, `Di
 | **F0** Red de seguridad | ✅ | CI, paridad de esquema, 5 tests de caracterización |
 | **F1** Higiene sin riesgo | ✅ código · ⛔ despliegue | Su criterio incluye "desplegado y verificado" |
 | **F2** Coordinación de jobs | ✅ código · ⛔ producción | Falta observar un ciclo diario real |
-| **F3** Contrato de repositorio | ✅ salvo D-13 | 5 de 27 métodos con varias escrituras revisados |
+| **F3** Contrato de repositorio | ✅ salvo D-13 | Prioridad alta cerrada (5/5); quedan 24 de prioridad media |
 | **F4** Sacar EF de Application | ✅ | 77 → 29 archivos · ADR-001 |
 | **F5** Partir servicios grandes | ✅ parcial argumentado | 9 → 2 clases > 250 líneas; el límite de 6 deps no se alcanzó |
 | **F6** Idioma inglés | ⬜ | No empezada. La de mayor radio de impacto |
@@ -741,7 +741,8 @@ done
 ## Criterio de salida
 
 - [x] Contrato con separación lectura/escritura/persistencia · Cero `CS0618` · Obsoletos eliminados
-- [~] 5 de 27 revisados (los de más riesgo). **D-13 sigue abierto** para los 22 restantes
+- [~] Los 5 de prioridad alta, cerrados (4 con transacción, 1 que ya era atómico).
+      Quedan **24** medidos por método con `scripts/escrituras-sin-transaccion.py`
 - [x] Test de atomicidad de `CompleteInstallationCommand`
 - [x] Suite + caracterización sin cambios
 

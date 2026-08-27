@@ -501,7 +501,37 @@ se ejecute la suite.
 > diferencia: D-03 eran los jobs de producción corriendo contra la base de test;
 > ésta es el propio test atado al calendario. Misma familia, causas distintas.
 
-### 🟠 D-13 · 27 métodos con varias escrituras y sin transacción
+### 🟠 D-13 · Métodos con varias escrituras y sin transacción — **PRIORIDAD ALTA CERRADA (5/5)**
+
+**Estado 2026-08-27:** medido por MÉTODO, no por archivo —dos guardados en
+métodos distintos no comparten riesgo—, quedan **24**. El recuento se reproduce
+con `python scripts/escrituras-sin-transaccion.py`.
+
+Los cinco de prioridad alta, resueltos, y **no todos igual**:
+
+| Método | Qué se hizo |
+|---|---|
+| `AssignBoxToInstallationCommand` | Transacción |
+| `CompleteInstallationWithBoxCommand` | Transacción |
+| `RescheduleInstallationCommand` | Transacción |
+| `RescheduleTicketVisitCommand` | Transacción (el aviso al cliente queda fuera) |
+| `ConfirmEmailCommand` | **Ninguna** — ya era atómico |
+
+`ConfirmEmailCommand` es el que merece explicación: tenía tres
+`SaveChangesAsync` seguidos y **ya era atómico**. Los dos repositorios comparten
+el mismo `DbContext` y el token viene rastreado de la consulta, así que el primer
+guardado persistía la activación de la cuenta y el marcado del token en la misma
+transacción implícita de EF. Las otras dos llamadas no hacían nada, pero daban a
+entender que eran escrituras separadas que podían quedar a medias.
+
+Se eliminaron y se explicó por qué basta una. **Envolverlo en una transacción
+habría sido añadir ceremonia sobre algo que ya estaba bien** — exactamente lo que
+esta entrada advertía de no hacer a ciegas.
+
+Cubierto por dos tests de rollback en `CoverageHandlerTests`, que comprueban que
+un fallo al guardar deshace y no confirma.
+
+### 🟠 D-13 (original) · 27 métodos con varias escrituras y sin transacción
 
 `CompleteInstallationCommand` (corregido en F3.3) no era un caso aislado. La
 auditoría de F3.4 encontró **27 métodos** con más de un `SaveChangesAsync()` y sin

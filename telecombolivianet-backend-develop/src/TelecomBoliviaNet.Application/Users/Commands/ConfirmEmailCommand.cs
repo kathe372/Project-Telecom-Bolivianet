@@ -46,10 +46,16 @@ public class ConfirmEmailHandler : IRequestHandler<ConfirmEmailCommand, Result>
         token.Used     = true;
 
         _userRepo.Update(user);
-
-        await _userRepo.SaveChangesAsync();
         _activationRepo.Update(token);
-        await _activationRepo.SaveChangesAsync();
+
+        // D-13 — UN solo guardado, y basta: los dos repositorios comparten el
+        // mismo DbContext y el token viene rastreado de la consulta de arriba,
+        // así que este SaveChanges persiste la activación de la cuenta y el
+        // marcado del token en la misma transacción implícita de EF.
+        //
+        // Antes había tres llamadas seguidas. Las dos últimas no hacían nada
+        // —no quedaba nada pendiente— pero daban a entender que esto eran
+        // escrituras separadas que podían quedar a medias. No lo son.
         await _userRepo.SaveChangesAsync();
 
         await _audit.LogAsync("Usuarios", "EMAIL_CONFIRMED",

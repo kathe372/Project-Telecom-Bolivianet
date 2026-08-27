@@ -1,4 +1,5 @@
 ﻿using MediatR;
+using Microsoft.Extensions.Logging;
 using TelecomBoliviaNet.Domain.Entities.Coverage;
 using TelecomBoliviaNet.Domain.Entities.Installations;
 using TelecomBoliviaNet.Domain.Interfaces;
@@ -15,13 +16,19 @@ public class CompleteInstallationWithBoxHandler
 {
     private readonly IGenericRepository<Installation>    _instRepo;
     private readonly IGenericRepository<DistributionBox> _boxRepo;
+    private readonly IUnitOfWork                         _uow;
+    private readonly ILogger<CompleteInstallationWithBoxHandler> _logger;
 
     public CompleteInstallationWithBoxHandler(
         IGenericRepository<Installation>    instRepo,
-        IGenericRepository<DistributionBox> boxRepo)
+        IGenericRepository<DistributionBox> boxRepo,
+        IUnitOfWork                         uow,
+        ILogger<CompleteInstallationWithBoxHandler> logger)
     {
         _instRepo = instRepo;
         _boxRepo  = boxRepo;
+        _uow      = uow;
+        _logger   = logger;
     }
 
     public async Task<Result> Handle(
@@ -38,40 +45,57 @@ public class CompleteInstallationWithBoxHandler
         if (box is null)
             return Result.Failure("Caja distribuidora no encontrada.");
 
-        var reservedBoxId = installation.DistributionBoxId;
-        if (reservedBoxId == box.Id)
+        // D-13 — Soltar la reserva de una caja y ocupar puerto en otra son dos
+        // mitades del mismo movimiento. Antes se confirmaban por separado: si
+        // fallaba la segunda, la reserva original quedaba liberada y el cliente
+        // sin puerto en ninguna caja, con el puerto viejo ya ofrecido a otro.
+        await _uow.BeginTransactionAsync(ct);
+        try
         {
-            // Consume la reserva propia hecha al agendar (F3).
-            box.Ocupar();
-        }
-        else
-        {
-            // El técnico instaló en otra caja: libera la reserva original y
-            // ocupa un puerto libre sin tocar reservas ajenas de la nueva.
-            if (reservedBoxId is Guid oldId)
+            var reservedBoxId = installation.DistributionBoxId;
+            if (reservedBoxId == box.Id)
             {
-                var oldBox = await _boxRepo.GetByIdAsync(oldId);
-                if (oldBox is not null)
-                {
-                    oldBox.LiberarReserva();
-                    _boxRepo.Update(oldBox);
-                    await _boxRepo.SaveChangesAsync();
-                }
+                // Consume la reserva propia hecha al agendar (F3).
+                box.Ocupar();
             }
-            box.OcuparPuertoLibre();
+            else
+            {
+                // El técnico instaló en otra caja: libera la reserva original y
+                // ocupa un puerto libre sin tocar reservas ajenas de la nueva.
+                if (reservedBoxId is Guid oldId)
+                {
+                    var oldBox = await _boxRepo.GetByIdAsync(oldId);
+                    if (oldBox is not null)
+                    {
+                        oldBox.LiberarReserva();
+                        _boxRepo.Update(oldBox);
+                    }
+                }
+                box.OcuparPuertoLibre();
+            }
+
+            // Solo vincula la caja y ocupa el puerto; completar la instalación
+            // (estado + ticket + SLA) es responsabilidad de
+            // CompleteInstallationCommand, que el controller ejecuta después.
+            installation.DistributionBoxId = box.Id;
+            installation.ActualizadoAt     = DateTime.UtcNow;
+
+            _boxRepo.Update(box);
+            _instRepo.Update(installation);
+
+            await _instRepo.SaveChangesAsync();
+            await _uow.CommitAsync(ct);
+        }
+        catch (Exception ex)
+        {
+            await _uow.RollbackAsync(ct);
+            _logger.LogError(ex,
+                "Error al vincular la caja {BoxId} a la instalación {InstallationId} — " +
+                "no se aplicó ningún cambio.", cmd.DistributionBoxId, cmd.InstallationId);
+            return Result.Failure(
+                "No se pudo vincular la caja. No se aplicó ningún cambio.");
         }
 
-        // Solo vincula la caja y ocupa el puerto; completar la instalación
-        // (estado + ticket + SLA) es responsabilidad de
-        // CompleteInstallationCommand, que el controller ejecuta después.
-        installation.DistributionBoxId = box.Id;
-        installation.ActualizadoAt     = DateTime.UtcNow;
-
-        _boxRepo.Update(box);
-
-        await _boxRepo.SaveChangesAsync();
-        _instRepo.Update(installation);
-        await _instRepo.SaveChangesAsync();
         return Result.Success();
     }
 }

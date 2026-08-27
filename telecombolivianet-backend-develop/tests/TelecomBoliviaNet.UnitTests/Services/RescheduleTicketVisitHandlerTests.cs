@@ -1,3 +1,4 @@
+﻿using Microsoft.Extensions.Logging.Abstractions;
 ﻿using TelecomBoliviaNet.Application.DTOs.Tickets;
 using TelecomBoliviaNet.Application.Interfaces;
 using TelecomBoliviaNet.Application.Tickets.Commands;
@@ -16,6 +17,16 @@ namespace TelecomBoliviaNet.UnitTests.Services;
 /// </summary>
 public class RescheduleTicketVisitHandlerTests
 {
+    /// <summary>D-13: la operación va en una transacción; el doble no estorba.</summary>
+    private static IUnitOfWork NoopUow()
+    {
+        var uow = new Mock<IUnitOfWork>(MockBehavior.Loose);
+        uow.Setup(u => u.BeginTransactionAsync(It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
+        uow.Setup(u => u.CommitAsync(It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
+        uow.Setup(u => u.RollbackAsync(It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
+        return uow.Object;
+    }
+
     private readonly Mock<ITicketRepository>                      _ticketRepo = new(MockBehavior.Loose);
     private readonly Mock<ITicketVisitRepository>                 _visitRepo  = new(MockBehavior.Loose);
     private readonly Mock<IGenericRepository<TicketComment>>      _commentRepo = new(MockBehavior.Loose);
@@ -35,7 +46,8 @@ public class RescheduleTicketVisitHandlerTests
                        .FirstOrDefault());
         return new RescheduleTicketVisitHandler(
             _ticketRepo.Object, _visitRepo.Object, _commentRepo.Object,
-            _notifRepo.Object, _userRepo.Object, _publisher.Object, TestAudit.Real());
+            _notifRepo.Object, _userRepo.Object, _publisher.Object, TestAudit.Real(),
+            NoopUow(), NullLogger<RescheduleTicketVisitHandler>.Instance);
     }
 
     private static SupportTicket MakeTicket(TicketStatus status = TicketStatus.EnProceso)
@@ -103,7 +115,8 @@ public class RescheduleTicketVisitHandlerTests
 
         var result = await new RescheduleTicketVisitHandler(
             _ticketRepo.Object, _visitRepo.Object, _commentRepo.Object,
-            _notifRepo.Object, _userRepo.Object, _publisher.Object, TestAudit.Real())
+            _notifRepo.Object, _userRepo.Object, _publisher.Object, TestAudit.Real(),
+            NoopUow(), NullLogger<RescheduleTicketVisitHandler>.Instance)
             .Handle(Cmd(ticket.Id, "2026-12-01", "15:00"), default);
 
         result.IsSuccess.Should().BeTrue();

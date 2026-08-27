@@ -1,4 +1,5 @@
 ﻿using MediatR;
+using Microsoft.Extensions.Logging;
 using TelecomBoliviaNet.Application.DTOs.Tickets;
 using TelecomBoliviaNet.Application.Interfaces;
 using TelecomBoliviaNet.Application.Services.Auth;
@@ -29,6 +30,8 @@ public class RescheduleTicketVisitHandler
     private readonly IGenericRepository<UserSystem>         _userRepo;
     private readonly INotifPublisher                        _notifPublisher;
     private readonly AuditService                           _audit;
+    private readonly IUnitOfWork                            _uow;
+    private readonly ILogger<RescheduleTicketVisitHandler>  _logger;
 
     public RescheduleTicketVisitHandler(
         ITicketRepository      ticketRepo,
@@ -37,7 +40,9 @@ public class RescheduleTicketVisitHandler
         IGenericRepository<TicketNotification> notifRepo,
         IGenericRepository<UserSystem>         userRepo,
         INotifPublisher                        notifPublisher,
-        AuditService                           audit)
+        AuditService                           audit,
+        IUnitOfWork                            uow,
+        ILogger<RescheduleTicketVisitHandler>  logger)
     {
         _ticketRepo     = ticketRepo;
         _visitRepo      = visitRepo;
@@ -46,6 +51,8 @@ public class RescheduleTicketVisitHandler
         _userRepo       = userRepo;
         _notifPublisher = notifPublisher;
         _audit          = audit;
+        _uow            = uow;
+        _logger         = logger;
     }
 
     public async Task<Result<TicketVisitDto>> Handle(
@@ -77,6 +84,23 @@ public class RescheduleTicketVisitHandler
             : cmd.Dto.Motivo!.Trim();
 
         UserSystem? tech = null;
+
+        // Se calcula antes de la transacción: lo usan la nota interna de dentro
+        // y el aviso al cliente de después.
+        var fechaLocalTexto = TimeZoneInfo
+            .ConvertTimeFromUtc(scheduledAt, NotifShared.BoliviaZone)
+            .ToString("dd/MM/yyyy HH:mm");
+
+        // D-13 — Mover la visita, marcar el ticket "en visita" y dejar la nota
+        // interna son una sola cosa. Antes se confirmaban por separado: si fallaba
+        // después de mover la visita, el ticket seguía figurando como Abierto y
+        // sin ninguna nota, así que nadie sabía por qué la cita había cambiado.
+        //
+        // El aviso al cliente queda FUERA a propósito, más abajo: sale cuando el
+        // cambio ya es un hecho.
+        await _uow.BeginTransactionAsync(ct);
+        try
+        {
         if (visit is null)
         {
             visit = new TicketVisit
@@ -97,15 +121,11 @@ public class RescheduleTicketVisitHandler
             if (visit.TechnicianId.HasValue)
                 tech = await _userRepo.GetByIdAsync(visit.TechnicianId.Value);
             _visitRepo.Update(visit);
-            await _visitRepo.SaveChangesAsync();
         }
 
         if (ticket.Status is TicketStatus.Abierto or TicketStatus.EnProceso)
             ticket.Status = TicketStatus.EnVisita;
 
-        var fechaLocalTexto = TimeZoneInfo
-            .ConvertTimeFromUtc(scheduledAt, NotifShared.BoliviaZone)
-            .ToString("dd/MM/yyyy HH:mm");
 
         await _commentRepo.AddAsync(new TicketComment
         {
@@ -115,7 +135,18 @@ public class RescheduleTicketVisitHandler
             CreatedAt = DateTime.UtcNow,
         });
 
-        await _visitRepo.SaveChangesAsync();
+            await _visitRepo.SaveChangesAsync();
+            await _uow.CommitAsync(ct);
+        }
+        catch (Exception ex)
+        {
+            await _uow.RollbackAsync(ct);
+            _logger.LogError(ex,
+                "Error al reprogramar la visita del ticket {TicketId} — " +
+                "no se aplicó ningún cambio.", cmd.TicketId);
+            return Result<TicketVisitDto>.Failure(
+                "No se pudo reprogramar la visita. No se aplicó ningún cambio.");
+        }
 
         // 4. Notificar al cliente (reutiliza la plantilla VISITA_PROGRAMADA).
         var clientPhone = ticket.Client?.PhoneMain;

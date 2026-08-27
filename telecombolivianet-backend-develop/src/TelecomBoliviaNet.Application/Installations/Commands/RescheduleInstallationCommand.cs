@@ -1,4 +1,5 @@
 ﻿using MediatR;
+using Microsoft.Extensions.Logging;
 using TelecomBoliviaNet.Application.DTOs.Installations;
 using TelecomBoliviaNet.Application.Services.Auth;
 using TelecomBoliviaNet.Domain.Entities.Auth;
@@ -25,6 +26,8 @@ public class RescheduleInstallationHandler : IRequestHandler<RescheduleInstallat
     private readonly IGenericRepository<UserSystem>    _userRepo;
     private readonly ISlotCalculatorService            _slotCalc;
     private readonly AuditService                      _audit;
+    private readonly IUnitOfWork                      _uow;
+    private readonly ILogger<RescheduleInstallationHandler> _logger;
 
     public RescheduleInstallationHandler(
         IInstallationRepository  instRepo,
@@ -32,7 +35,9 @@ public class RescheduleInstallationHandler : IRequestHandler<RescheduleInstallat
         IGenericRepository<TicketVisit>   visitRepo,
         IGenericRepository<UserSystem>    userRepo,
         ISlotCalculatorService            slotCalc,
-        AuditService                      audit)
+        AuditService                      audit,
+        IUnitOfWork                       uow,
+        ILogger<RescheduleInstallationHandler> logger)
     {
         _instRepo   = instRepo;
         _ticketRepo = ticketRepo;
@@ -40,6 +45,8 @@ public class RescheduleInstallationHandler : IRequestHandler<RescheduleInstallat
         _userRepo   = userRepo;
         _slotCalc   = slotCalc;
         _audit      = audit;
+        _uow      = uow;
+        _logger   = logger;
     }
 
     public async Task<Result> Handle(RescheduleInstallationCommand cmd, CancellationToken ct)
@@ -74,13 +81,19 @@ public class RescheduleInstallationHandler : IRequestHandler<RescheduleInstallat
         inst.Status         = InstallationStatus.Pendiente;
         inst.ReminderSentAt = null;
         inst.ActualizadoAt  = DateTime.UtcNow;
+        // D-13 — La instalación, su ticket y su visita se mueven juntos o no se
+        // mueve nada. Antes cada uno confirmaba por su cuenta: si fallaba el
+        // segundo, la instalación quedaba en la fecha nueva mientras el ticket y
+        // la agenda del técnico seguían mostrando la vieja, y el recordatorio T-1
+        // salía por la fecha que ya nadie tenía apuntada.
+        await _uow.BeginTransactionAsync(ct);
+        try
+        {
         _instRepo.Update(inst);
-        await _instRepo.SaveChangesAsync();
         if (inst.Ticket is not null)
         {
             InstallationTicketSync.SyncSchedule(inst.Ticket, inst);
             _ticketRepo.Update(inst.Ticket);
-            await _ticketRepo.SaveChangesAsync();
             // La visita creada al agendar (ver CreateInstallationCommand) debe
             // moverse junto con la instalación, si no la tab "Visitas" del
             // ticket sigue mostrando la cita vieja.
@@ -94,8 +107,20 @@ public class RescheduleInstallationHandler : IRequestHandler<RescheduleInstallat
             {
                 InstallationTicketSync.SyncVisit(visit, inst);
                 _visitRepo.Update(visit);
-                await _visitRepo.SaveChangesAsync();
             }
+        }
+
+            await _instRepo.SaveChangesAsync();
+            await _uow.CommitAsync(ct);
+        }
+        catch (Exception ex)
+        {
+            await _uow.RollbackAsync(ct);
+            _logger.LogError(ex,
+                "Error al reprogramar la instalación {Id} — no se aplicó ningún cambio.",
+                cmd.InstalacionId);
+            return Result.Failure(
+                "No se pudo reprogramar la instalación. No se aplicó ningún cambio.");
         }
 
         await _audit.LogAsync("Instalaciones", "INSTALACION_REPROGRAMADA",

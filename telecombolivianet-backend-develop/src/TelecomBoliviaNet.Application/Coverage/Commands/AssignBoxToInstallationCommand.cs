@@ -1,4 +1,5 @@
 ﻿using MediatR;
+using Microsoft.Extensions.Logging;
 using TelecomBoliviaNet.Domain.Entities.Coverage;
 using TelecomBoliviaNet.Domain.Entities.Installations;
 using TelecomBoliviaNet.Domain.Interfaces;
@@ -21,13 +22,19 @@ public class AssignBoxToInstallationHandler
 {
     private readonly IGenericRepository<Installation>    _instRepo;
     private readonly IGenericRepository<DistributionBox> _boxRepo;
+    private readonly IUnitOfWork                         _uow;
+    private readonly ILogger<AssignBoxToInstallationHandler> _logger;
 
     public AssignBoxToInstallationHandler(
         IGenericRepository<Installation>    instRepo,
-        IGenericRepository<DistributionBox> boxRepo)
+        IGenericRepository<DistributionBox> boxRepo,
+        IUnitOfWork                         uow,
+        ILogger<AssignBoxToInstallationHandler> logger)
     {
         _instRepo = instRepo;
         _boxRepo  = boxRepo;
+        _uow      = uow;
+        _logger   = logger;
     }
 
     public async Task<Result> Handle(
@@ -49,27 +56,48 @@ public class AssignBoxToInstallationHandler
         if (newBox is null)
             return Result.Failure("Caja distribuidora no encontrada.");
 
-        // Reasignación: devolver el puerto a la caja anterior.
-        if (installation.DistributionBoxId is not null)
+        // D-13 — Las tres escrituras son UNA operación: liberar el puerto de la
+        // caja anterior, ocupar uno en la nueva y apuntar la instalación a esa.
+        //
+        // Antes cada una confirmaba por su cuenta. Si fallaba después de liberar
+        // el puerto viejo, la caja anterior quedaba con un puerto libre de más y
+        // la instalación seguía apuntando a ella: el mismo puerto figuraba a la
+        // vez ocupado por un cliente y disponible para otro. Es contabilidad de
+        // puertos corrupta en dos cajas a la vez, y no hay nada en pantalla que
+        // lo delate.
+        await _uow.BeginTransactionAsync(ct);
+        try
         {
-            var oldBox = await _boxRepo.GetByIdAsync(installation.DistributionBoxId.Value);
-            if (oldBox is not null)
+            if (installation.DistributionBoxId is not null)
             {
-                oldBox.LiberarPuertoOcupado();
-                _boxRepo.Update(oldBox);
-                await _boxRepo.SaveChangesAsync();
+                var oldBox = await _boxRepo.GetByIdAsync(installation.DistributionBoxId.Value);
+                if (oldBox is not null)
+                {
+                    oldBox.LiberarPuertoOcupado();
+                    _boxRepo.Update(oldBox);
+                }
             }
+
+            newBox.Ocupar();
+            installation.DistributionBoxId = newBox.Id;
+            installation.ActualizadoAt     = DateTime.UtcNow;
+
+            _boxRepo.Update(newBox);
+            _instRepo.Update(installation);
+
+            await _instRepo.SaveChangesAsync();
+            await _uow.CommitAsync(ct);
+        }
+        catch (Exception ex)
+        {
+            await _uow.RollbackAsync(ct);
+            _logger.LogError(ex,
+                "Error al asignar la caja {BoxId} a la instalación {InstallationId} — " +
+                "no se aplicó ningún cambio.", cmd.DistributionBoxId, cmd.InstallationId);
+            return Result.Failure(
+                "No se pudo asignar la caja. No se aplicó ningún cambio.");
         }
 
-        newBox.Ocupar();
-        installation.DistributionBoxId = newBox.Id;
-        installation.ActualizadoAt     = DateTime.UtcNow;
-
-        _boxRepo.Update(newBox);
-
-        await _boxRepo.SaveChangesAsync();
-        _instRepo.Update(installation);
-        await _instRepo.SaveChangesAsync();
         return Result.Success();
     }
 }

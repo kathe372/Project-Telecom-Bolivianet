@@ -95,7 +95,10 @@ public class RescheduleInstallationHandlerTests
             visitRepo ?? RepoMock.Empty<TicketVisit>().Object,
             RepoMock.Of(tecnicos).Object,
             FixedCapacity(committedCapacity),
-            MakeAudit());
+            MakeAudit(),
+            // D-13: las tres escrituras van en una transacción.
+            TestUow.Noop(),
+            NullLogger<RescheduleInstallationHandler>.Instance);
     }
 
     private static RescheduleInstallationCommand Cmd(

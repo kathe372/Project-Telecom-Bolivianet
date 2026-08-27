@@ -1,3 +1,4 @@
+﻿using Microsoft.Extensions.Logging.Abstractions;
 ﻿using FluentAssertions;
 using Moq;
 using NetTopologySuite.Geometries;
@@ -370,7 +371,9 @@ public class CoverageHandlerTests
 
         var instRepo = SpecificRepoMock.Installations(inst);
         var boxRepo  = RepoMock.Of(box);
-        var handler  = new CompleteInstallationWithBoxHandler(instRepo.Object, boxRepo.Object);
+        var handler  = new CompleteInstallationWithBoxHandler(
+            instRepo.Object, boxRepo.Object, TestUow.Noop(),
+            NullLogger<CompleteInstallationWithBoxHandler>.Instance);
 
         var result = await handler.Handle(
             new CompleteInstallationWithBoxCommand(inst.Id, box.Id), CancellationToken.None);
@@ -393,7 +396,8 @@ public class CoverageHandlerTests
         var inst = MakeInstalacionEnProceso(reservedBoxId: box.Id);
 
         var handler = new CompleteInstallationWithBoxHandler(
-            SpecificRepoMock.Installations(inst).Object, RepoMock.Of(box).Object);
+            SpecificRepoMock.Installations(inst).Object, RepoMock.Of(box).Object,
+            TestUow.Noop(), NullLogger<CompleteInstallationWithBoxHandler>.Instance);
 
         var result = await handler.Handle(
             new CompleteInstallationWithBoxCommand(inst.Id, box.Id), CancellationToken.None);
@@ -576,5 +580,70 @@ public class CoverageHandlerTests
         result.IsSuccess.Should().BeTrue();
         box.Location.Y.Should().Be(lat0);
         box.Location.X.Should().Be(lng0);
+    }
+
+    // ── D-13 · las escrituras de puertos van todas o ninguna ────────────────
+    //
+    // Estas dos operaciones mueven puertos entre cajas. Antes cada escritura
+    // confirmaba por su cuenta: un fallo a mitad dejaba un puerto liberado en una
+    // caja y ocupado en otra, sin que ninguna instalación lo reclamara.
+
+    [Fact]
+    public async Task AsignarCaja_SiFallaElGuardado_DeshaceTodoYNoConfirma()
+    {
+        var inst = new Installation
+        {
+            Id                = Guid.NewGuid(),
+            Status            = InstallationStatus.Completada,
+            DistributionBoxId = Guid.NewGuid(),
+        };
+        var nueva = new DistributionBox { Id = Guid.NewGuid(), PuertosTotal = 8 };
+
+        var instRepo = SpecificRepoMock.Installations(inst);
+        instRepo.Setup(r => r.SaveChangesAsync())
+                .ThrowsAsync(new InvalidOperationException("base caída"));
+
+        var uow = TestUow.Mock();
+
+        var handler = new AssignBoxToInstallationHandler(
+            instRepo.Object, RepoMock.Of(nueva).Object, uow.Object,
+            NullLogger<AssignBoxToInstallationHandler>.Instance);
+
+        var result = await handler.Handle(
+            new AssignBoxToInstallationCommand(inst.Id, nueva.Id), CancellationToken.None);
+
+        result.IsSuccess.Should().BeFalse();
+        result.ErrorMessage.Should().Contain("ningún cambio");
+        uow.Verify(u => u.RollbackAsync(It.IsAny<CancellationToken>()), Times.Once);
+        uow.Verify(u => u.CommitAsync(It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task VincularCajaAlCompletar_SiFallaElGuardado_DeshaceTodoYNoConfirma()
+    {
+        var inst = new Installation
+        {
+            Id                = Guid.NewGuid(),
+            Status            = InstallationStatus.Pendiente,
+            DistributionBoxId = Guid.NewGuid(),
+        };
+        var caja = new DistributionBox { Id = Guid.NewGuid(), PuertosTotal = 8 };
+
+        var instRepo = SpecificRepoMock.Installations(inst);
+        instRepo.Setup(r => r.SaveChangesAsync())
+                .ThrowsAsync(new InvalidOperationException("base caída"));
+
+        var uow = TestUow.Mock();
+
+        var handler = new CompleteInstallationWithBoxHandler(
+            instRepo.Object, RepoMock.Of(caja).Object, uow.Object,
+            NullLogger<CompleteInstallationWithBoxHandler>.Instance);
+
+        var result = await handler.Handle(
+            new CompleteInstallationWithBoxCommand(inst.Id, caja.Id), CancellationToken.None);
+
+        result.IsSuccess.Should().BeFalse();
+        uow.Verify(u => u.RollbackAsync(It.IsAny<CancellationToken>()), Times.Once);
+        uow.Verify(u => u.CommitAsync(It.IsAny<CancellationToken>()), Times.Never);
     }
 }

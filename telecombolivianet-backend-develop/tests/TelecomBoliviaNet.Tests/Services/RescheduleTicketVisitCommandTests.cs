@@ -61,7 +61,9 @@ public class RescheduleTicketVisitCommandTests
 
         return new RescheduleTicketVisitHandler(
             ticketRepo.Object, visitRepo.Object, commentRepo.Object,
-            notifRepo.Object, userRepo.Object, publisher.Object, MakeAudit());
+            notifRepo.Object, userRepo.Object, publisher.Object, MakeAudit(),
+            // D-13: visita + estado del ticket + nota van en una transacción.
+            TestUow.Noop(), NullLogger<RescheduleTicketVisitHandler>.Instance);
     }
 
     private static RescheduleTicketVisitCommand Cmd(Guid ticketId, string fecha, string hora)
