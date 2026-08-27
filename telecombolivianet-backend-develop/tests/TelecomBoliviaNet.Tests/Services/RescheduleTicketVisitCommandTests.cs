@@ -1,4 +1,4 @@
-using FluentAssertions;
+﻿using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
 using TelecomBoliviaNet.Application.DTOs.Tickets;
@@ -48,11 +48,11 @@ public class RescheduleTicketVisitCommandTests
 
     private static RescheduleTicketVisitHandler MakeHandler(SupportTicket ticket, List<TicketVisit> visits)
     {
-        var ticketRepo = RepoMock.Of(ticket);
-        var visitRepo  = RepoMock.Of(visits.ToArray());
-        var commentRepo = RepoMock.Empty<TicketComment>();
+        var ticketRepo = SpecificRepoMock.Tickets(ticket);
+        var visitRepo  = SpecificRepoMock.Visits(visits.ToArray());
+        var commentRepo = SpecificRepoMock.Comments();
         var notifRepo   = RepoMock.Empty<TicketNotification>();
-        var userRepo    = RepoMock.Empty<UserSystem>();
+        var userRepo    = SpecificRepoMock.Users();
         var publisher   = new Mock<INotifPublisher>();
         publisher.Setup(p => p.PublishAsync(
                 It.IsAny<NotifType>(), It.IsAny<Guid>(), It.IsAny<string?>(),

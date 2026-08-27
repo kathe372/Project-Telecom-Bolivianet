@@ -81,7 +81,7 @@ public class TicketServiceTests
 
         var ticketRepo  = SpecificRepoMock.Tickets(existingTickets?.ToArray() ?? Array.Empty<SupportTicket>());
         var clientRepo  = RepoMock.Of(resolvedClient);
-        var userRepo    = RepoMock.Of(resolvedTecnico);
+        var userRepo    = SpecificRepoMock.Users(resolvedTecnico);
         var commentRepo = SpecificRepoMock.Comments();
         var workLogRepo = SpecificRepoMock.WorkLogs();
         var visitRepo   = SpecificRepoMock.Visits();
@@ -141,7 +141,7 @@ public class TicketServiceTests
     {
         var ticketRepo  = SpecificRepoMock.Tickets();
         var clientRepo  = SpecificRepoMock.Clients(); // sin clientes
-        var userRepo    = RepoMock.Of(MakeTecnico());
+        var userRepo    = SpecificRepoMock.Users(MakeTecnico());
         var commentRepo = SpecificRepoMock.Comments();
         var workLogRepo = SpecificRepoMock.WorkLogs();
         var visitRepo   = SpecificRepoMock.Visits();
@@ -266,7 +266,7 @@ public class TicketServiceTests
 
         var ticketRepo  = SpecificRepoMock.Tickets();
         var clientRepo  = SpecificRepoMock.Clients(MakeClient());
-        var userRepo    = RepoMock.Of(operador);
+        var userRepo    = SpecificRepoMock.Users(operador);
         var commentRepo = SpecificRepoMock.Comments();
         var workLogRepo = SpecificRepoMock.WorkLogs();
         var visitRepo   = SpecificRepoMock.Visits();
@@ -432,8 +432,8 @@ public class TicketServiceTests
             CreatedAt = DateTime.UtcNow,
         };
 
-        var ticketRepo = RepoMock.Of(ticket1, ticket2);
-        var userRepo   = RepoMock.Of(tec1, tec2);
+        var ticketRepo = SpecificRepoMock.Tickets(ticket1, ticket2);
+        var userRepo   = SpecificRepoMock.Users(tec1, tec2);
         var balanceo   = new TicketBalancingService(ticketRepo.Object, userRepo.Object);
 
         var selected = await balanceo.GetTechnicianWithLowestLoadAsync();

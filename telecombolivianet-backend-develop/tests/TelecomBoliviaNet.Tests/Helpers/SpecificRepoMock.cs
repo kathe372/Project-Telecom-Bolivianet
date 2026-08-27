@@ -1,5 +1,6 @@
 ﻿using System.Linq.Expressions;
 using Moq;
+using TelecomBoliviaNet.Domain.Entities.Auth;
 using TelecomBoliviaNet.Domain.Entities.Clients;
 using TelecomBoliviaNet.Domain.Entities.Coverage;
 using TelecomBoliviaNet.Domain.Entities.Installations;
@@ -203,6 +204,28 @@ public static class SpecificRepoMock
         mock.Setup(r => r.GetSummaryAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync((Guid id, CancellationToken _) => lista.FirstOrDefault(t => t.Id == id));
 
+        mock.Setup(r => r.GetWithClientAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((Guid id, CancellationToken _) => lista.FirstOrDefault(t => t.Id == id));
+
+        mock.Setup(r => r.GetOpenLoadByTechnicianAsync(
+                It.IsAny<IReadOnlyCollection<Guid>>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((IReadOnlyCollection<Guid> ids, CancellationToken _) => lista
+                .Where(t => t.AssignedToUserId.HasValue
+                         && ids.Contains(t.AssignedToUserId.Value)
+                         && TicketVivo.Contains(t.Status))
+                .GroupBy(t => t.AssignedToUserId!.Value)
+                .ToDictionary(
+                    g => g.Key,
+                    g => new TechnicianLoad(
+                        g.Count(), g.Count(t => t.Priority == TicketPriority.Critica))));
+
+        mock.Setup(r => r.GetLastAssignmentByTechnicianAsync(
+                It.IsAny<IReadOnlyCollection<Guid>>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((IReadOnlyCollection<Guid> ids, CancellationToken _) => lista
+                .Where(t => t.AssignedToUserId.HasValue && ids.Contains(t.AssignedToUserId.Value))
+                .GroupBy(t => t.AssignedToUserId!.Value)
+                .ToDictionary(g => g.Key, g => g.Max(t => t.CreatedAt)));
+
         mock.Setup(r => r.GetDetailAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync((Guid id, CancellationToken _) => lista.FirstOrDefault(t => t.Id == id));
 
@@ -273,12 +296,44 @@ public static class SpecificRepoMock
         return mock;
     }
 
+    /// <summary>Estados en que el ticket sigue ocupando a un técnico.</summary>
+    private static readonly TicketStatus[] TicketVivo =
+    [
+        TicketStatus.Abierto,
+        TicketStatus.EnProceso,
+        TicketStatus.PendienteCliente,
+    ];
+
     private static readonly TicketStatus[] SlaCerrado =
     [
         TicketStatus.Resuelto,
         TicketStatus.Cerrado,
         TicketStatus.PendienteCliente,
     ];
+
+    public static Mock<IUserRepository> Users(params UserSystem[] items)
+    {
+        var lista = items.ToList();
+        var mock  = RepoMock.Of<IUserRepository, UserSystem>(lista);
+
+        mock.Setup(r => r.GetByIdIncludingDeletedAsync(
+                It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((Guid id, CancellationToken _) => lista.FirstOrDefault(u => u.Id == id));
+
+        mock.Setup(r => r.GetNamesByIdsAsync(
+                It.IsAny<IReadOnlyCollection<Guid>>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((IReadOnlyCollection<Guid> ids, CancellationToken _) => lista
+                .Where(u => ids.Contains(u.Id))
+                .ToDictionary(u => u.Id, u => u.FullName));
+
+        mock.Setup(r => r.GetActiveTechniciansAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(() => lista
+                .Where(u => u.Role == UserRole.Tecnico && u.Status == UserStatus.Activo)
+                .OrderBy(u => u.FullName)
+                .ToList());
+
+        return mock;
+    }
 
     public static Mock<ITicketCommentRepository> Comments(params TicketComment[] items)
     {
@@ -312,6 +367,13 @@ public static class SpecificRepoMock
         mock.Setup(r => r.GetForTicketAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync((Guid ticketId, CancellationToken _) => lista
                 .Where(v => v.TicketId == ticketId).OrderBy(v => v.ScheduledAt).ToList());
+
+        mock.Setup(r => r.GetLatestScheduledAsync(
+                It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((Guid ticketId, CancellationToken _) => lista
+                .Where(v => v.TicketId == ticketId && v.Status == VisitStatus.Programada)
+                .OrderByDescending(v => v.ScheduledAt)
+                .FirstOrDefault());
 
         mock.Setup(r => r.GetTechnicianDayAsync(
                 It.IsAny<Guid>(), It.IsAny<DateTime>(), It.IsAny<CancellationToken>()))

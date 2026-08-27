@@ -53,4 +53,10 @@ public class UserRepository : GenericRepository<UserSystem>, IUserRepository
             .Where(u => ids.Contains(u.Id))
             .ToDictionaryAsync(u => u.Id, u => u.FullName, ct);
     }
+
+    public Task<List<UserSystem>> GetActiveTechniciansAsync(CancellationToken ct = default)
+        => _db.UserSystems.AsNoTracking()
+            .Where(u => u.Role == UserRole.Tecnico && u.Status == UserStatus.Activo)
+            .OrderBy(u => u.FullName)
+            .ToListAsync(ct);
 }

@@ -1,19 +1,16 @@
 using TelecomBoliviaNet.Application.DTOs.Tickets;
-using Microsoft.EntityFrameworkCore;
-using TelecomBoliviaNet.Domain.Entities.Auth;
-using TelecomBoliviaNet.Domain.Entities.Tickets;
 using TelecomBoliviaNet.Domain.Interfaces;
 
 namespace TelecomBoliviaNet.Application.Services.Tickets;
 
 public class TicketBalancingService
 {
-    private readonly IGenericRepository<SupportTicket> _ticketRepo;
-    private readonly IGenericRepository<UserSystem>    _userRepo;
+    private readonly ITicketRepository _ticketRepo;
+    private readonly IUserRepository   _userRepo;
 
     public TicketBalancingService(
-        IGenericRepository<SupportTicket> ticketRepo,
-        IGenericRepository<UserSystem>    userRepo)
+        ITicketRepository ticketRepo,
+        IUserRepository   userRepo)
     {
         _ticketRepo = ticketRepo;
         _userRepo   = userRepo;
@@ -21,86 +18,48 @@ public class TicketBalancingService
 
     public async Task<Guid?> GetTechnicianWithLowestLoadAsync(string? preferredGroup = null)
     {
-        var tecnicos = await _userRepo.GetAll()
-            .AsNoTracking()
-            .Where(u => u.Role == UserRole.Tecnico && u.Status == UserStatus.Activo)
+        var tecnicos = (await _userRepo.GetActiveTechniciansAsync())
             .Select(u => u.Id)
-            .ToListAsync();
+            .ToList();
 
-        if (!tecnicos.Any()) return null;
+        if (tecnicos.Count == 0) return null;
 
-        var cargaPorTecnico = await _ticketRepo.GetAll()
-            .AsNoTracking()
-            .Where(t =>
-                t.AssignedToUserId.HasValue &&
-                tecnicos.Contains(t.AssignedToUserId!.Value) &&
-                (t.Status == TicketStatus.Abierto || t.Status == TicketStatus.EnProceso || t.Status == TicketStatus.PendienteCliente))
-            .GroupBy(t => t.AssignedToUserId!.Value)
-            .Select(g => new { TecnicoId = g.Key, Carga = g.Count() })
-            .ToListAsync();
+        // El repositorio solo devuelve a quien tiene tickets encima; los demás
+        // están a cero, y son justamente los candidatos a recibir el siguiente.
+        var carga = await _ticketRepo.GetOpenLoadByTechnicianAsync(tecnicos);
+        var cargaMap = tecnicos.ToDictionary(
+            id => id,
+            id => carga.TryGetValue(id, out var c) ? c.Total : 0);
 
-        var cargaMap = cargaPorTecnico.ToDictionary(x => x.TecnicoId, x => x.Carga);
-        foreach (var id in tecnicos)
-            if (!cargaMap.ContainsKey(id)) cargaMap[id] = 0;
-
-        var menorCarga = cargaMap.OrderBy(kv => kv.Value).First();
-
-        var minCarga  = menorCarga.Value;
+        var minCarga   = cargaMap.Values.Min();
         var candidatos = cargaMap.Where(kv => kv.Value == minCarga).Select(kv => kv.Key).ToList();
 
         if (candidatos.Count == 1) return candidatos[0];
 
-        var ultimaAsignacion = cargaPorTecnico
-            .GroupBy(x => x.TecnicoId)
-            .Select(g => new { TecnicoId = g.Key, Ultimo = DateTime.MinValue })
-            .ToList();
-        var lastAssignQuery = await _ticketRepo.GetAll()
-            .AsNoTracking()
-            .Where(t => t.AssignedToUserId.HasValue && candidatos.Contains(t.AssignedToUserId!.Value))
-            .GroupBy(t => t.AssignedToUserId!.Value)
-            .Select(g => new { TecnicoId = g.Key, Ultimo = g.Max(t => t.CreatedAt) })
-            .ToListAsync();
+        // Empate: se lo lleva quien lleva más tiempo sin recibir uno, para que
+        // el reparto rote en vez de caer siempre en el mismo.
+        var ultimas = await _ticketRepo.GetLastAssignmentByTechnicianAsync(candidatos);
 
-        var asignMap = lastAssignQuery.ToDictionary(x => x.TecnicoId, x => x.Ultimo);
-        foreach (var id in candidatos)
-            if (!asignMap.ContainsKey(id)) asignMap[id] = DateTime.MinValue;
-
-        return asignMap.OrderBy(kv => kv.Value).First().Key;
+        return candidatos
+            .OrderBy(id => ultimas.TryGetValue(id, out var fecha) ? fecha : DateTime.MinValue)
+            .First();
     }
 
     public async Task<List<TechnicianLoadDto>> GetCargaResumenAsync()
     {
-        var tecnicos = await _userRepo.GetAll()
-            .AsNoTracking()
-            .Where(u => u.Role == UserRole.Tecnico && u.Status == UserStatus.Activo)
-            .ToListAsync();
-
-        var tecnicoIds = tecnicos.Select(u => u.Id).ToList();
-
-        var activos = await _ticketRepo.GetAll()
-            .AsNoTracking()
-            .Where(t => t.AssignedToUserId.HasValue
-                     && tecnicoIds.Contains(t.AssignedToUserId!.Value)
-                     && (t.Status == TicketStatus.Abierto || t.Status == TicketStatus.EnProceso || t.Status == TicketStatus.PendienteCliente))
-            .GroupBy(t => t.AssignedToUserId!.Value)
-            .Select(g => new
-            {
-                Id       = g.Key,
-                Total    = g.Count(),
-                Criticos = g.Count(t => t.Priority == TicketPriority.Critica)
-            })
-            .ToListAsync();
-
-        var map = activos.ToDictionary(x => x.Id, x => x);
+        var tecnicos = await _userRepo.GetActiveTechniciansAsync();
+        var carga    = await _ticketRepo.GetOpenLoadByTechnicianAsync(
+            tecnicos.Select(t => t.Id).ToList());
 
         return tecnicos
-            .Select(t => new TechnicianLoadDto(
-                t.Id, t.FullName,
-                map.TryGetValue(t.Id, out var m) ? m.Total    : 0,
-                map.TryGetValue(t.Id, out var n) ? n.Criticos : 0))
+            .Select(t =>
+            {
+                var c = carga.TryGetValue(t.Id, out var encontrada)
+                    ? encontrada
+                    : new TechnicianLoad(0, 0);
+                return new TechnicianLoadDto(t.Id, t.FullName, c.Total, c.Critical);
+            })
             .OrderBy(x => x.TicketsActivos)
             .ToList();
     }
 }
-
-

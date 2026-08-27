@@ -1,5 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore;
-using TelecomBoliviaNet.Application.DTOs.Tickets;
+﻿using TelecomBoliviaNet.Application.DTOs.Tickets;
 using TelecomBoliviaNet.Domain.Entities.Tickets;
 using TelecomBoliviaNet.Domain.Interfaces;
 using TelecomBoliviaNet.Domain.Primitives;
@@ -10,7 +9,7 @@ namespace TelecomBoliviaNet.Application.Services.Tickets;
 
 public class BusinessScheduleService : IBusinessScheduleService
 {
-    private readonly IGenericRepository<BusinessSchedule> _scheduleRepo;
+    private readonly IScheduleRepository _scheduleRepo;
     private readonly IGenericRepository<ScheduleHoliday> _holidayRepo;
 
     private static readonly string[] DayNames =
@@ -18,7 +17,7 @@ public class BusinessScheduleService : IBusinessScheduleService
     private static readonly int[]    DayBits  = [1, 2, 4, 8, 16, 32, 64];
 
     public BusinessScheduleService(
-        IGenericRepository<BusinessSchedule> scheduleRepo,
+        IScheduleRepository scheduleRepo,
         IGenericRepository<ScheduleHoliday>  holidayRepo)
     {
         _scheduleRepo = scheduleRepo;
@@ -28,20 +27,14 @@ public class BusinessScheduleService : IBusinessScheduleService
 
     public async Task<IReadOnlyList<BusinessScheduleDto>> GetAllAsync()
     {
-        var schedules = await _scheduleRepo.GetAll()
-            .Include(s => s.Holidays)
-            .OrderByDescending(s => s.IsDefault)
-            .ThenBy(s => s.Name)
-            .ToListAsync();
+        var schedules = await _scheduleRepo.GetAllWithHolidaysAsync();
 
         return schedules.Select(ToDto).ToList();
     }
 
     public async Task<BusinessScheduleDto?> GetByIdAsync(Guid id)
     {
-        var s = await _scheduleRepo.GetAll()
-            .Include(s => s.Holidays)
-            .FirstOrDefaultAsync(s => s.Id == id);
+        var s = await _scheduleRepo.GetWithHolidaysAsync(id);
         return s is null ? null : ToDto(s);
     }
 
@@ -80,9 +73,7 @@ public class BusinessScheduleService : IBusinessScheduleService
 
     public async Task<Result<BusinessScheduleDto>> UpdateAsync(Guid id, UpdateBusinessScheduleDto dto)
     {
-        var schedule = await _scheduleRepo.GetAll()
-            .Include(s => s.Holidays)
-            .FirstOrDefaultAsync(s => s.Id == id);
+        var schedule = await _scheduleRepo.GetWithHolidaysAsync(id);
 
         if (schedule is null) return Result<BusinessScheduleDto>.Failure("Horario no encontrado.");
 
@@ -165,13 +156,12 @@ public class BusinessScheduleService : IBusinessScheduleService
 
     private async Task ClearDefaultFlagAsync()
     {
-        var current = await _scheduleRepo.GetAll()
-            .Where(s => s.IsDefault)
-            .ToListAsync();
+        var current = await _scheduleRepo.GetDefaultsAsync();
+        if (current.Count == 0) return;
+
         foreach (var s in current) s.IsDefault = false;
-        if (current.Count > 0)
-            _scheduleRepo.UpdateRange(current);
-            await _scheduleRepo.SaveChangesAsync();
+        _scheduleRepo.UpdateRange(current);
+        await _scheduleRepo.SaveChangesAsync();
     }
 
     private static string? ValidateDto(int startHour, int endHour, int mask, bool is24x7)

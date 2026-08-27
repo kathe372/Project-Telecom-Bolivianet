@@ -70,12 +70,12 @@ public class CreateInstallationHandlerTests
         IInstallationRepository           instRepo,
         IClientRepository                 clientRepo,
         IGenericRepository<Plan>          planRepo,
-        IGenericRepository<UserSystem>    userRepo,
-        IGenericRepository<SupportTicket> ticketRepo,
+        IUserRepository                  userRepo,
+        ITicketRepository                ticketRepo,
         int                               committedCapacity = 0,
         IBoxReservationService?           boxReservation    = null)
         => new(instRepo, clientRepo, planRepo, userRepo, ticketRepo,
-               RepoMock.Empty<TicketVisit>().Object,
+               SpecificRepoMock.Visits().Object,
                SpecificRepoMock.Boxes().Object,
                MakeAudit(),
                FixedCapacity(committedCapacity),
@@ -134,8 +134,8 @@ public class CreateInstallationHandlerTests
             SpecificRepoMock.Installations().Object,
             SpecificRepoMock.Clients(MakeClient()).Object,
             RepoMock.Of<Plan>(MakePlan()).Object,
-            RepoMock.Of(MakeTecnico()).Object,
-            RepoMock.Empty<SupportTicket>().Object);
+            SpecificRepoMock.Users(MakeTecnico()).Object,
+            SpecificRepoMock.Tickets().Object);
 
         var result = await handler.Handle(
             // D-12: la fecha se calcula en hora de BOLIVIA, igual que la validación
@@ -162,8 +162,8 @@ public class CreateInstallationHandlerTests
             SpecificRepoMock.Installations().Object,
             SpecificRepoMock.Clients(MakeClient()).Object,
             RepoMock.Of<Plan>(MakePlan()).Object,
-            RepoMock.Of(MakeTecnico()).Object,   // pool = 1
-            RepoMock.Empty<SupportTicket>().Object,
+            SpecificRepoMock.Users(MakeTecnico()).Object,   // pool = 1
+            SpecificRepoMock.Tickets().Object,
             committedCapacity: 1);
 
         var result = await handler.Handle(
@@ -184,8 +184,8 @@ public class CreateInstallationHandlerTests
             SpecificRepoMock.Installations().Object,
             SpecificRepoMock.Clients(MakeClient()).Object,
             RepoMock.Of<Plan>(MakePlan(tecReq: 2)).Object,
-            RepoMock.Of(tecnicos).Object,
-            RepoMock.Empty<SupportTicket>().Object,
+            SpecificRepoMock.Users(tecnicos).Object,
+            SpecificRepoMock.Tickets().Object,
             committedCapacity: 1);
 
         var result = await handler.Handle(
@@ -205,8 +205,8 @@ public class CreateInstallationHandlerTests
             SpecificRepoMock.Installations().Object,
             SpecificRepoMock.Clients().Object,
             RepoMock.Of<Plan>(MakePlan()).Object,
-            RepoMock.Of(MakeTecnico()).Object,
-            RepoMock.Empty<SupportTicket>().Object);
+            SpecificRepoMock.Users(MakeTecnico()).Object,
+            SpecificRepoMock.Tickets().Object);
 
         var cmd = Cmd(null, PlanId, DateTime.UtcNow.AddDays(3).ToString("yyyy-MM-dd"),
             prospectName: "Juan Pérez", prospectIdentityCard: null);
@@ -227,8 +227,8 @@ public class CreateInstallationHandlerTests
             SpecificRepoMock.Installations().Object,
             SpecificRepoMock.Clients().Object,
             RepoMock.Of<Plan>(MakePlan()).Object,
-            RepoMock.Of(MakeTecnico()).Object,
-            RepoMock.Empty<SupportTicket>().Object);
+            SpecificRepoMock.Users(MakeTecnico()).Object,
+            SpecificRepoMock.Tickets().Object);
 
         var cmd = Cmd(null, PlanId, DateTime.UtcNow.AddDays(3).ToString("yyyy-MM-dd"),
             prospectName: "Juan Pérez", prospectIdentityCard: "7654321 LP");
@@ -250,8 +250,8 @@ public class CreateInstallationHandlerTests
             SpecificRepoMock.Installations().Object,
             SpecificRepoMock.Clients().Object,
             RepoMock.Of<Plan>(MakePlan()).Object,
-            RepoMock.Of(MakeTecnico()).Object,
-            RepoMock.Empty<SupportTicket>().Object);
+            SpecificRepoMock.Users(MakeTecnico()).Object,
+            SpecificRepoMock.Tickets().Object);
 
         var result = await handler.Handle(
             Cmd(null, PlanId, DateTime.UtcNow.AddDays(3).ToString("yyyy-MM-dd"),
@@ -275,8 +275,8 @@ public class CreateInstallationHandlerTests
             instRepo.Object,
             SpecificRepoMock.Clients(MakeClient()).Object,
             RepoMock.Of<Plan>(MakePlan()).Object,
-            RepoMock.Of(MakeTecnico()).Object,
-            RepoMock.Empty<SupportTicket>().Object);
+            SpecificRepoMock.Users(MakeTecnico()).Object,
+            SpecificRepoMock.Tickets().Object);
 
         // clienteId presente, sin ProspectIdentityCard — no debe exigirse (no aplica a clientes).
         var result = await handler.Handle(
@@ -300,8 +300,8 @@ public class CreateInstallationHandlerTests
             instRepo.Object,
             SpecificRepoMock.Clients().Object,
             RepoMock.Of<Plan>(MakePlan()).Object,
-            RepoMock.Of(MakeTecnico()).Object,
-            RepoMock.Empty<SupportTicket>().Object);
+            SpecificRepoMock.Users(MakeTecnico()).Object,
+            SpecificRepoMock.Tickets().Object);
 
         var result = await handler.Handle(
             Cmd(null, PlanId, DateTime.UtcNow.AddDays(3).ToString("yyyy-MM-dd"),
@@ -320,8 +320,8 @@ public class CreateInstallationHandlerTests
             SpecificRepoMock.Installations().Object,
             SpecificRepoMock.Clients(MakeClient()).Object,
             RepoMock.Of<Plan>(MakePlan(active: false)).Object,
-            RepoMock.Of(MakeTecnico()).Object,
-            RepoMock.Empty<SupportTicket>().Object);
+            SpecificRepoMock.Users(MakeTecnico()).Object,
+            SpecificRepoMock.Tickets().Object);
 
         var result = await handler.Handle(
             Cmd(ClientId, PlanId, DateTime.UtcNow.AddDays(3).ToString("yyyy-MM-dd")),
@@ -350,8 +350,8 @@ public class CreateInstallationHandlerTests
             SpecificRepoMock.Installations(pending).Object,
             SpecificRepoMock.Clients(MakeClient()).Object,
             RepoMock.Of<Plan>(MakePlan()).Object,
-            RepoMock.Of(MakeTecnico()).Object,
-            RepoMock.Empty<SupportTicket>().Object);
+            SpecificRepoMock.Users(MakeTecnico()).Object,
+            SpecificRepoMock.Tickets().Object);
 
         var result = await handler.Handle(
             Cmd(ClientId, PlanId, DateTime.UtcNow.AddDays(3).ToString("yyyy-MM-dd")),
@@ -386,8 +386,8 @@ public class CreateInstallationHandlerTests
             SpecificRepoMock.Installations(pending).Object,
             SpecificRepoMock.Clients().Object,
             RepoMock.Of<Plan>(MakePlan()).Object,
-            RepoMock.Of(MakeTecnico()).Object,
-            RepoMock.Empty<SupportTicket>().Object);
+            SpecificRepoMock.Users(MakeTecnico()).Object,
+            SpecificRepoMock.Tickets().Object);
 
         var result = await handler.Handle(
             Cmd(null, PlanId, DateTime.UtcNow.AddDays(3).ToString("yyyy-MM-dd"),
@@ -419,8 +419,8 @@ public class CreateInstallationHandlerTests
             SpecificRepoMock.Installations(pending).Object,
             SpecificRepoMock.Clients().Object,
             RepoMock.Of<Plan>(MakePlan()).Object,
-            RepoMock.Of(MakeTecnico()).Object,
-            RepoMock.Empty<SupportTicket>().Object);
+            SpecificRepoMock.Users(MakeTecnico()).Object,
+            SpecificRepoMock.Tickets().Object);
 
         var result = await handler.Handle(
             Cmd(null, PlanId, DateTime.UtcNow.AddDays(3).ToString("yyyy-MM-dd"),
@@ -438,8 +438,8 @@ public class CreateInstallationHandlerTests
             SpecificRepoMock.Installations().Object,
             SpecificRepoMock.Clients(MakeClient()).Object,
             RepoMock.Of<Plan>(MakePlan()).Object,
-            RepoMock.Of(MakeTecnico()).Object,
-            RepoMock.Empty<SupportTicket>().Object);
+            SpecificRepoMock.Users(MakeTecnico()).Object,
+            SpecificRepoMock.Tickets().Object);
 
         var result = await handler.Handle(
             Cmd(ClientId, PlanId, DateTime.UtcNow.AddDays(3).ToString("yyyy-MM-dd")),
@@ -456,7 +456,7 @@ public class CreateInstallationHandlerTests
     public async Task TC_CREAR_06_NoClientId_CreatesTicketWithProspectIdentity()
     {
         SupportTicket? captured = null;
-        var ticketRepo = RepoMock.Empty<SupportTicket>();
+        var ticketRepo = SpecificRepoMock.Tickets();
         ticketRepo.Setup(r => r.AddAsync(It.IsAny<SupportTicket>()))
             .Callback<SupportTicket>(t => captured = t)
             .Returns(Task.CompletedTask);
@@ -465,7 +465,7 @@ public class CreateInstallationHandlerTests
             SpecificRepoMock.Installations().Object,
             SpecificRepoMock.Clients().Object,
             RepoMock.Of<Plan>(MakePlan()).Object,
-            RepoMock.Of(MakeTecnico()).Object,
+            SpecificRepoMock.Users(MakeTecnico()).Object,
             ticketRepo.Object);
 
         var result = await handler.Handle(
@@ -496,8 +496,8 @@ public class CreateInstallationHandlerTests
             instRepo.Object,
             SpecificRepoMock.Clients().Object,
             RepoMock.Of<Plan>(MakePlan()).Object,
-            RepoMock.Of(MakeTecnico()).Object,
-            RepoMock.Empty<SupportTicket>().Object);
+            SpecificRepoMock.Users(MakeTecnico()).Object,
+            SpecificRepoMock.Tickets().Object);
 
         var result = await handler.Handle(
             Cmd(null, PlanId, DateTime.UtcNow.AddDays(3).ToString("yyyy-MM-dd"),
@@ -536,8 +536,8 @@ public class CreateInstallationHandlerTests
             instRepo.Object,
             SpecificRepoMock.Clients().Object,
             RepoMock.Of<Plan>(MakePlan()).Object,
-            RepoMock.Of(MakeTecnico()).Object,
-            RepoMock.Empty<SupportTicket>().Object,
+            SpecificRepoMock.Users(MakeTecnico()).Object,
+            SpecificRepoMock.Tickets().Object,
             boxReservation: reservation.Object);
 
         var result = await handler.Handle(
@@ -569,8 +569,8 @@ public class CreateInstallationHandlerTests
             instRepo.Object,
             SpecificRepoMock.Clients().Object,
             RepoMock.Of<Plan>(MakePlan()).Object,
-            RepoMock.Of(MakeTecnico()).Object,
-            RepoMock.Empty<SupportTicket>().Object,
+            SpecificRepoMock.Users(MakeTecnico()).Object,
+            SpecificRepoMock.Tickets().Object,
             boxReservation: reservation.Object);
 
         var result = await handler.Handle(
@@ -592,8 +592,8 @@ public class CreateInstallationHandlerTests
             SpecificRepoMock.Installations().Object,
             SpecificRepoMock.Clients(MakeClient()).Object,
             RepoMock.Of<Plan>(MakePlan()).Object,
-            RepoMock.Of(MakeTecnico()).Object,
-            RepoMock.Empty<SupportTicket>().Object,
+            SpecificRepoMock.Users(MakeTecnico()).Object,
+            SpecificRepoMock.Tickets().Object,
             boxReservation: reservation.Object);
 
         await handler.Handle(
@@ -619,8 +619,8 @@ public class CreateInstallationHandlerTests
             instRepo.Object,
             SpecificRepoMock.Clients(MakeClient()).Object,
             RepoMock.Of<Plan>(MakePlan()).Object,
-            RepoMock.Of(MakeTecnico()).Object,
-            RepoMock.Empty<SupportTicket>().Object);
+            SpecificRepoMock.Users(MakeTecnico()).Object,
+            SpecificRepoMock.Tickets().Object);
 
         var result = await handler.Handle(
             Cmd(ClientId, PlanId, DateTime.UtcNow.AddDays(3).ToString("yyyy-MM-dd"),
@@ -641,8 +641,8 @@ public class CreateInstallationHandlerTests
             SpecificRepoMock.Installations().Object,
             SpecificRepoMock.Clients(MakeClient()).Object,
             RepoMock.Of<Plan>(MakePlan()).Object,
-            RepoMock.Of(MakeTecnico()).Object,
-            RepoMock.Empty<SupportTicket>().Object);
+            SpecificRepoMock.Users(MakeTecnico()).Object,
+            SpecificRepoMock.Tickets().Object);
 
         var result = await handler.Handle(
             Cmd(ClientId, PlanId, "no-es-fecha"),
@@ -660,8 +660,8 @@ public class CreateInstallationHandlerTests
             SpecificRepoMock.Installations().Object,
             SpecificRepoMock.Clients(MakeClient()).Object,
             RepoMock.Of<Plan>(MakePlan()).Object,
-            RepoMock.Of(MakeTecnico()).Object,
-            RepoMock.Empty<SupportTicket>().Object);
+            SpecificRepoMock.Users(MakeTecnico()).Object,
+            SpecificRepoMock.Tickets().Object);
 
         var result = await handler.Handle(
             Cmd(ClientId, PlanId, DateTime.UtcNow.AddDays(3).ToString("yyyy-MM-dd"), hora: "hora-rota"),
@@ -679,8 +679,8 @@ public class CreateInstallationHandlerTests
             SpecificRepoMock.Installations().Object,
             SpecificRepoMock.Clients(MakeClient()).Object,
             RepoMock.Empty<Plan>().Object,             // plan repo vacío
-            RepoMock.Of(MakeTecnico()).Object,
-            RepoMock.Empty<SupportTicket>().Object);
+            SpecificRepoMock.Users(MakeTecnico()).Object,
+            SpecificRepoMock.Tickets().Object);
 
         var result = await handler.Handle(
             Cmd(ClientId, Guid.NewGuid(), DateTime.UtcNow.AddDays(3).ToString("yyyy-MM-dd")),
@@ -698,8 +698,8 @@ public class CreateInstallationHandlerTests
             SpecificRepoMock.Installations().Object,
             SpecificRepoMock.Clients().Object,           // client repo vacío
             RepoMock.Of<Plan>(MakePlan()).Object,
-            RepoMock.Of(MakeTecnico()).Object,
-            RepoMock.Empty<SupportTicket>().Object);
+            SpecificRepoMock.Users(MakeTecnico()).Object,
+            SpecificRepoMock.Tickets().Object);
 
         var result = await handler.Handle(
             Cmd(Guid.NewGuid(), PlanId, DateTime.UtcNow.AddDays(3).ToString("yyyy-MM-dd")),
@@ -717,8 +717,8 @@ public class CreateInstallationHandlerTests
             SpecificRepoMock.Installations().Object,
             SpecificRepoMock.Clients(MakeClient()).Object,
             RepoMock.Of<Plan>(MakePlan()).Object,
-            RepoMock.Of(MakeTecnico()).Object,
-            RepoMock.Empty<SupportTicket>().Object);
+            SpecificRepoMock.Users(MakeTecnico()).Object,
+            SpecificRepoMock.Tickets().Object);
 
         var result = await handler.Handle(
             Cmd(ClientId, PlanId, DateTime.UtcNow.AddDays(3).ToString("yyyy-MM-dd")),
@@ -737,8 +737,8 @@ public class CreateInstallationHandlerTests
             SpecificRepoMock.Installations().Object,
             SpecificRepoMock.Clients(MakeClient()).Object,
             RepoMock.Of<Plan>(MakePlan()).Object,
-            RepoMock.Of(MakeTecnico()).Object,
-            RepoMock.Empty<SupportTicket>().Object);
+            SpecificRepoMock.Users(MakeTecnico()).Object,
+            SpecificRepoMock.Tickets().Object);
 
         var result = await handler.Handle(
             Cmd(ClientId, PlanId, DateTime.UtcNow.ToString("yyyy-MM-dd")),

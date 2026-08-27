@@ -153,6 +153,55 @@ public class TicketRepository : GenericRepository<SupportTicket>, ITicketReposit
                 t.CreatedAt, t.DueDate!.Value))
             .ToListAsync(ct);
 
+    public Task<SupportTicket?> GetWithClientAsync(Guid id, CancellationToken ct = default)
+        => _db.SupportTickets
+            .Include(t => t.Client)
+            .FirstOrDefaultAsync(t => t.Id == id, ct);
+
+    public async Task<Dictionary<Guid, TechnicianLoad>> GetOpenLoadByTechnicianAsync(
+        IReadOnlyCollection<Guid> technicianIds, CancellationToken ct = default)
+    {
+        if (technicianIds.Count == 0) return [];
+
+        var cargas = await _db.SupportTickets.AsNoTracking()
+            .Where(t => t.AssignedToUserId.HasValue
+                     && technicianIds.Contains(t.AssignedToUserId!.Value)
+                     && Vivos.Contains(t.Status))
+            .GroupBy(t => t.AssignedToUserId!.Value)
+            .Select(g => new
+            {
+                TecnicoId = g.Key,
+                Total     = g.Count(),
+                Criticos  = g.Count(t => t.Priority == TicketPriority.Critica),
+            })
+            .ToListAsync(ct);
+
+        return cargas.ToDictionary(x => x.TecnicoId, x => new TechnicianLoad(x.Total, x.Criticos));
+    }
+
+    public async Task<Dictionary<Guid, DateTime>> GetLastAssignmentByTechnicianAsync(
+        IReadOnlyCollection<Guid> technicianIds, CancellationToken ct = default)
+    {
+        if (technicianIds.Count == 0) return [];
+
+        var ultimas = await _db.SupportTickets.AsNoTracking()
+            .Where(t => t.AssignedToUserId.HasValue
+                     && technicianIds.Contains(t.AssignedToUserId!.Value))
+            .GroupBy(t => t.AssignedToUserId!.Value)
+            .Select(g => new { TecnicoId = g.Key, Ultimo = g.Max(t => t.CreatedAt) })
+            .ToListAsync(ct);
+
+        return ultimas.ToDictionary(x => x.TecnicoId, x => x.Ultimo);
+    }
+
+    /// <summary>Estados en los que el ticket sigue ocupando a un técnico.</summary>
+    private static readonly TicketStatus[] Vivos =
+    [
+        TicketStatus.Abierto,
+        TicketStatus.EnProceso,
+        TicketStatus.PendienteCliente,
+    ];
+
     /// <summary>
     /// Estados en los que un ticket ya no consume SLA. PendienteCliente cuenta:
     /// el reloj lo para el cliente, no nosotros.

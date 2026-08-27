@@ -780,9 +780,22 @@ Menos andamiaje, tests más rápidos. **Este es el argumento para el documento d
 
 ## Criterio de salida
 
-- [ ] 5 repositorios específicos · EF en Application de 77 a **≤30** archivos
-- [ ] `ADR-001` escrito · ≥5 tests sin `MockQueryable`
-- [ ] Suite + caracterización sin cambios
+- [x] 5 repositorios específicos · EF en Application de 77 a **≤30** archivos
+      → **18 repositorios, 77 → 29 archivos** (2026-08-25)
+- [x] `ADR-001` escrito · ≥5 tests sin `MockQueryable`
+      → `docs/adr/ADR-001-ef-core-en-application.md`; `SpecificRepoMock` cubre
+      los 18 repositorios y sustituye a `MockQueryable` en todos sus tests
+- [x] Suite + caracterización sin cambios
+      → 943 tests verdes, más 28 de integración nuevos contra PostgreSQL real
+      para las traducciones a SQL que un mock no comprueba
+
+### Lo que quedó fuera, documentado en el ADR
+
+| Qué | Cuántos | Motivo |
+|---|---|---|
+| Informes con agregación en SQL | 4 | Filtros dinámicos; un método por combinación sería peor |
+| Captura de `DbUpdateConcurrencyException` | 5 | Solo el tipo de la excepción; 2 ya no tienen consultas |
+| Configuración e infraestructura | ~20 | No son reglas de negocio; entran en F5 |
 
 ---
 

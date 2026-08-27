@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using TelecomBoliviaNet.Domain.Entities.Tickets;
 using TelecomBoliviaNet.Domain.Interfaces;
 using TelecomBoliviaNet.Infrastructure.Data;
@@ -50,4 +50,25 @@ public class TicketWorkLogRepository
             .Where(w => w.TicketId == ticketId)
             .OrderByDescending(w => w.LoggedAt)
             .ToListAsync(ct);
+}
+
+/// <summary>Implementación de <see cref="ITicketAttachmentRepository"/>. Ver ADR-001.</summary>
+public class TicketAttachmentRepository
+    : GenericRepository<TicketAttachment>, ITicketAttachmentRepository
+{
+    private readonly AppDbContext _db;
+
+    public TicketAttachmentRepository(AppDbContext db) : base(db) => _db = db;
+
+    public Task<List<TicketAttachment>> GetActiveByTicketAsync(
+        Guid ticketId, CancellationToken ct = default)
+        => _db.Set<TicketAttachment>().AsNoTracking()
+            .Include(a => a.SubidoPor)
+            .Where(a => a.TicketId == ticketId && !a.IsDeleted)
+            .OrderByDescending(a => a.SubidoAt)
+            .ToListAsync(ct);
+
+    public Task<int> CountActiveByTicketAsync(Guid ticketId, CancellationToken ct = default)
+        => _db.Set<TicketAttachment>()
+            .CountAsync(a => a.TicketId == ticketId && !a.IsDeleted, ct);
 }

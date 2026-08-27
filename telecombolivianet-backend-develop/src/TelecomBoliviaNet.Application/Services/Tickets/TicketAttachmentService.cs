@@ -1,5 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Logging;
+﻿using Microsoft.Extensions.Logging;
 using TelecomBoliviaNet.Application.Interfaces;
 using TelecomBoliviaNet.Application.Services.Auth;
 using TelecomBoliviaNet.Domain.Entities.Tickets;
@@ -13,7 +12,7 @@ namespace TelecomBoliviaNet.Application.Services.Tickets;
 
 public class TicketAttachmentService
 {
-    private readonly IGenericRepository<TicketAttachment>   _repo;
+    private readonly ITicketAttachmentRepository   _repo;
     private readonly IGenericRepository<SupportTicket>      _ticketRepo;
     private readonly IFileStorage                           _storage;
     private readonly AuditService                           _audit;
@@ -25,7 +24,7 @@ public class TicketAttachmentService
         ["image/jpeg","image/png","image/webp","application/pdf","text/plain"];
 
     public TicketAttachmentService(
-        IGenericRepository<TicketAttachment> repo,
+        ITicketAttachmentRepository repo,
         IGenericRepository<SupportTicket>    ticketRepo,
         IFileStorage                         storage,
         AuditService                         audit,
@@ -40,11 +39,7 @@ public class TicketAttachmentService
 
     public async Task<List<TicketAttachmentDto>> GetByTicketAsync(Guid ticketId)
     {
-        var list = await _repo.GetAll()
-            .Include(a => a.SubidoPor)
-            .Where(a => a.TicketId == ticketId && !a.IsDeleted)
-            .OrderByDescending(a => a.SubidoAt)
-            .ToListAsync();
+        var list = await _repo.GetActiveByTicketAsync(ticketId);
         return list.Select(a => ToDto(a)).ToList();
     }
 
@@ -60,8 +55,7 @@ public class TicketAttachmentService
         if (sizeBytes > MaxFileSizeBytes)
             return Result<TicketAttachmentDto>.Failure("El archivo supera el límite de 15 MB.");
 
-        var count = await _repo.GetAll()
-            .CountAsync(a => a.TicketId == ticketId && !a.IsDeleted);
+        var count = await _repo.CountActiveByTicketAsync(ticketId);
         if (count >= MaxAttachments)
             return Result<TicketAttachmentDto>.Failure(
                 $"El ticket ya tiene el máximo de {MaxAttachments} adjuntos.");

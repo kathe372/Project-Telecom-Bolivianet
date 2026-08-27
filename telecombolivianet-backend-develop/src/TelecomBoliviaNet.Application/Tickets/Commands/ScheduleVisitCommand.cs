@@ -1,5 +1,4 @@
-using MediatR;
-using Microsoft.EntityFrameworkCore;
+﻿using MediatR;
 using TelecomBoliviaNet.Application.DTOs.Tickets;
 using TelecomBoliviaNet.Application.Interfaces;
 using TelecomBoliviaNet.Application.Services.Auth;
@@ -21,7 +20,7 @@ public record ScheduleVisitCommand(
 
 public class ScheduleVisitHandler : IRequestHandler<ScheduleVisitCommand, Result<TicketVisitDto>>
 {
-    private readonly IGenericRepository<SupportTicket>   _ticketRepo;
+    private readonly ITicketRepository   _ticketRepo;
     private readonly IGenericRepository<TicketVisit>     _visitRepo;
     private readonly IGenericRepository<TicketComment>   _commentRepo;
     private readonly IGenericRepository<TicketNotification> _notifRepo;
@@ -30,7 +29,7 @@ public class ScheduleVisitHandler : IRequestHandler<ScheduleVisitCommand, Result
     private readonly AuditService                        _audit;
 
     public ScheduleVisitHandler(
-        IGenericRepository<SupportTicket>      ticketRepo,
+        ITicketRepository      ticketRepo,
         IGenericRepository<TicketVisit>        visitRepo,
         IGenericRepository<TicketComment>      commentRepo,
         IGenericRepository<TicketNotification> notifRepo,
@@ -71,9 +70,7 @@ public class ScheduleVisitHandler : IRequestHandler<ScheduleVisitCommand, Result
 
     public async Task<Result<TicketVisitDto>> Handle(ScheduleVisitCommand cmd, CancellationToken ct)
     {
-        var ticket = await _ticketRepo.GetAll()
-            .Include(t => t.Client)
-            .FirstOrDefaultAsync(t => t.Id == cmd.TicketId, ct);
+        var ticket = await _ticketRepo.GetWithClientAsync(cmd.TicketId, ct);
         if (ticket is null) return Result<TicketVisitDto>.Failure("Ticket no encontrado.");
         if (ticket.Status == TicketStatus.Cerrado)
             return Result<TicketVisitDto>.Failure("No se puede programar visita en ticket cerrado.");

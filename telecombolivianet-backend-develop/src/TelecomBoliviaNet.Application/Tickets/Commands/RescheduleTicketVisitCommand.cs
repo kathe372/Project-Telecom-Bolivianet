@@ -1,5 +1,4 @@
 ﻿using MediatR;
-using Microsoft.EntityFrameworkCore;
 using TelecomBoliviaNet.Application.DTOs.Tickets;
 using TelecomBoliviaNet.Application.Interfaces;
 using TelecomBoliviaNet.Application.Services.Auth;
@@ -23,8 +22,8 @@ public record RescheduleTicketVisitCommand(
 public class RescheduleTicketVisitHandler
     : IRequestHandler<RescheduleTicketVisitCommand, Result<TicketVisitDto>>
 {
-    private readonly IGenericRepository<SupportTicket>      _ticketRepo;
-    private readonly IGenericRepository<TicketVisit>        _visitRepo;
+    private readonly ITicketRepository      _ticketRepo;
+    private readonly ITicketVisitRepository        _visitRepo;
     private readonly IGenericRepository<TicketComment>      _commentRepo;
     private readonly IGenericRepository<TicketNotification> _notifRepo;
     private readonly IGenericRepository<UserSystem>         _userRepo;
@@ -32,8 +31,8 @@ public class RescheduleTicketVisitHandler
     private readonly AuditService                           _audit;
 
     public RescheduleTicketVisitHandler(
-        IGenericRepository<SupportTicket>      ticketRepo,
-        IGenericRepository<TicketVisit>        visitRepo,
+        ITicketRepository      ticketRepo,
+        ITicketVisitRepository        visitRepo,
         IGenericRepository<TicketComment>      commentRepo,
         IGenericRepository<TicketNotification> notifRepo,
         IGenericRepository<UserSystem>         userRepo,
@@ -64,19 +63,14 @@ public class RescheduleTicketVisitHandler
             return Result<TicketVisitDto>.Failure("La nueva fecha de visita debe ser futura.");
 
         // 2. Cargar ticket
-        var ticket = await _ticketRepo.GetAll()
-            .Include(t => t.Client)
-            .FirstOrDefaultAsync(t => t.Id == cmd.TicketId, ct);
+        var ticket = await _ticketRepo.GetWithClientAsync(cmd.TicketId, ct);
         if (ticket is null) return Result<TicketVisitDto>.Failure("Ticket no encontrado.");
         if (ticket.Status == TicketStatus.Cerrado)
             return Result<TicketVisitDto>.Failure("No se puede reprogramar visita en un ticket cerrado.");
 
         // 3. Reprogramar la visita programada más reciente; si no hay, crear una nueva.
         //    (Evita acumular visidas "Programada" duplicadas en el ticket.)
-        var visit = await _visitRepo.GetAll()
-            .Where(v => v.TicketId == cmd.TicketId && v.Status == VisitStatus.Programada)
-            .OrderByDescending(v => v.ScheduledAt)
-            .FirstOrDefaultAsync(ct);
+        var visit = await _visitRepo.GetLatestScheduledAsync(cmd.TicketId, ct);
 
         var motivo = string.IsNullOrWhiteSpace(cmd.Dto.Motivo)
             ? "Reprogramada por el cliente vía WhatsApp"

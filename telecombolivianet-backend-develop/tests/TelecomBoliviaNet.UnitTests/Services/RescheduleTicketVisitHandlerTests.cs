@@ -16,17 +16,23 @@ namespace TelecomBoliviaNet.UnitTests.Services;
 /// </summary>
 public class RescheduleTicketVisitHandlerTests
 {
-    private readonly Mock<IGenericRepository<SupportTicket>>      _ticketRepo = new(MockBehavior.Loose);
-    private readonly Mock<IGenericRepository<TicketVisit>>        _visitRepo  = new(MockBehavior.Loose);
+    private readonly Mock<ITicketRepository>                      _ticketRepo = new(MockBehavior.Loose);
+    private readonly Mock<ITicketVisitRepository>                 _visitRepo  = new(MockBehavior.Loose);
     private readonly Mock<IGenericRepository<TicketComment>>      _commentRepo = new(MockBehavior.Loose);
     private readonly Mock<IGenericRepository<TicketNotification>> _notifRepo  = new(MockBehavior.Loose);
-    private readonly Mock<IGenericRepository<UserSystem>>         _userRepo   = new(MockBehavior.Loose);
+    private readonly Mock<IUserRepository>                        _userRepo   = new(MockBehavior.Loose);
     private readonly Mock<INotifPublisher>                        _publisher  = new(MockBehavior.Loose);
 
     private RescheduleTicketVisitHandler Build(SupportTicket ticket, List<TicketVisit> visits)
     {
-        _ticketRepo.Setup(r => r.GetAll()).Returns(new[] { ticket }.AsQueryable().BuildMock());
-        _visitRepo.Setup(r => r.GetAll()).Returns(visits.AsQueryable().BuildMock());
+        _ticketRepo.Setup(r => r.GetWithClientAsync(ticket.Id, It.IsAny<CancellationToken>()))
+                   .ReturnsAsync(ticket);
+        _visitRepo.Setup(r => r.GetLatestScheduledAsync(
+                       It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+                  .ReturnsAsync(() => visits
+                       .Where(v => v.Status == VisitStatus.Programada)
+                       .OrderByDescending(v => v.ScheduledAt)
+                       .FirstOrDefault());
         return new RescheduleTicketVisitHandler(
             _ticketRepo.Object, _visitRepo.Object, _commentRepo.Object,
             _notifRepo.Object, _userRepo.Object, _publisher.Object, TestAudit.Real());

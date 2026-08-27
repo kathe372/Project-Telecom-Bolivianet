@@ -29,4 +29,11 @@ public interface ITicketVisitRepository : IGenericRepository<TicketVisit>
     /// incluidas las canceladas: la ficha cuenta el historial completo.
     /// </summary>
     Task<List<TicketVisit>> GetForTicketAsync(Guid ticketId, CancellationToken ct = default);
+
+    /// <summary>
+    /// Última visita aún programada de un ticket. Reprogramar reutiliza esta en
+    /// vez de crear otra: si no, el ticket acumula visitas "Programada"
+    /// duplicadas y la agenda muestra huecos ocupados que no existen.
+    /// </summary>
+    Task<TicketVisit?> GetLatestScheduledAsync(Guid ticketId, CancellationToken ct = default);
 }

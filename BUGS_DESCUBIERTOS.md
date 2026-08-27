@@ -55,6 +55,48 @@ romperse, pero conviene correrlo antes para que EF ni las intente.
 
 ---
 
+## F4 — Fase 4 (2026-08-25)
+
+### 🟡 D-18 · `SpecificRepoMock` consultaba una lista distinta de la que muta `AddAsync` — **CORREGIDO**
+
+Infraestructura de tests, no código de producción. Introducido en los primeros
+tramos de F4 y latente hasta el tramo de Tickets.
+
+`RepoMock.Of<TRepo, T>(params T[] items)` guardaba los elementos en su propia
+`List<T>`, y `AddAsync` añadía ahí. `SpecificRepoMock` hacía además su
+`items.ToList()` para resolver los métodos con nombre de negocio — **otra lista**.
+Efecto: un test que creaba una entidad y luego la leía por un método específico no
+la encontraba.
+
+Se manifestó al pasar `CreateTicketHandler` por `GetDetailAsync`: 16 tests en rojo
+con "Ticket no encontrado" y `NullReferenceException`, ninguno por culpa del código
+que probaban.
+
+**Por qué importa más de lo que parece:** un mock que miente en esa dirección
+produce fallos que apuntan al sitio equivocado. Se perdió tiempo mirando
+`CreateTicketHandler` antes de sospechar del andamiaje.
+
+**Arreglo:** `RepoMock.Of<TRepo, T>(List<T> list)` acepta la lista desde fuera y
+ambas mitades comparten la misma instancia.
+
+### 🟡 D-19 · `ClearDefaultFlagAsync` con llaves ausentes — **CORREGIDO**
+
+En `BusinessScheduleService`:
+
+```csharp
+if (current.Count > 0)
+    _scheduleRepo.UpdateRange(current);
+    await _scheduleRepo.SaveChangesAsync();   // ← fuera del if, pese a la sangría
+```
+
+El `SaveChangesAsync` se ejecutaba siempre. Sin consecuencia funcional —guardar sin
+cambios pendientes no hace nada—, pero la sangría afirma lo contrario de lo que el
+código hace, que es la clase de trampa que produce el bug siguiente.
+
+Reescrito con salida temprana: `if (current.Count == 0) return;`.
+
+---
+
 ## Caza de bugs (2026-08-24)
 
 Barrido dirigido tras F0–F4, con sondas escritas para intentar **romper** el

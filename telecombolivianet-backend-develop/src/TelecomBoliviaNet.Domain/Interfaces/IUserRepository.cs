@@ -1,4 +1,4 @@
-using TelecomBoliviaNet.Domain.Entities.Auth;
+﻿using TelecomBoliviaNet.Domain.Entities.Auth;
 
 namespace TelecomBoliviaNet.Domain.Interfaces;
 
@@ -41,4 +41,7 @@ public interface IUserRepository : IGenericRepository<UserSystem>
     /// </summary>
     Task<Dictionary<Guid, string>> GetNamesByIdsAsync(
         IReadOnlyCollection<Guid> ids, CancellationToken ct = default);
+
+    /// <summary>Técnicos en activo, ordenados por nombre. Los da de alta el reparto de carga.</summary>
+    Task<List<UserSystem>> GetActiveTechniciansAsync(CancellationToken ct = default);
 }

@@ -51,4 +51,11 @@ public class TicketVisitRepository : GenericRepository<TicketVisit>, ITicketVisi
             .Where(v => v.TicketId == ticketId)
             .OrderBy(v => v.ScheduledAt)
             .ToListAsync(ct);
+
+    public Task<TicketVisit?> GetLatestScheduledAsync(
+        Guid ticketId, CancellationToken ct = default)
+        => _db.TicketVisits
+            .Where(v => v.TicketId == ticketId && v.Status == VisitStatus.Programada)
+            .OrderByDescending(v => v.ScheduledAt)
+            .FirstOrDefaultAsync(ct);
 }

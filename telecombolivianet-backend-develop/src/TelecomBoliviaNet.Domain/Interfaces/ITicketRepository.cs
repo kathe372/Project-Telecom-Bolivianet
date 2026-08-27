@@ -75,7 +75,32 @@ public interface ITicketRepository : IGenericRepository<SupportTicket>
     /// decisión no le toca al repositorio.
     /// </summary>
     Task<List<SlaTrackedTicket>> GetSlaTrackedAsync(CancellationToken ct = default);
+
+    /// <summary>Ticket con su cliente, para los comandos que le notifican algo.</summary>
+    Task<SupportTicket?> GetWithClientAsync(Guid id, CancellationToken ct = default);
+
+    /// <summary>
+    /// Cuántos tickets vivos tiene encima cada técnico, y cuántos de ellos son
+    /// críticos. El conteo lo hace SQL: traer todos los tickets abiertos a
+    /// memoria para agruparlos sería absurdo.
+    ///
+    /// <para>Solo aparecen los técnicos que tienen alguno; quien reparte carga
+    /// completa con cero los que faltan, porque solo él sabe qué lista de
+    /// técnicos le interesa.</para>
+    /// </summary>
+    Task<Dictionary<Guid, TechnicianLoad>> GetOpenLoadByTechnicianAsync(
+        IReadOnlyCollection<Guid> technicianIds, CancellationToken ct = default);
+
+    /// <summary>
+    /// Cuándo se le asignó por última vez un ticket a cada técnico. Desempata
+    /// entre técnicos con la misma carga, para que el reparto rote.
+    /// </summary>
+    Task<Dictionary<Guid, DateTime>> GetLastAssignmentByTechnicianAsync(
+        IReadOnlyCollection<Guid> technicianIds, CancellationToken ct = default);
 }
+
+/// <summary>Tickets vivos de un técnico: el total y cuántos son críticos.</summary>
+public record TechnicianLoad(int Total, int Critical);
 
 /// <summary>
 /// Criterios del listado de tickets. Todo opcional: la pantalla arranca sin
