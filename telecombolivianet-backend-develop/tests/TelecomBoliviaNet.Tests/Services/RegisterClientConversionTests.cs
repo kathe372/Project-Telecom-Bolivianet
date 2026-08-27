@@ -57,13 +57,11 @@ public class RegisterClientConversionTests
     {
         var clients  = clientRepo ?? SpecificRepoMock.Clients().Object;
         var invoices = RepoMock.Empty<Invoice>().Object;
-        var billing  = new BillingService(
-            clients, invoices, MakeAudit(),
-            NullLogger<BillingService>.Instance,
+        // F5: el alta solo necesita las retroactivas, no el ciclo mensual entero.
+        var backfill = new InvoiceBackfillService(
+            invoices,
             new Mock<IInvoiceNumberService>().Object,
-            new Mock<INotifPublisher>().Object,
-            new Mock<IUnitOfWork>().Object,
-            new Mock<ICreditLedger>().Object);
+            NullLogger<InvoiceBackfillService>.Instance);
 
         var tbn = new Mock<ITbnService>();
         tbn.Setup(t => t.GenerateNextAsync()).ReturnsAsync("TBN-100");
@@ -74,7 +72,7 @@ public class RegisterClientConversionTests
             RepoMock.Empty<PaymentInvoice>().Object,
             RepoMock.Of<Plan>(MakePlan()).Object,
             instRepo,
-            tbn.Object, MakeAudit(), billing,
+            tbn.Object, MakeAudit(), backfill,
             new Mock<IUnitOfWork>().Object,
             NullLogger<RegisterClientHandler>.Instance);
     }

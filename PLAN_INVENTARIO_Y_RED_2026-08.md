@@ -75,6 +75,8 @@ Tres columnas de texto libre para el mismo dato físico, sin FK entre ellas, sin
 
 ## 2. PARTE A — Módulo de Inventario
 
+> **Ampliado el 2026-08-26 en [`PLAN_INVENTARIO_FUNCIONAL_2026-08.md`](PLAN_INVENTARIO_FUNCIONAL_2026-08.md):** catálogo de funcionalidades por prioridad, reglas de negocio, matriz de permisos, integración archivo por archivo y orden de construcción revisado. Esa ampliación corrige dos estimaciones de aquí (I3 baja a 3 días porque el enganche de reserva ya está pre-trazado; el total sube a 6-7 semanas al incorporar la carga inicial y el escaneo de códigos).
+
 ### 2.1 Qué significa "inventario" en un ISP de fibra
 
 No es un solo problema, son tres con reglas distintas:

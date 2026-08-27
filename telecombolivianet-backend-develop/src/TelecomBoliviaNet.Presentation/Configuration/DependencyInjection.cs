@@ -158,6 +158,9 @@ public static class DependencyInjection
 
         services.AddScoped<BillingService>();
         services.AddScoped<IBillingService>(sp => sp.GetRequiredService<BillingService>());
+        // F5 — lo que BillingService hacía además de facturar el mes.
+        services.AddScoped<IInvoiceBackfillService, InvoiceBackfillService>();
+        services.AddScoped<IInvoiceStatusService,   InvoiceStatusService>();
         services.AddScoped<InvoiceQueryService>();
         services.AddScoped<IInvoiceQueryService>(sp => sp.GetRequiredService<InvoiceQueryService>());
         services.AddHostedService<BillingBackgroundJob>();

@@ -104,8 +104,9 @@ public class BillingBackgroundJob : BackgroundService
                     {
                         var dayKey = BillingSchedule.DayKey(nowBolivia);
                         _logger.LogInformation("Ejecutando job de VENCIMIENTO {Day}", dayKey);
-                        var billing = scopeV.ServiceProvider.GetRequiredService<BillingService>();
-                        await billing.MarkOverdueInvoicesAsync();
+                        var statusSvc = scopeV.ServiceProvider
+                            .GetRequiredService<TelecomBoliviaNet.Application.Interfaces.IInvoiceStatusService>();
+                        await statusSvc.MarkOverdueInvoicesAsync();
                         await JobRunTracker.MarkRanAsync(
                             db, SystemConfigKeys.BillingLastOverdueDay, dayKey, stoppingToken);
                     }

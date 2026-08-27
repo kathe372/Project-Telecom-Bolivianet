@@ -73,9 +73,14 @@ public class BillingServiceTests
             MakeAudit(),
             NullLogger<BillingService>.Instance,
             MakeInvNumSvc().Object,
-            new Mock<INotifPublisher>().Object,
             MakeUow(),
             MakeCreditLedger());
+
+    // F5: las retroactivas se mudaron a su propio servicio.
+    private static InvoiceBackfillService MakeBackfill(Mock<IGenericRepository<Invoice>> invoiceRepo)
+        => new(invoiceRepo.Object,
+               MakeInvNumSvc().Object,
+               NullLogger<InvoiceBackfillService>.Instance);
 
     // Test 1: calculo proporcional correcto para distintos dias
     [Theory]
@@ -109,9 +114,10 @@ public class BillingServiceTests
         };
 
         var invoiceRepo = RepoMock.Of(existing);
-        var svc = MakeService(invoiceRepo);
+        var svc = MakeBackfill(invoiceRepo);
 
-        await svc.GenerateBackfillInvoicesAsync(client, MonthlyPrice);
+        
+await svc.GenerateBackfillInvoicesAsync(client, MonthlyPrice);
 
         // No debe duplicar el mes existente
         invoiceRepo.Verify(r => r.AddRangeAsync(
@@ -130,9 +136,10 @@ public class BillingServiceTests
                                        0, 0, 0, DateTimeKind.Utc).AddMonths(-2);
         var client      = MakeClient(installDate);
         var invoiceRepo = RepoMock.Empty<Invoice>();
-        var svc = MakeService(invoiceRepo);
+        var svc = MakeBackfill(invoiceRepo);
 
-        await svc.GenerateBackfillInvoicesAsync(client, MonthlyPrice);
+        
+await svc.GenerateBackfillInvoicesAsync(client, MonthlyPrice);
 
         invoiceRepo.Verify(r => r.AddRangeAsync(It.IsAny<IEnumerable<Invoice>>()), Times.Once);
         // SaveChangesAsync NO debe llamarse aquí — responsabilidad del llamador vía IUnitOfWork
@@ -148,9 +155,10 @@ public class BillingServiceTests
         var client = MakeClient(new DateTime(today.Year, today.Month, today.Day,
                                              0, 0, 0, DateTimeKind.Utc));
         var invoiceRepo = RepoMock.Empty<Invoice>();
-        var svc = MakeService(invoiceRepo);
+        var svc = MakeBackfill(invoiceRepo);
 
-        await svc.GenerateBackfillInvoicesAsync(client, MonthlyPrice);
+        
+await svc.GenerateBackfillInvoicesAsync(client, MonthlyPrice);
 
         invoiceRepo.Verify(r => r.AddRangeAsync(
             It.Is<IEnumerable<Invoice>>(inv => inv.Count() == 1)), Times.Once);

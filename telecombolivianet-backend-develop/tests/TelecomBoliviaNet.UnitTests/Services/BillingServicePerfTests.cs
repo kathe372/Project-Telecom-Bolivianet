@@ -19,12 +19,12 @@ public class BillingServicePerfTests
     private readonly Mock<IInvoiceNumberService>       _invNumMock      = new(MockBehavior.Loose);
     private readonly Mock<INotifPublisher>             _notifMock       = new(MockBehavior.Loose);
 
-    private BillingService BuildService() => new BillingServiceBuilder()
+    private InvoiceStatusService BuildService() => new BillingServiceBuilder()
         .WithClients(_clientRepoMock.Object)
         .WithInvoices(_invoiceRepoMock.Object)
         .WithInvoiceNumbers(_invNumMock.Object)
         .WithNotifier(_notifMock.Object)
-        .Build();
+        .BuildStatusService();
 
     // PERF-01-T01: GetAll on clientRepo called exactly once regardless of invoice count
     [Fact]

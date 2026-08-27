@@ -1,4 +1,4 @@
-using TelecomBoliviaNet.Domain.Entities.Clients;
+﻿using TelecomBoliviaNet.Domain.Entities.Clients;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using TelecomBoliviaNet.Application.DTOs.Invoices;
@@ -14,6 +14,7 @@ namespace TelecomBoliviaNet.Presentation.Controllers.Invoices;
 public class InvoicesController : BaseController
 {
     private readonly IBillingService        _billing;
+    private readonly IInvoiceStatusService  _statusSvc;
     private readonly IInvoiceQueryService   _query;
     private readonly AuditService           _audit;
     private readonly IExportService         _export;
@@ -21,12 +22,14 @@ public class InvoicesController : BaseController
 
     public InvoicesController(
         IBillingService        billing,
+        IInvoiceStatusService  statusSvc,
         IInvoiceQueryService   query,
         AuditService           audit,
         IExportService         export,
         ICompanyProfileService company)
     {
         _billing = billing;
+        _statusSvc     = statusSvc;
         _query   = query;
         _audit   = audit;
         _export  = export;
@@ -104,7 +107,7 @@ public class InvoicesController : BaseController
     [Authorize(Policy = "AdminOnly")]
     public async Task<IActionResult> MarkOverdue()
     {
-        var count = await _billing.MarkOverdueInvoicesAsync(CurrentUserId, CurrentUserName);
+        var count = await _statusSvc.MarkOverdueInvoicesAsync(CurrentUserId, CurrentUserName);
         return OkResult(new { MarkedOverdue = count });
     }
 
@@ -248,7 +251,7 @@ public class InvoicesController : BaseController
     [Authorize(Policy = "AdminOnly")]
     public async Task<IActionResult> VoidInvoice(Guid id, [FromBody] VoidInvoiceDto dto)
     {
-        var result = await _billing.VoidInvoiceAsync(
+        var result = await _statusSvc.VoidInvoiceAsync(
             id, dto.Justification, CurrentUserId, CurrentUserName, ClientIp);
         if (!result.IsSuccess) return BadRequestResult(result.ErrorMessage);
         return OkMessage("Factura anulada correctamente.");

@@ -1,5 +1,6 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using TelecomBoliviaNet.Application.Interfaces;
 using TelecomBoliviaNet.Application.Services.Invoices;
 using TelecomBoliviaNet.Application.Services.Notifications;
 using TelecomBoliviaNet.Domain.Entities.Auth;
@@ -173,7 +174,7 @@ public class DebtDefinitionIntegrationTests : IClassFixture<CustomWebApplication
                 diasHastaVencimiento: -1));
         using var scope = seeded.Scope;
 
-        var billing = scope.ServiceProvider.GetRequiredService<BillingService>();
+        var billing = scope.ServiceProvider.GetRequiredService<IInvoiceStatusService>();
         var marcadas = await billing.MarkOverdueInvoicesAsync();
 
         Assert.Equal(1, marcadas);
@@ -190,7 +191,7 @@ public class DebtDefinitionIntegrationTests : IClassFixture<CustomWebApplication
             Inv(month: 7, status: InvoiceStatus.ParcialmentePagada, paid: 50m, diasHastaVencimiento: -1));
         using var scope = seeded.Scope;
 
-        await scope.ServiceProvider.GetRequiredService<BillingService>().MarkOverdueInvoicesAsync();
+        await scope.ServiceProvider.GetRequiredService<IInvoiceStatusService>().MarkOverdueInvoicesAsync();
 
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
         var invoice = await db.Set<Invoice>().AsNoTracking().SingleAsync();
@@ -209,7 +210,7 @@ public class DebtDefinitionIntegrationTests : IClassFixture<CustomWebApplication
         using var scope = seeded.Scope;
 
         var marcadas = await scope.ServiceProvider
-            .GetRequiredService<BillingService>().MarkOverdueInvoicesAsync();
+            .GetRequiredService<IInvoiceStatusService>().MarkOverdueInvoicesAsync();
 
         Assert.Equal(0, marcadas);
 
@@ -225,7 +226,7 @@ public class DebtDefinitionIntegrationTests : IClassFixture<CustomWebApplication
         using var scope = seeded.Scope;
 
         var marcadas = await scope.ServiceProvider
-            .GetRequiredService<BillingService>().MarkOverdueInvoicesAsync();
+            .GetRequiredService<IInvoiceStatusService>().MarkOverdueInvoicesAsync();
 
         Assert.Equal(0, marcadas);
     }

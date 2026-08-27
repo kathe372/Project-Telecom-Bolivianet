@@ -31,7 +31,7 @@ public class RegisterClientHandler : IRequestHandler<RegisterClientCommand, Resu
     private readonly IGenericRepository<Installation>   _instRepo;
     private readonly ITbnService                        _tbn;
     private readonly AuditService                       _audit;
-    private readonly BillingService                     _billing;
+    private readonly IInvoiceBackfillService            _backfill;
     private readonly IUnitOfWork                        _uow;
     private readonly ILogger<RegisterClientHandler>     _logger;
 
@@ -44,7 +44,7 @@ public class RegisterClientHandler : IRequestHandler<RegisterClientCommand, Resu
         IGenericRepository<Installation>   instRepo,
         ITbnService                        tbn,
         AuditService                       audit,
-        BillingService                     billing,
+        IInvoiceBackfillService            backfill,
         IUnitOfWork                        uow,
         ILogger<RegisterClientHandler>     logger)
     {
@@ -56,7 +56,7 @@ public class RegisterClientHandler : IRequestHandler<RegisterClientCommand, Resu
         _instRepo    = instRepo;
         _tbn         = tbn;
         _audit       = audit;
-        _billing     = billing;
+        _backfill      = backfill;
         _uow         = uow;
         _logger      = logger;
     }
@@ -148,7 +148,7 @@ public class RegisterClientHandler : IRequestHandler<RegisterClientCommand, Resu
             if (dto.PaidInstallation) invoiceIds.Add(instInvoice.Id);
 
             await _clientRepo.SaveChangesAsync();
-            await _billing.GenerateBackfillInvoicesAsync(client, plan.MonthlyPrice);
+            await _backfill.GenerateBackfillInvoicesAsync(client, plan.MonthlyPrice);
             await _invoiceRepo.SaveChangesAsync();
 
             if (dto.PaidFirstMonth)

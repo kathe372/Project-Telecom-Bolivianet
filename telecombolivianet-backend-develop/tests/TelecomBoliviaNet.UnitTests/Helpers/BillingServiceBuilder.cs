@@ -1,4 +1,4 @@
-using Microsoft.Extensions.Logging.Abstractions;
+﻿using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
 using TelecomBoliviaNet.Application.Interfaces;
 using TelecomBoliviaNet.Application.Services.Invoices;
@@ -52,7 +52,17 @@ public sealed class BillingServiceBuilder
         TestAudit.Real(),
         NullLogger<BillingService>.Instance,
         _invNumSvc    ?? Mock.Of<IInvoiceNumberService>(),
-        _notif        ?? Mock.Of<INotifPublisher>(),
         _uow          ?? Mock.Of<IUnitOfWork>(),
         _creditLedger ?? Mock.Of<ICreditLedger>());
+
+    /// <summary>
+    /// F5: marcar vencidas se mudó a InvoiceStatusService. El builder lo arma con
+    /// los mismos dobles para que los tests que ya existían no tengan que saberlo.
+    /// </summary>
+    public InvoiceStatusService BuildStatusService() => new(
+        _invoiceRepo ?? Mock.Of<IGenericRepository<Invoice>>(),
+        _clientRepo  ?? Mock.Of<IGenericRepository<Client>>(),
+        _notif       ?? Mock.Of<INotifPublisher>(),
+        TestAudit.Real(),
+        NullLogger<InvoiceStatusService>.Instance);
 }

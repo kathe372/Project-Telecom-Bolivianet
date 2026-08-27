@@ -910,6 +910,24 @@ Son 50 iteraciones de 2 minutos. Es tedioso, y es lo que separa un refactor segu
 - [ ] **Test de paridad de esquema verde tras cada entidad movida**
 - [ ] Cero delegadores `[Obsolete]` · Suite + caracterización sin cambios
 
+### Avance (2026-08-26)
+
+Clases de Application > 250 líneas: **9 → 7**. Constructores > 6 deps: **16**.
+
+Medir con `python scripts/contar-dependencias.py` — contar las comas del
+constructor a ojo se salta el último parámetro, y así reporté 9 y 6 donde eran
+10 y 7 en el commit `F5 (1/n)`.
+
+| Hecho | Resultado |
+|---|---|
+| `PaymentService` | 565 → 230 líneas · 12 → 10 deps · + 5 clases nuevas |
+| `BillingService` | 458 → 249 líneas · 8 → 7 deps · + `InvoiceBackfillService`, `InvoiceStatusService` |
+| `ProrationCalculator` al dominio | 12 tests de tabla, sin montar ningún servicio |
+
+Pendiente: `InvoiceQueryService` (419), `PlanChangeService` (362, 12 deps),
+`PaymentCreditService` (344, 12 deps), `BotProxyService` (332),
+`InvoiceOperationsService` (281), `AuthService` (255), y `AppDbContext` (847).
+
 ---
 
 # FASE 6 — Idioma inglés en los 4 servicios
