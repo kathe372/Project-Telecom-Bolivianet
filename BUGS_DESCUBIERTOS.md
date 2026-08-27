@@ -210,6 +210,50 @@ ve el operador, no una limpieza de refactor.
 una sola. Ahora vive en `BotProxyBase.SinRomperElPanelAsync`, así que el día que
 se decida distinguir los dos casos es **una** edición y no once.
 
+### 🔴 D-21 · Un horario 24x7 dejaba el calendario de instalaciones sin un solo hueco — **CORREGIDO**
+
+Salió al llevar la máscara de días laborables al dominio. `Is24x7` significaba
+cosas distintas según quién preguntara:
+
+| Quién | Qué hacía con un horario 24x7 |
+|---|---|
+| Cálculo de SLA (`TicketHelper`) | Lo trata aparte y **nunca consulta** la máscara ni las horas |
+| Consulta de huecos de instalación | Leía la máscara y las horas **como si fuera un horario normal** |
+| Consulta de huecos de visita | Igual |
+| `ValidateDto` al crear/editar | **No comprueba nada** cuando `Is24x7` es `true` |
+
+Ese último es el que cierra el círculo. `CreateBusinessScheduleDto` es un record
+posicional de enteros: los campos que el JSON no traiga llegan como `0`. Así que
+esto se guarda sin una queja:
+
+```json
+{ "name": "24/7", "timeZoneName": "America/La_Paz", "is24x7": true, "isDefault": true }
+```
+
+→ `WorkingDaysMask = 0`, `StartHour = 0`, `EndHour = 0`.
+
+**Consecuencia:** el SLA sigue calculando bien —se salta el horario— y el
+calendario de instalaciones **devuelve cero huecos todos los días, para siempre**,
+sin ningún error a la vista. El operador ve una agenda vacía y no hay nada en los
+logs que lo explique.
+
+**Arreglo:** la entidad decide qué significa 24x7, en un solo sitio.
+`IsWorkingDay` devuelve `true` para cualquier día si `Is24x7`, y el nuevo
+`OpenHours` devuelve `(0, 24)` en vez de las horas guardadas. Las dos consultas
+de huecos usan `OpenHours`.
+
+Comprobado que no afecta al SLA: `AddBusinessMinutes` tiene un único llamador
+—`TicketHelper`— y sale antes con `if (schedule is null || schedule.Is24x7)`, así
+que `SlaCalculator` nunca ve un horario 24x7.
+
+Cubierto por `BusinessSchedule24x7Tests`, verificados fallando sin el arreglo.
+
+**Lo que NO se tocó:** `ValidateDto` sigue sin comprobar nada cuando `Is24x7` es
+true. Endurecerlo rechazaría peticiones que hoy se aceptan, y con el arreglo de
+arriba las horas y la máscara de un 24x7 ya no se usan para nada. Queda anotado
+por si algún día alguien desmarca la casilla de un horario creado así: en ese
+momento esos ceros pasarían a ser efectivos.
+
 ### 🟡 OBS-03 · Un segmento con el operador equivocado no alcanza a nadie y no lo dice
 
 Los operadores de las condiciones de segmento son **asimétricos**: sobre números

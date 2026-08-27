@@ -44,8 +44,10 @@ public class GetInstallationSlotsHandler
         GetInstallationSlotsQuery req, CancellationToken ct)
     {
         var schedule = await _scheduleRepo.GetActiveAsync(ct);
-        var startHour        = schedule?.StartHour        ?? 8;
-        var endHour          = schedule?.EndHour          ?? 18;
+        // OpenHours respeta Is24x7: un horario 24x7 cubre el día entero aunque
+        // StartHour/EndHour valgan cualquier cosa, que es lo que pasa cuando se
+        // creó marcando 24x7 (el validador no los comprueba en ese caso).
+        var (startHour, endHour) = schedule?.OpenHours ?? (8, 18);
         var workingDaysMask  = schedule?.WorkingDaysMask  ?? WorkingDays.MondayToFriday;
 
         var plan = req.PlanId.HasValue

@@ -59,8 +59,8 @@ public class GetTicketVisitSlotsHandler
             return Result<List<TicketSlotDto>>.Failure("No se puede programar visita en un ticket cerrado.");
 
         var schedule = await _scheduleRepo.GetActiveAsync(ct);
-        var startHour       = schedule?.StartHour       ?? 8;
-        var endHour         = schedule?.EndHour         ?? 18;
+        // OpenHours respeta Is24x7 — ver BusinessSchedule.
+        var (startHour, endHour) = schedule?.OpenHours ?? (8, 18);
         var workingDaysMask = schedule?.WorkingDaysMask ?? WorkingDays.MondayToFriday;
 
         var duracionMin  = await GetVisitDurationMinutesAsync();
