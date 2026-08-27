@@ -176,6 +176,22 @@ public class PlanChangeService : IPlanChangeService
             }
 
             await _changeRepo.SaveChangesAsync();
+
+            // OBS-01: el aviso NO es una llamada a WhatsApp, es un insert en
+            // NotifOutbox — una escritura local. Va DENTRO de la transacción a
+            // propósito, que es para lo que existe el patrón outbox: o se
+            // rechaza la solicitud y se encola el aviso, o no ocurre ninguna de
+            // las dos cosas.
+            //
+            // Antes iba después del commit y sin protección: si el insert
+            // fallaba, el rechazo ya estaba guardado, el mensaje se perdía para
+            // siempre —el worker no reintenta lo que nunca se escribió— y la
+            // excepción se llevaba por delante el asiento de auditoría de más
+            // abajo, dejando un rechazo aplicado sin rastro de quién lo hizo.
+            if (cambio.Client is not null)
+                await _planNotifier.NotifyRejectedAsync(
+                    cambio.Client, cambio.NewPlan?.Name, motivo);
+
             await _uow.CommitAsync();
         }
         catch (Exception)
@@ -184,10 +200,8 @@ public class PlanChangeService : IPlanChangeService
             throw;
         }
 
-        if (cambio.Client is not null)
-            await _planNotifier.NotifyRejectedAsync(
-                cambio.Client, cambio.NewPlan?.Name, motivo);
-
+        // La auditoría queda fuera, como en el resto del código: si llegamos
+        // aquí todo se confirmó, y un fallo del asiento no debe deshacerlo.
         await _audit.LogAsync("Clientes", "PLAN_CHANGE_REJECTED",
             $"Cambio de plan rechazado: {cambio.ClientId} — {motivo}",
             actorId, actorName, ip);

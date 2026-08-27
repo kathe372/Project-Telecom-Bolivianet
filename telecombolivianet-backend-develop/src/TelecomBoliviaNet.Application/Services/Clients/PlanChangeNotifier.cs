@@ -13,12 +13,19 @@ namespace TelecomBoliviaNet.Application.Services.Clients;
 /// que agrupa las tres dependencias de mensajería —el bot, el outbox y el log—
 /// que ninguna de las operaciones de negocio necesita conocer.</para>
 ///
-/// <para>La segunda importa más: aquí vive el único <c>catch (Exception)</c> del
-/// módulo que <b>traga</b> el error en vez de relanzarlo, y ahora se ve por qué.
-/// Estos avisos salen DESPUÉS de confirmar la transacción; que WhatsApp esté
-/// caído no puede deshacer un cambio de plan ya aprobado. Los otros tres
-/// <c>catch</c> del servicio hacen rollback y relanzan, que es lo correcto para
-/// ellos.</para>
+/// <para>La segunda importa más: los dos avisos tienen garantías DISTINTAS a
+/// propósito, y aquí se ve por qué.</para>
+///
+/// <para><see cref="NotifyRejectedAsync"/> solo escribe en el outbox, así que
+/// quien llama lo mete en su transacción y deja subir cualquier fallo: el
+/// rechazo y el aviso se confirman juntos o no se confirma ninguno.</para>
+///
+/// <para><see cref="NotifyApprovedAsync"/> intenta primero una llamada HTTP al
+/// bot, que no puede vivir dentro de una transacción, así que sale después del
+/// commit y traga el error: que el bot esté caído no puede deshacer un cambio de
+/// plan ya aprobado. El precio es que ese aviso sí se puede perder — para
+/// cerrarlo habría que partir este método en dos, outbox dentro y HTTP fuera
+/// (OBS-01, pendiente).</para>
 /// </summary>
 public class PlanChangeNotifier
 {
@@ -75,13 +82,14 @@ public class PlanChangeNotifier
     ///
     /// <remarks>
     /// A diferencia de <see cref="NotifyApprovedAsync"/>, este NO atrapa el
-    /// error: si el aviso falla, la excepción sube. Se conserva tal cual porque
-    /// es el comportamiento que había antes de partir la clase, pero la asimetría
-    /// no parece deliberada — el rechazo ya está confirmado en base cuando se
-    /// llega aquí, así que un fallo de WhatsApp deja al operador viendo un error
-    /// por algo que sí se guardó, y de paso se salta el asiento de auditoría, que
-    /// va después. Anotado como OBS-01 en BUGS_DESCUBIERTOS; cambiarlo es una
-    /// decisión de negocio, no una limpieza de refactor.
+    /// error, y es deliberado: <c>PublishAsync</c> no llama a WhatsApp, inserta
+    /// una fila en <c>NotifOutbox</c>, y quien llama lo hace <b>dentro de su
+    /// transacción</b>. Dejar subir la excepción es lo que permite que el
+    /// rechazo y el aviso se confirmen juntos o no se confirme ninguno.
+    ///
+    /// <para>Atraparlo aquí rompería esa garantía: el rechazo quedaría guardado
+    /// y el mensaje perdido sin reintento posible, porque el worker solo entrega
+    /// lo que llegó a escribirse. Ver OBS-01 en BUGS_DESCUBIERTOS.</para>
     /// </remarks>
     public async Task NotifyRejectedAsync(Client client, string? newPlanName, string motivo)
     {

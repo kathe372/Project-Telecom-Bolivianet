@@ -136,28 +136,51 @@ propósito: es el correcto, y ahora contiene lo correcto.
 Envejece por separado del original y se convierte en una trampa con nombre
 atractivo.
 
-### 🟡 OBS-01 · Cambio de plan: el aviso de aprobación traga errores, el de rechazo no
+### 🟠 OBS-01 · El aviso del cambio de plan quedaba fuera de su transacción — **RECHAZO CORREGIDO**
 
 Los cuatro `catch (Exception)` de `PlanChangeService` se revisaron uno por uno al
-partir la clase, como pedía el plan. Tres hacen `rollback` y relanzan —correcto—.
-El cuarto, el de la notificación de aprobación, traga el error a propósito y bien:
-el aviso sale DESPUÉS de confirmar la transacción, y que WhatsApp esté caído no
-puede deshacer un cambio de plan ya aprobado.
+partir la clase, como pedía el plan. Tres hacen `rollback` y relanzan. El cuarto
+—el aviso de aprobación— traga el error. El de rechazo no lo tragaba, y esa
+asimetría fue lo que hizo mirar el sitio con calma.
 
-Pero **el aviso de rechazo no tiene esa protección**. Si falla:
+**El hallazgo no era el `catch`.** `INotifPublisher.PublishAsync` no llama a
+WhatsApp: inserta una fila en `NotifOutbox`, con FK a `Clients`, y hace su propio
+`SaveChangesAsync`. Es una escritura local. Y estaba **después** del `CommitAsync`:
 
-1. el rechazo ya está confirmado en base,
-2. la excepción sube y el operador ve un error por algo que sí se guardó,
-3. y el asiento de auditoría `PLAN_CHANGE_REJECTED`, que va después, **no se
-   escribe** — queda un rechazo aplicado sin rastro de quién lo hizo.
+```
+BeginTransaction → rechaza, cierra ticket → Commit → PublishAsync → Audit
+                                              ↑         ↑
+                                    negocio confirmado  |
+                                              insert del outbox SIN protección
+```
 
-La asimetría no parece deliberada. **No se tocó**: cambiarlo altera lo que ve el
-operador y es una decisión de negocio, no una limpieza de refactor. Queda anotado
-en el `<remarks>` de `PlanChangeNotifier.NotifyRejectedAsync`.
+El patrón outbox existe justamente para que el cambio de negocio y el mensaje se
+guarden en la misma transacción. Fuera de ella, si el insert falla:
 
-**Para decidir:** ¿el aviso de rechazo debe comportarse como el de aprobación
-(registrar el fallo y seguir, garantizando la auditoría)? Mi recomendación es que
-sí, por el punto 3.
+1. el rechazo ya está guardado;
+2. **el mensaje se pierde para siempre** — el worker solo entrega lo que llegó a
+   escribirse, así que no hay reintento posible;
+3. la excepción se lleva por delante el asiento de auditoría de más abajo, y
+   queda un rechazo aplicado sin rastro de quién lo hizo.
+
+Envolverlo en un `try/catch` habría arreglado (3) y consolidado (2): el mensaje se
+perdería igual, pero en silencio.
+
+**Corregido (2026-08-27):** en `RejectChangeAsync` el aviso pasa a estar **dentro
+de la transacción**, antes del commit. O se rechaza y se encola el aviso, o no
+ocurre ninguna de las dos cosas; si falla, el operador ve un error honesto y
+reintenta. La auditoría queda fuera, que es la convención del resto del código.
+
+Cubierto por dos tests que fallan sin el arreglo:
+`RechazarCambio_SiElOutboxFalla_DeshaceTodoYNoConfirma` y
+`RechazarCambio_ElAvisoSeEncolaAntesDeConfirmar`.
+
+**Pendiente — la aprobación.** Ahí no se puede copiar tal cual:
+`NotifyApprovedAsync` intenta primero `SendPlanChangeConfirmationAsync`, que **sí
+es una llamada HTTP** al bot y no puede vivir dentro de una transacción. Cerrarlo
+requiere partir el método en dos —el outbox dentro, el intento por HTTP fuera y
+best-effort—, que es un cambio mayor y con su propio riesgo. Queda documentado en
+el `<summary>` de `PlanChangeNotifier`.
 
 ---
 

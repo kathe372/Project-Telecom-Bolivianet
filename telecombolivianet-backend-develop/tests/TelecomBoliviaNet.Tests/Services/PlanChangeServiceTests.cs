@@ -728,6 +728,106 @@ public class PlanChangeServiceTests
         changeRepo.Verify(r => r.SaveChangesAsync(), Times.Once);
     }
 
+    // ── OBS-01 · el aviso del rechazo va DENTRO de la transacción ───────────
+    //
+    // PublishAsync no llama a WhatsApp: inserta una fila en NotifOutbox. Si esa
+    // escritura falla, no puede quedar el rechazo guardado y el mensaje perdido
+    // —el worker solo entrega lo que llegó a escribirse—, así que la operación
+    // entera se deshace y el operador puede reintentar.
+
+    [Fact]
+    public async Task RechazarCambio_SiElOutboxFalla_DeshaceTodoYNoConfirma()
+    {
+        var cambioId = Guid.NewGuid();
+        var oldPlan  = MakePlan(OldPlanId, "Plan Cobre", 100m);
+        var cli      = MakeClient(OldPlanId, oldPlan);
+        var pending  = new PlanChangeRequest
+        {
+            Id = cambioId, ClientId = ClientId, Client = cli,
+            Status = PlanChangeStatus.Pendiente,
+            OldPlanId = OldPlanId, NewPlanId = NewPlanId,
+        };
+
+        var uow = new Mock<IUnitOfWork>();
+        uow.Setup(u => u.BeginTransactionAsync(default)).Returns(Task.CompletedTask);
+        uow.Setup(u => u.CommitAsync(default)).Returns(Task.CompletedTask);
+        uow.Setup(u => u.RollbackAsync(default)).Returns(Task.CompletedTask);
+
+        // El insert del outbox revienta, como haría una base caída.
+        var notifRoto = new Mock<INotifPublisher>();
+        notifRoto.Setup(n => n.PublishAsync(
+                It.IsAny<NotifType>(), It.IsAny<Guid>(), It.IsAny<string>(),
+                It.IsAny<Dictionary<string, string>>(), It.IsAny<Guid?>()))
+            .ThrowsAsync(new InvalidOperationException("outbox caído"));
+
+        var svc = new PlanChangeService(
+            SpecificRepoMock.PlanChanges(pending).Object,
+            SpecificRepoMock.Clients(cli).Object,
+            SpecificRepoMock.Tickets().Object,
+            MakeAudit(), uow.Object,
+            new PlanChangeNotifier(
+                notifRoto.Object,
+                new Mock<IChatbotDirectNotifier>().Object,
+                NullLogger<PlanChangeNotifier>.Instance),
+            new InvoiceProrationService(RepoMock.Empty<Invoice>().Object, MakeCreditLedger()));
+
+        var accion = async () => await svc.RejectChangeAsync(
+            cambioId, "No cumple requisitos", ActorId, "Admin", "127.0.0.1");
+
+        await accion.Should().ThrowAsync<InvalidOperationException>(
+            "el fallo debe subir para que el operador se entere y reintente");
+
+        uow.Verify(u => u.RollbackAsync(default), Times.Once,
+            "el rechazo no puede quedar guardado si el aviso no llegó a encolarse");
+        uow.Verify(u => u.CommitAsync(default), Times.Never);
+    }
+
+    [Fact]
+    public async Task RechazarCambio_ElAvisoSeEncolaAntesDeConfirmar()
+    {
+        var cambioId = Guid.NewGuid();
+        var oldPlan  = MakePlan(OldPlanId, "Plan Cobre", 100m);
+        var cli      = MakeClient(OldPlanId, oldPlan);
+        var pending  = new PlanChangeRequest
+        {
+            Id = cambioId, ClientId = ClientId, Client = cli,
+            Status = PlanChangeStatus.Pendiente,
+            OldPlanId = OldPlanId, NewPlanId = NewPlanId,
+        };
+
+        var orden = new List<string>();
+
+        var uow = new Mock<IUnitOfWork>();
+        uow.Setup(u => u.BeginTransactionAsync(default)).Returns(Task.CompletedTask);
+        uow.Setup(u => u.CommitAsync(default))
+           .Callback(() => orden.Add("commit")).Returns(Task.CompletedTask);
+        uow.Setup(u => u.RollbackAsync(default)).Returns(Task.CompletedTask);
+
+        var notif = new Mock<INotifPublisher>();
+        notif.Setup(n => n.PublishAsync(
+                It.IsAny<NotifType>(), It.IsAny<Guid>(), It.IsAny<string>(),
+                It.IsAny<Dictionary<string, string>>(), It.IsAny<Guid?>()))
+            .Callback(() => orden.Add("outbox")).Returns(Task.CompletedTask);
+
+        var svc = new PlanChangeService(
+            SpecificRepoMock.PlanChanges(pending).Object,
+            SpecificRepoMock.Clients(cli).Object,
+            SpecificRepoMock.Tickets().Object,
+            MakeAudit(), uow.Object,
+            new PlanChangeNotifier(
+                notif.Object,
+                new Mock<IChatbotDirectNotifier>().Object,
+                NullLogger<PlanChangeNotifier>.Instance),
+            new InvoiceProrationService(RepoMock.Empty<Invoice>().Object, MakeCreditLedger()));
+
+        var result = await svc.RejectChangeAsync(
+            cambioId, "No cumple requisitos", ActorId, "Admin", "127.0.0.1");
+
+        result.IsSuccess.Should().BeTrue();
+        orden.Should().Equal(["outbox", "commit"],
+            "el aviso tiene que entrar en la misma transacción que el rechazo");
+    }
+
     [Fact]
     public async Task RechazarCambio_EnviaNotificacionAlCliente()
     {
