@@ -142,6 +142,10 @@ public static class DependencyInjection
         services.AddScoped<AuditService>();
         services.AddScoped<RefreshTokenService>();
         services.AddScoped<AuthService>();
+        services.AddScoped<IAuthService>(sp => sp.GetRequiredService<AuthService>());
+        // F5 — entrar, seguir dentro y cambiar la contraseña son tres cosas.
+        services.AddScoped<ISessionService,        SessionService>();
+        services.AddScoped<IPasswordChangeService, PasswordChangeService>();
         services.AddScoped<IAuditLogService, AuditLogService>();
 
         services.AddScoped<ITbnService, TbnService>();

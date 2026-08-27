@@ -1,4 +1,5 @@
-using FluentValidation;
+using TelecomBoliviaNet.Application.Interfaces;
+﻿using FluentValidation;
 using Microsoft.Extensions.Caching.Memory;
 using TelecomBoliviaNet.Application.Constants;
 using Microsoft.AspNetCore.Authorization;
@@ -15,6 +16,8 @@ namespace TelecomBoliviaNet.Presentation.Controllers.Auth;
 public class AuthController : BaseController
 {
     private readonly AuthService                   _authService;
+    private readonly ISessionService               _sessions;
+    private readonly IPasswordChangeService        _passwords;
     private readonly IValidator<LoginDto>          _loginValidator;
     private readonly IValidator<ChangePasswordDto> _changePassValidator;
     private readonly IMemoryCache                  _cache;
@@ -23,11 +26,15 @@ public class AuthController : BaseController
 
     public AuthController(
         AuthService                    authService,
+        ISessionService                sessions,
+        IPasswordChangeService         passwords,
         IValidator<LoginDto>           loginValidator,
         IValidator<ChangePasswordDto>  changePassValidator,
         IMemoryCache                   cache)
     {
         _authService         = authService;
+        _sessions    = sessions;
+        _passwords   = passwords;
         _loginValidator      = loginValidator;
         _changePassValidator = changePassValidator;
         _cache               = cache;
@@ -70,7 +77,7 @@ public class AuthController : BaseController
             || string.IsNullOrWhiteSpace(rawRefreshToken))
             return Unauthorized(new { success = false, message = "Sesión expirada. Inicia sesión nuevamente." });
 
-        var result = await _authService.RefreshAsync(rawRefreshToken, ClientIp);
+        var result = await _sessions.RefreshAsync(rawRefreshToken, ClientIp);
         if (!result.IsSuccess)
         {
             DeleteRefreshTokenCookie();
@@ -90,7 +97,7 @@ public class AuthController : BaseController
     {
         Request.Cookies.TryGetValue(RefreshTokenCookieName, out var rawRefreshToken);
 
-        await _authService.LogoutAsync(
+        await _sessions.LogoutAsync(
             RawToken,
             rawRefreshToken,
             CurrentUserId, CurrentUserName, ClientIp);
@@ -119,7 +126,7 @@ public class AuthController : BaseController
                 errors  = validation.Errors.Select(e => e.ErrorMessage)
             });
 
-        var result = await _authService.ChangePasswordAsync(
+        var result = await _passwords.ChangePasswordAsync(
             CurrentUserId, dto, ClientIp);
 
         if (!result.IsSuccess)
@@ -153,7 +160,7 @@ public class AuthController : BaseController
         if (string.IsNullOrWhiteSpace(dto.RefreshToken))
             return Unauthorized(new { success = false, message = "Refresh token requerido." });
 
-        var result = await _authService.RefreshAsync(dto.RefreshToken, ClientIp);
+        var result = await _sessions.RefreshAsync(dto.RefreshToken, ClientIp);
         if (!result.IsSuccess)
             return Unauthorized(new { success = false, message = result.ErrorMessage });
 

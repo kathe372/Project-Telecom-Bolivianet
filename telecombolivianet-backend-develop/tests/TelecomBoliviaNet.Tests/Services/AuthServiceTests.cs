@@ -95,8 +95,32 @@ public class AuthServiceTests
         var audit      = MakeAudit();
         var pwd        = hasher ?? MakeHasher().Object;
 
-        return new AuthService(userRepo.Object, tokenRepo.Object,
+        return new AuthService(userRepo.Object,
                                jwtSvc, refreshSvc, audit, cfg, pwd);
+    }
+
+    // F5: renovar/cerrar sesión y cambiar contraseña salieron de AuthService.
+    // Estas fábricas los arman con los mismos dobles.
+
+    private static SessionService MakeSessionService(
+        UserSystem? user = null, params TokenBlacklist[] revocados)
+    {
+        var cfg = MakeConfig();
+        return new SessionService(
+            user is null ? RepoMock.Empty<UserSystem>().Object : RepoMock.Of(user).Object,
+            revocados.Length == 0
+                ? RepoMock.Empty<TokenBlacklist>().Object
+                : RepoMock.Of(revocados).Object,
+            MakeJwt(cfg), MakeRefresh(cfg), MakeAudit());
+    }
+
+    private static PasswordChangeService MakePasswordService(
+        UserSystem? user = null, IPasswordHasher? hasher = null)
+    {
+        var cfg = MakeConfig();
+        return new PasswordChangeService(
+            user is null ? RepoMock.Empty<UserSystem>().Object : RepoMock.Of(user).Object,
+            MakeRefresh(cfg), MakeAudit(), hasher ?? MakeHasher().Object);
     }
 
     // ── Auditoría 2026-08-06 · El correo no distingue mayúsculas ────────────
@@ -233,7 +257,7 @@ public class AuthServiceTests
         var refreshSvc = MakeRefresh(cfg);
         var audit      = MakeAudit();
 
-        var service = new AuthService(userRepo.Object, tokenRepo.Object,
+        var service = new AuthService(userRepo.Object,
                                       jwtSvc, refreshSvc, audit, cfg, hasher.Object);
 
         var result = await service.LoginAsync(
@@ -277,7 +301,7 @@ public class AuthServiceTests
         user.LockedUntil = DateTime.UtcNow.AddMinutes(-1);
         var userRepo = RepoMock.Of(user);
         var cfg      = MakeConfig();
-        var service  = new AuthService(userRepo.Object, RepoMock.Empty<TokenBlacklist>().Object,
+        var service  = new AuthService(userRepo.Object,
                                        MakeJwt(cfg), MakeRefresh(cfg), MakeAudit(), cfg,
                                        MakeHasher(true).Object);
 
@@ -299,7 +323,7 @@ public class AuthServiceTests
         user.LockedUntil = DateTime.UtcNow.AddMinutes(-1);
         var userRepo = RepoMock.Of(user);
         var cfg      = MakeConfig(maxAttempts: 5);
-        var service  = new AuthService(userRepo.Object, RepoMock.Empty<TokenBlacklist>().Object,
+        var service  = new AuthService(userRepo.Object,
                                        MakeJwt(cfg), MakeRefresh(cfg), MakeAudit(), cfg,
                                        MakeHasher(false).Object);
 
@@ -351,7 +375,7 @@ public class AuthServiceTests
         var refresh   = MakeRefresh(cfg);
         var audit     = MakeAudit();
 
-        var service = new AuthService(userRepo.Object, tokenRepo.Object,
+        var service = new AuthService(userRepo.Object,
                                       jwtSvc, refresh, audit, cfg, hasher.Object);
 
         var result = await service.LoginAsync(
@@ -382,9 +406,7 @@ public class AuthServiceTests
         var userRepo  = RepoMock.Empty<UserSystem>();
         var cfg       = MakeConfig();
 
-        var service = new AuthService(userRepo.Object, tokenRepo.Object,
-                                      MakeJwt(cfg), MakeRefresh(cfg), MakeAudit(),
-                                      cfg, MakeHasher().Object);
+        var service = MakeSessionService(revocados: blacklisted);
 
         var result = await service.IsTokenBlacklistedAsync(rawToken);
 
@@ -396,7 +418,7 @@ public class AuthServiceTests
     [Fact]
     public async Task IsTokenBlacklisted_UnknownToken_ReturnsFalse()
     {
-        var service = MakeService(); // repo vacío
+        var service = MakeSessionService(); // repo vacío
 
         var result = await service.IsTokenBlacklistedAsync("token.no.registrado");
 
@@ -416,9 +438,9 @@ public class AuthServiceTests
         hasher.Setup(h => h.Hash("Nueva456!")).Returns("NUEVO_HASH");
 
         var cfg     = MakeConfig();
-        var service = new AuthService(userRepo.Object, RepoMock.Empty<TokenBlacklist>().Object,
-                                      MakeJwt(cfg), MakeRefresh(cfg), MakeAudit(),
-                                      cfg, hasher.Object);
+        // F5: cambiar la contraseña salió de AuthService a su propio servicio.
+        var service = new PasswordChangeService(
+            userRepo.Object, MakeRefresh(cfg), MakeAudit(), hasher.Object);
 
         var result = await service.ChangePasswordAsync(UserId,
             new ChangePasswordDto("Actual123!", "Nueva456!", "Nueva456!"), "127.0.0.1");
@@ -438,7 +460,7 @@ public class AuthServiceTests
     {
         var user    = MakeUser();
         var hasher  = MakeHasher(false); // Verify siempre false
-        var service = MakeService(user: user, hasher: hasher.Object);
+        var service = MakePasswordService(user: user, hasher: hasher.Object);
 
         var result = await service.ChangePasswordAsync(UserId,
             new ChangePasswordDto("Incorrecta", "Nueva456!", "Nueva456!"), "127.0.0.1");
@@ -453,7 +475,7 @@ public class AuthServiceTests
     public async Task ChangePassword_InactiveAccount_ReturnsFail()
     {
         var user    = MakeUser(status: UserStatus.Inactivo);
-        var service = MakeService(user: user, hasher: MakeHasher(true).Object);
+        var service = MakePasswordService(user: user, hasher: MakeHasher(true).Object);
 
         var result = await service.ChangePasswordAsync(UserId,
             new ChangePasswordDto("Actual123!", "Nueva456!", "Nueva456!"), "127.0.0.1");
@@ -475,9 +497,9 @@ public class AuthServiceTests
         hasher.Setup(h => h.Verify(It.IsAny<string>(), HashedPassword)).Returns(true);
 
         var cfg     = MakeConfig();
-        var service = new AuthService(userRepo.Object, RepoMock.Empty<TokenBlacklist>().Object,
-                                      MakeJwt(cfg), MakeRefresh(cfg), MakeAudit(),
-                                      cfg, hasher.Object);
+        // F5: cambiar la contraseña salió de AuthService a su propio servicio.
+        var service = new PasswordChangeService(
+            userRepo.Object, MakeRefresh(cfg), MakeAudit(), hasher.Object);
 
         var result = await service.ChangePasswordAsync(UserId,
             new ChangePasswordDto(ValidPassword, ValidPassword, ValidPassword), "127.0.0.1");

@@ -936,6 +936,7 @@ constructor a ojo se salta el último parámetro, y así reporté 9 y 6 donde er
 | `BotProxyService` | 332 líneas y una interfaz de 11 métodos → `BotMonitorProxy` (193), `BotOutboundProxy` (75), `BotRagProxy` (63) sobre `BotProxyBase` (66), con tres interfaces segregadas |
 | `InvoiceQueryService` | 419 → `InvoiceQueryService` (72), `InvoiceStatsService` (111), `InvoiceReportService` (243) y `InvoiceProjections` (57); `ApplyTypeFilter` sube al dominio |
 | `InvoiceOperationsService` | 281 → 172 · + `ExtraordinaryInvoiceService` (96), `InvoiceCreditService` (81); 7 → 4 deps |
+| `AuthService` | 255 → 194 · + `SessionService` (89), `PasswordChangeService` (68); `LoginLockoutPolicy` sube al dominio con 13 tests de tabla |
 
 #### Cómo se verificó la mudanza del mapeo
 
@@ -961,12 +962,13 @@ en ejecución no las conserva): 31 filas antes y después.
 renombrar entidades y propiedades al inglés es exactamente el cambio que puede
 mover una columna sin que nadie se entere.
 
-Pendiente: `InvoiceDtos` (259, que es un fichero de DTOs y no un servicio),
-`PaymentCreditService` (257), `AuthService` (255),
-`CreateInstallationCommand` (12 deps) y `RegisterClientCommand` (11 deps).
+Pendiente: `CreateInstallationCommand` (12 deps) y `RegisterClientCommand`
+(11 deps).
 
-De las nueve clases de Application que superaban las 250 líneas al empezar F5,
-quedan **tres**, y una de ellas es un fichero de records.
+De las nueve clases de Application que superaban las 250 líneas al empezar F5
+quedan **dos**: `InvoiceDtos` (259), que es un fichero de records y no un
+servicio, y `PaymentCreditService` (257), cuya operación es una sola transacción
+y ya se explicó por qué no se parte más.
 
 #### Por qué se partió el proxy del chatbot, que no era una god-class
 

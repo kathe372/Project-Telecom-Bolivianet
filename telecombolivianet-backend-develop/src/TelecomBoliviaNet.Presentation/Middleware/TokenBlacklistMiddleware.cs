@@ -1,5 +1,7 @@
-using Microsoft.Extensions.Caching.Memory;
+﻿using Microsoft.Extensions.Caching.Memory;
 using TelecomBoliviaNet.Application.Services.Auth;
+
+using TelecomBoliviaNet.Application.Interfaces;
 
 namespace TelecomBoliviaNet.Presentation.Middleware;
 
@@ -49,7 +51,7 @@ public class TokenBlacklistMiddleware
     public static void MarkRevoked(IMemoryCache cache, string token)
         => cache.Set(CacheKeyFor(token), true, PositiveTtl);
 
-    public async Task InvokeAsync(HttpContext context, AuthService authService)
+    public async Task InvokeAsync(HttpContext context, ISessionService sessions)
     {
         var authHeader = context.Request.Headers.Authorization.ToString();
 
@@ -60,7 +62,7 @@ public class TokenBlacklistMiddleware
 
             if (!_cache.TryGetValue(cacheKey, out bool isBlacklisted))
             {
-                isBlacklisted = await authService.IsTokenBlacklistedAsync(token);
+                isBlacklisted = await sessions.IsTokenBlacklistedAsync(token);
                 _cache.Set(cacheKey, isBlacklisted, isBlacklisted ? PositiveTtl : NegativeTtl);
             }
 

@@ -3,6 +3,7 @@ using TelecomBoliviaNet.Application.Constants;
 using TelecomBoliviaNet.Application.DTOs.Auth;
 using TelecomBoliviaNet.Domain.Entities.Auth;
 using TelecomBoliviaNet.Domain.Interfaces;
+using TelecomBoliviaNet.Domain.Services;
 using TelecomBoliviaNet.Application.Interfaces;
 using TelecomBoliviaNet.Domain.Primitives;
 
@@ -12,10 +13,22 @@ using r = TelecomBoliviaNet.Domain.Primitives.Result;
 
 namespace TelecomBoliviaNet.Application.Services.Auth;
 
-public class AuthService
+/// <summary>
+/// Iniciar sesión: valida credenciales, cuenta intentos fallidos y emite los
+/// tokens.
+///
+/// <para>Eran 255 líneas que además renovaban y cerraban sesiones y cambiaban
+/// contraseñas (F5). Eso vive en <see cref="SessionService"/> y
+/// <see cref="PasswordChangeService"/>.</para>
+///
+/// <para>La regla de bloqueo por intentos fallidos —la parte con consecuencias
+/// de seguridad— subió al dominio como
+/// <see cref="TelecomBoliviaNet.Domain.Services.LoginLockoutPolicy"/>, donde se
+/// prueba con una tabla de casos y no pasando por el hasher.</para>
+/// </summary>
+public class AuthService : IAuthService
 {
     private readonly IGenericRepository<UserSystem>     _userRepo;
-    private readonly IGenericRepository<TokenBlacklist> _tokenRepo;
     private readonly JwtTokenService                    _jwtService;
     private readonly RefreshTokenService                _refreshService;
     private readonly AuditService                       _audit;
@@ -24,7 +37,6 @@ public class AuthService
 
     public AuthService(
         IGenericRepository<UserSystem>     userRepo,
-        IGenericRepository<TokenBlacklist> tokenRepo,
         JwtTokenService                    jwtService,
         RefreshTokenService                refreshService,
         AuditService                       audit,
@@ -32,7 +44,6 @@ public class AuthService
         IPasswordHasher                    hasher)
     {
         _userRepo       = userRepo;
-        _tokenRepo      = tokenRepo;
         _jwtService     = jwtService;
         _refreshService = refreshService;
         _audit          = audit;
@@ -102,8 +113,9 @@ public class AuthService
         // que la ventana de castigo detenga de verdad la fuerza bruta. El mensaje
         // sí informa del bloqueo (patrón Auth0/Cognito): quien lo provocó ya sabía
         // que la cuenta existe, y al usuario legítimo le explica qué hacer.
-        if (user.LockedUntil is { } lockedUntil && lockedUntil > now)
+        if (LoginLockoutPolicy.IsLockedAt(user.LockedUntil, now))
         {
+            var lockedUntil = user.LockedUntil!.Value;
             await _audit.LogAsync("Auth", "LOGIN_FAILED",
                 $"Intento durante bloqueo temporal (hasta {lockedUntil:HH:mm} UTC).",
                 userId: user.Id, userName: user.FullName, ip: ip);
@@ -113,7 +125,7 @@ public class AuthService
         // Bloqueo expirado: la cuenta se rehabilita sola y el contador arranca
         // de cero. Antes el bloqueo era PERMANENTE (Status=Bloqueado): si el
         // bloqueado era el único Admin, la salida era RESET_ADMIN + redespliegue.
-        if (user.LockedUntil is not null)
+        if (LoginLockoutPolicy.ShouldClearExpiredLock(user.LockedUntil, now))
         {
             user.LockedUntil         = null;
             user.FailedLoginAttempts = 0;
@@ -121,12 +133,17 @@ public class AuthService
 
         if (!_hasher.Verify(dto.Password, user.PasswordHash))
         {
-            user.FailedLoginAttempts++;
             var maxAttempts = int.Parse(_config["Security:MaxFailedLoginAttempts"] ?? "5");
 
-            if (user.FailedLoginAttempts >= maxAttempts)
+            var (intentos, bloqueadoHasta) = LoginLockoutPolicy.RegisterFailure(
+                user.FailedLoginAttempts, maxAttempts, now,
+                AppConstants.Security.LockoutMinutes);
+
+            user.FailedLoginAttempts = intentos;
+            user.LockedUntil         = bloqueadoHasta;
+
+            if (bloqueadoHasta is not null)
             {
-                user.LockedUntil = now.AddMinutes(AppConstants.Security.LockoutMinutes);
                 await _audit.LogAsync("Auth", "ACCOUNT_LOCKED_TEMP",
                     $"Cuenta bloqueada {AppConstants.Security.LockoutMinutes} min tras {maxAttempts} intentos fallidos.",
                     userId: user.Id, userName: user.FullName, ip: ip,
@@ -173,83 +190,5 @@ public class AuthService
             RequiresPasswordChange: user.RequiresPasswordChange,
             RedirectUrl:            redirect
         ));
-    }
-
-
-    public async Task<Result<RefreshResponseDto>> RefreshAsync(string rawRefreshToken, string ip)
-    {
-        var (entity, newRawToken) = await _refreshService.RotateAsync(rawRefreshToken, ip);
-
-        if (entity is null || newRawToken is null)
-            return Result<RefreshResponseDto>.Failure("Refresh token invalido, expirado o revocado.");
-
-        var user = await _userRepo.GetByIdAsync(entity.UserId);
-        if (user is null || user.Status != UserStatus.Activo)
-            return Result<RefreshResponseDto>.Failure("Usuario no encontrado o inactivo.");
-
-        var newAccessToken = _jwtService.GenerateToken(user);
-
-        return Result<RefreshResponseDto>.Success(
-            new RefreshResponseDto(Token: newAccessToken, RefreshToken: newRawToken));
-    }
-
-
-    public async Task<r> LogoutAsync(
-        string rawToken, string? rawRefreshToken,
-        Guid userId, string userName, string ip)
-    {
-        var expiration = _jwtService.GetExpiration(rawToken);
-        await _tokenRepo.AddAsync(new TokenBlacklist
-        {
-            Token         = rawToken,
-            UserId        = userId,
-            ExpiresAt     = expiration,
-            InvalidatedAt = DateTime.UtcNow
-        });
-        await _tokenRepo.SaveChangesAsync();
-
-        // Se revoca siempre, no solo si el cliente envió el refresh token: un
-        // logout desde un cliente que no lo manda dejaba viva la sesión larga.
-        await _refreshService.RevokeAllForUserAsync(userId, "Logout explicito");
-
-        await _audit.LogAsync("Auth", "LOGOUT", "Cierre de sesion.",
-            userId: userId, userName: userName, ip: ip);
-
-        return Result.Success();
-    }
-
-
-    public async Task<bool> IsTokenBlacklistedAsync(string rawToken)
-        => await _tokenRepo.AnyAsync(t => t.Token == rawToken);
-
-
-    public async Task<r> ChangePasswordAsync(Guid userId, ChangePasswordDto dto, string ip)
-    {
-        var user = await _userRepo.GetByIdAsync(userId);
-        if (user == null) return Result.Failure("Usuario no encontrado.");
-
-        if (user.Status != UserStatus.Activo)
-            return Result.Failure("La cuenta no está activa. Contacte al administrador.");
-
-        if (!_hasher.Verify(dto.CurrentPassword, user.PasswordHash))
-            return Result.Failure("La contrasena actual es incorrecta.");
-
-        if (_hasher.Verify(dto.NewPassword, user.PasswordHash))
-            return Result.Failure("La nueva contrasena no puede ser igual a la actual.");
-
-        user.PasswordHash           = _hasher.Hash(dto.NewPassword);
-        user.RequiresPasswordChange = false;
-        user.UpdatedAt              = DateTime.UtcNow;
-        _userRepo.Update(user);
-        await _userRepo.SaveChangesAsync();
-        // Cambiar la contraseña debe cerrar las sesiones abiertas: si se cambia
-        // por sospecha de robo, antes el atacante conservaba acceso hasta 30 días
-        // porque su refresh token seguía siendo válido.
-        await _refreshService.RevokeAllForUserAsync(user.Id, "Cambio de contraseña");
-
-        await _audit.LogAsync("Auth", "PASSWORD_CHANGED", "Contrasena cambiada.",
-            userId: user.Id, userName: user.FullName, ip: ip);
-
-        return Result.Success();
     }
 }
