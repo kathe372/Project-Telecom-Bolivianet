@@ -46,7 +46,7 @@ public class GetInstallationSlotsHandler
         var schedule = await _scheduleRepo.GetActiveAsync(ct);
         var startHour        = schedule?.StartHour        ?? 8;
         var endHour          = schedule?.EndHour          ?? 18;
-        var workingDaysMask  = schedule?.WorkingDaysMask  ?? 31;
+        var workingDaysMask  = schedule?.WorkingDaysMask  ?? WorkingDays.MondayToFriday;
 
         var plan = req.PlanId.HasValue
             ? await _planRepo.GetByIdAsync(req.PlanId.Value)
@@ -75,7 +75,7 @@ public class GetInstallationSlotsHandler
 
             var diaActivo = schedule is not null
                 ? schedule.IsWorkingDay(dia.DayOfWeek)
-                : IsDefaultWorkingDay(dia.DayOfWeek, workingDaysMask);
+                : WorkingDays.Includes(workingDaysMask, dia.DayOfWeek);
 
             if (!diaActivo) continue;
 
@@ -117,17 +117,4 @@ public class GetInstallationSlotsHandler
             u => u.Role == UserRole.Tecnico && u.Status == UserStatus.Activo);
         return Math.Max(count, 1);
     }
-
-    private static bool IsDefaultWorkingDay(DayOfWeek day, int mask) =>
-        day switch
-        {
-            DayOfWeek.Monday    => (mask & 1)  != 0,
-            DayOfWeek.Tuesday   => (mask & 2)  != 0,
-            DayOfWeek.Wednesday => (mask & 4)  != 0,
-            DayOfWeek.Thursday  => (mask & 8)  != 0,
-            DayOfWeek.Friday    => (mask & 16) != 0,
-            DayOfWeek.Saturday  => (mask & 32) != 0,
-            DayOfWeek.Sunday    => (mask & 64) != 0,
-            _                   => false
-        };
 }

@@ -134,11 +134,17 @@ public class NotifSegmentService
     private async Task<int> EvaluateCountAsync(NotifSegment seg)
     {
         var clientes = await LoadClientesConFacturasAsync();
+
+        // Un solo instante para todo el segmento: si cada cliente leyera el reloj
+        // por su cuenta, dos clientes en el mismo borde de "días de mora" podrían
+        // caer a lados distintos dentro de la misma evaluación.
+        var ahora = DateTime.UtcNow;
+
         return clientes.Count(pair =>
         {
             var grupos = DeserializeReglas(seg.ReglasJson);
             return grupos.Any(g => g.Condiciones.All(c =>
-                NotifShared.EvaluaCondicion(pair.Client, pair.Invoices, c)));
+                NotifShared.EvaluaCondicion(pair.Client, pair.Invoices, c, ahora)));
         });
     }
 
@@ -146,10 +152,11 @@ public class NotifSegmentService
     {
         var grupos   = DeserializeReglas(seg.ReglasJson);
         var clientes = await LoadClientesConFacturasAsync();
+        var ahora    = DateTime.UtcNow;   // uno solo para toda la evaluación
 
         return clientes
             .Where(pair => grupos.Any(g =>
-                g.Condiciones.All(c => NotifShared.EvaluaCondicion(pair.Client, pair.Invoices, c))))
+                g.Condiciones.All(c => NotifShared.EvaluaCondicion(pair.Client, pair.Invoices, c, ahora))))
             .Select(pair => pair.Client)
             .ToList();
     }

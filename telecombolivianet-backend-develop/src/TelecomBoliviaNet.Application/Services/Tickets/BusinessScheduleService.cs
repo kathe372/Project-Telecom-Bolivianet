@@ -1,6 +1,7 @@
 ﻿using TelecomBoliviaNet.Application.DTOs.Tickets;
 using TelecomBoliviaNet.Domain.Entities.Tickets;
 using TelecomBoliviaNet.Domain.Interfaces;
+using TelecomBoliviaNet.Domain.Services;
 using TelecomBoliviaNet.Domain.Primitives;
 
 using TelecomBoliviaNet.Application.Interfaces;
@@ -12,9 +13,6 @@ public class BusinessScheduleService : IBusinessScheduleService
     private readonly IScheduleRepository _scheduleRepo;
     private readonly IGenericRepository<ScheduleHoliday> _holidayRepo;
 
-    private static readonly string[] DayNames =
-        ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"];
-    private static readonly int[]    DayBits  = [1, 2, 4, 8, 16, 32, 64];
 
     public BusinessScheduleService(
         IScheduleRepository scheduleRepo,
@@ -171,7 +169,7 @@ public class BusinessScheduleService : IBusinessScheduleService
             if (startHour < 0 || startHour > 23) return "HoraInicio debe ser entre 0 y 23.";
             if (endHour   < 1 || endHour   > 24) return "HoraFin debe ser entre 1 y 24.";
             if (startHour >= endHour)             return "HoraInicio debe ser menor que HoraFin.";
-            if (mask <= 0 || mask > 127)          return "WorkingDaysMask inválido (1-127).";
+            if (!WorkingDays.IsValid(mask))       return "WorkingDaysMask inválido (1-127).";
         }
         return null;
     }
@@ -182,7 +180,7 @@ public class BusinessScheduleService : IBusinessScheduleService
         s.TimeZoneName,
         s.UtcOffsetHours,
         s.WorkingDaysMask,
-        BuildDayNames(s.WorkingDaysMask),
+        WorkingDays.Names(s.WorkingDaysMask),
         s.StartHour,
         s.EndHour,
         s.Is24x7,
@@ -195,12 +193,4 @@ public class BusinessScheduleService : IBusinessScheduleService
             .ToList()
     );
 
-    private static string[] BuildDayNames(int mask)
-    {
-        var names = new List<string>();
-        for (int i = 0; i < DayBits.Length; i++)
-            if ((mask & DayBits[i]) != 0)
-                names.Add(DayNames[i]);
-        return names.ToArray();
-    }
 }

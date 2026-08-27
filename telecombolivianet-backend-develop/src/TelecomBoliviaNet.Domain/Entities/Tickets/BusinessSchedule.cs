@@ -1,4 +1,5 @@
-using TelecomBoliviaNet.Domain.Primitives;
+﻿using TelecomBoliviaNet.Domain.Primitives;
+using TelecomBoliviaNet.Domain.Services;
 
 namespace TelecomBoliviaNet.Domain.Entities.Tickets;
 
@@ -7,7 +8,7 @@ public class BusinessSchedule : Entity
     public string Name           { get; set; } = string.Empty;
     public string TimeZoneName   { get; set; } = string.Empty;
     public int    UtcOffsetHours { get; set; } = -4;
-    public int    WorkingDaysMask{ get; set; } = 31;
+    public int    WorkingDaysMask{ get; set; } = WorkingDays.MondayToFriday;
     public int    StartHour      { get; set; } = 8;
     public int    EndHour        { get; set; } = 18;
     public bool   Is24x7         { get; set; } = false;
@@ -18,15 +19,10 @@ public class BusinessSchedule : Entity
 
     public ICollection<ScheduleHoliday> Holidays { get; set; } = new List<ScheduleHoliday>();
 
-    public bool IsWorkingDay(DayOfWeek day) => day switch
-    {
-        DayOfWeek.Monday    => (WorkingDaysMask & 1)  != 0,
-        DayOfWeek.Tuesday   => (WorkingDaysMask & 2)  != 0,
-        DayOfWeek.Wednesday => (WorkingDaysMask & 4)  != 0,
-        DayOfWeek.Thursday  => (WorkingDaysMask & 8)  != 0,
-        DayOfWeek.Friday    => (WorkingDaysMask & 16) != 0,
-        DayOfWeek.Saturday  => (WorkingDaysMask & 32) != 0,
-        DayOfWeek.Sunday    => (WorkingDaysMask & 64) != 0,
-        _                   => false
-    };
+    /// <summary>
+    /// ¿Se trabaja ese día? La decodificación de la máscara vive en
+    /// <see cref="WorkingDays"/>, porque también la necesitan las consultas de
+    /// huecos, que trabajan con la máscara suelta y no con esta entidad.
+    /// </summary>
+    public bool IsWorkingDay(DayOfWeek day) => WorkingDays.Includes(WorkingDaysMask, day);
 }

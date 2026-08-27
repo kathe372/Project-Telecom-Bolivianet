@@ -210,6 +210,30 @@ ve el operador, no una limpieza de refactor.
 una sola. Ahora vive en `BotProxyBase.SinRomperElPanelAsync`, así que el día que
 se decida distinguir los dos casos es **una** edición y no once.
 
+### 🟡 OBS-03 · Un segmento con el operador equivocado no alcanza a nadie y no lo dice
+
+Los operadores de las condiciones de segmento son **asimétricos**: sobre números
+valen seis (`=`, `!=`, `>`, `<`, `>=`, `<=`); sobre texto solo dos (`=`, `!=`).
+
+Un segmento con `zona > "Norte"` es sintácticamente aceptable, se guarda sin
+protestar, y al evaluarlo **no alcanza a ningún cliente**. Lo mismo con un
+`=>` tecleado al revés, o con un valor no numérico en `deuda` —ahí entra el
+`catch { return false; }` de `EvaluaCondicion`, deliberado porque se evalúa por
+cliente en bucle caliente.
+
+El comportamiento es **seguro**: mejor no escribirle a nadie que a todos. El
+problema es que es **silencioso**, y quien armó el segmento no tiene forma de
+distinguir "mi regla está mal escrita" de "no hay clientes que cumplan".
+
+**No se cambió.** Avisar al guardar el segmento es una decisión de producto sobre
+la pantalla, no una limpieza de refactor. Lo que sí se hizo (F5):
+
+- los operadores viven en `Domain/Services/SegmentOperators`, con 20 tests que
+  fijan el comportamiento, incluida la asimetría;
+- se expone `SegmentOperators.IsSupported(op, numericField)`, que es exactamente
+  lo que haría falta para validar al guardar — un `if` en el servicio de
+  segmentos, cuando se decida.
+
 ---
 
 ## Caza de bugs (2026-08-24)

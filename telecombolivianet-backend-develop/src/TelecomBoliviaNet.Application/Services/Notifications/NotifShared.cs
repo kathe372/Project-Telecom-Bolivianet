@@ -1,10 +1,11 @@
-using System.Text.Json;
+﻿using System.Text.Json;
 using TelecomBoliviaNet.Application.DTOs.Notifications;
 using TelecomBoliviaNet.Application.Utils;
 using TelecomBoliviaNet.Domain.Entities.Admin;
 using TelecomBoliviaNet.Domain.Entities.Clients;
 using TelecomBoliviaNet.Domain.Entities.Notifications;
 using TelecomBoliviaNet.Domain.Interfaces;
+using TelecomBoliviaNet.Domain.Services;
 
 namespace TelecomBoliviaNet.Application.Services.Notifications;
 
@@ -141,20 +142,28 @@ public static class NotifShared
     }
 
 
-    public static bool EvaluaCondicion(Client c, List<Invoice> inv, SegmentCondition cond)
+    /// <summary>
+    /// ¿Este cliente cumple la condición del segmento?
+    ///
+    /// <para>El instante se recibe en vez de leerse aquí: <c>dias_mora</c> depende
+    /// de "ahora", y con el reloj dentro no había forma de probar el borde de un
+    /// segmento sin esperar a que pasara el día.</para>
+    /// </summary>
+    public static bool EvaluaCondicion(
+        Client c, List<Invoice> inv, SegmentCondition cond, DateTime now)
     {
         try
         {
             return cond.Campo switch
             {
-                "zona"      => ComparaString(c.Zone,                         cond.Operador, cond.Valor),
-                "plan"      => ComparaString(c.Plan?.Name ?? string.Empty,  cond.Operador, cond.Valor),
-                "estado"    => ComparaString(c.Status.ToString(),            cond.Operador, cond.Valor),
+                "zona"      => SegmentOperators.Compare(c.Zone,                        cond.Operador, cond.Valor),
+                "plan"      => SegmentOperators.Compare(c.Plan?.Name ?? string.Empty, cond.Operador, cond.Valor),
+                "estado"    => SegmentOperators.Compare(c.Status.ToString(),           cond.Operador, cond.Valor),
                 // Saldo REAL pendiente, no el monto bruto: una factura de 200 con 150 abonados
                 // aporta 50. Antes un segmento "deuda > 100" alcanzaba a ese cliente.
-                "deuda"     => ComparaDecimal(inv.Sum(i => i.Outstanding),  cond.Operador, decimal.Parse(cond.Valor)),
-                "dias_mora" => ComparaDecimal(
-                    inv.Any() ? (decimal)(DateTime.UtcNow - inv.Min(i => i.DueDate)).TotalDays : 0,
+                "deuda"     => SegmentOperators.Compare(inv.Sum(i => i.Outstanding),  cond.Operador, decimal.Parse(cond.Valor)),
+                "dias_mora" => SegmentOperators.Compare(
+                    inv.Any() ? (decimal)(now - inv.Min(i => i.DueDate)).TotalDays : 0,
                     cond.Operador, decimal.Parse(cond.Valor)),
                 _ => false
             };
@@ -164,24 +173,4 @@ public static class NotifShared
         // el fallback a false es intencional y no se loguea aquí.
         catch { return false; }
     }
-
-    private static bool ComparaString(string actual, string op, string valor)
-        => op switch
-        {
-            "="  => actual.Equals(valor, StringComparison.OrdinalIgnoreCase),
-            "!=" => !actual.Equals(valor, StringComparison.OrdinalIgnoreCase),
-            _    => false
-        };
-
-    private static bool ComparaDecimal(decimal actual, string op, decimal valor)
-        => op switch
-        {
-            "="  => actual == valor,
-            "!=" => actual != valor,
-            ">"  => actual > valor,
-            "<"  => actual < valor,
-            ">=" => actual >= valor,
-            "<=" => actual <= valor,
-            _    => false
-        };
 }
