@@ -18,6 +18,9 @@ public interface IPaymentQueryService
     /// que el mismo pago entre dos veces cuando la pantalla se envía repetida.
     /// </summary>
     Task<DuplicateCheckResultDto> CheckDuplicateAsync(Guid clientId, decimal amount, DateTime paidAt);
+
+    /// <summary>Recibo emitido para un pago, si lo tiene.</summary>
+    Task<Domain.Entities.Payments.PaymentReceipt?> GetReceiptByPaymentAsync(Guid paymentId);
 }
 
 /// <summary>Los dos informes de recaudación.</summary>

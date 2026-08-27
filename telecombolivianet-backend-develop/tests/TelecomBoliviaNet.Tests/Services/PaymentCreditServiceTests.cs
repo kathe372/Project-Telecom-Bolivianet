@@ -83,9 +83,12 @@ public class PaymentCreditServiceTests
         var seqGen = new Mock<ISequenceGenerator>();
         seqGen.Setup(s => s.NextReceiptNumberAsync()).ReturnsAsync("REC-0001");
 
+        // F5: el reparto entre facturas se mudó a PaymentAllocator.
+        var allocator = new PaymentAllocator(invoiceRepo.Object, piRepo.Object);
+
         var svc = new PaymentCreditService(
-            paymentRepo.Object, invoiceRepo.Object, clientRepo.Object,
-            piRepo.Object, receiptRepo.Object, seqGen.Object,
+            paymentRepo.Object, clientRepo.Object, allocator,
+            receiptRepo.Object, seqGen.Object,
             new Mock<INotifPublisher>().Object, MakeAudit(), MakeUow(),
             new Mock<IPublisher>().Object, MakeCreditLedger(),
             NullLogger<PaymentCreditService>.Instance);
@@ -191,7 +194,9 @@ public class PaymentCreditServiceTests
         h.ReceiptRepo.Verify(r => r.AddAsync(
             It.Is<PaymentReceipt>(rc => rc.ClientId == ClientId && rc.Amount == 149m)),
             Times.Once);
-        h.InvoiceRepo.Verify(r => r.SaveChangesAsync(), Times.Once,
+        // F5: el guardado que persiste el recibo lo hace ahora su propio
+        // repositorio — el mismo DbContext, pero nombrando lo que se guarda.
+        h.ReceiptRepo.Verify(r => r.SaveChangesAsync(), Times.Once,
             "sin este guardado explícito el recibo nunca llega a la base de datos");
     }
 
@@ -221,9 +226,14 @@ public class PaymentCreditServiceTests
         // Las tres facturas se MARCAN…
         h.InvoiceRepo.Verify(r => r.Update(It.IsAny<Invoice>()), Times.Exactly(3));
 
-        // …y el guardado real ocurre UNA sola vez para todo el lote, no una por
-        // factura. Ésta es la aserción que protege contra la regresión.
-        h.InvoiceRepo.Verify(r => r.SaveChangesAsync(), Times.Once);
+        // …y NINGUNA se guarda dentro del bucle: el repartidor solo marca. Ésta
+        // es la aserción que protege contra la regresión del SaveChanges por
+        // factura, y ahora es más estricta que antes — comprueba que el
+        // repositorio de facturas no confirma nada en absoluto.
+        h.InvoiceRepo.Verify(r => r.SaveChangesAsync(), Times.Never);
+
+        // El guardado real ocurre una sola vez, al cerrar la operación.
+        h.ReceiptRepo.Verify(r => r.SaveChangesAsync(), Times.Once);
     }
 
     [Fact]

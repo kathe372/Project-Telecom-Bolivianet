@@ -913,7 +913,7 @@ Son 50 iteraciones de 2 minutos. Es tedioso, y es lo que separa un refactor segu
 ### Avance (2026-08-26)
 
 Clases de Application > 250 líneas: **9 → 6**. Peor constructor: **12 → 12**
-(quedan `PaymentCreditService` y `CreateInstallationCommand`).
+(queda `CreateInstallationCommand`).
 
 > ⚠️ **La métrica "constructores > 6" engaña.** Subió de 16 a 17 mientras el
 > código mejoraba: partir una clase de 12 dependencias en dos de 8 y 7 añade una
@@ -932,6 +932,7 @@ constructor a ojo se salta el último parámetro, y así reporté 9 y 6 donde er
 | `ProrationCalculator` al dominio | 12 tests de tabla, sin montar ningún servicio |
 | `PlanChangeService` | 362 → 197 líneas · 12 → 7 deps · + `PlanChangeRequestService` (8), `PlanChangeQueryService` (1), `PlanChangeNotifier` (3) |
 | `AppDbContext` (paso 5.4) | 847 → **102** líneas · 45 configuraciones nuevas en `Data/Config/` (47 con las dos que ya existían) |
+| `PaymentCreditService` | 344 → 257 líneas · 12 → 11 deps · + `PaymentAllocator` (2), `CreditRefundService` (3) |
 
 #### Cómo se verificó la mudanza del mapeo
 
@@ -957,10 +958,9 @@ en ejecución no las conserva): 31 filas antes y después.
 renombrar entidades y propiedades al inglés es exactamente el cambio que puede
 mover una columna sin que nadie se entere.
 
-Pendiente: `InvoiceQueryService` (419), `PaymentCreditService` (344, 12 deps),
-`BotProxyService` (332), `InvoiceOperationsService` (281), `AuthService` (255),
-`CreateInstallationCommand` (12 deps), `RegisterClientCommand` (11 deps), y el
-paso 5.4 completo — `AppDbContext` (847 líneas) a `Data/Config/`.
+Pendiente: `InvoiceQueryService` (419), `BotProxyService` (332, 11 `catch`),
+`InvoiceOperationsService` (281), `AuthService` (255),
+`CreateInstallationCommand` (12 deps) y `RegisterClientCommand` (11 deps).
 
 ---
 

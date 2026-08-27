@@ -176,7 +176,9 @@ public static class DependencyInjection
         services.AddScoped<IPaymentReportService,  PaymentReportService>();
         services.AddScoped<IOverdueReminderService, OverdueReminderService>();
         services.AddScoped<ICreditLedger, CreditLedgerService>();
+        services.AddScoped<PaymentAllocator>();
         services.AddScoped<IPaymentCreditService, PaymentCreditService>();
+        services.AddScoped<ICreditRefundService,  CreditRefundService>();
         services.AddScoped<CashCloseService>();
         services.AddScoped<ICashCloseService>(sp => sp.GetRequiredService<CashCloseService>());
         services.AddScoped<ReceiptImageService>();

@@ -21,7 +21,7 @@ public class ClientsController : BaseController
     private readonly IValidator<RegisterPaymentDto>  _paymentVal;
     private readonly IClientAttachmentService         _attSvc;
     private readonly IClientHistoryService          _histSvc;
-    private readonly IPaymentCreditService           _creditSvc;
+    private readonly ICreditRefundService            _refundSvc;
 
     public ClientsController(
         IMediator                      mediator,
@@ -30,7 +30,7 @@ public class ClientsController : BaseController
         IValidator<RegisterPaymentDto> paymentVal,
         IClientAttachmentService        attSvc,
         IClientHistoryService         histSvc,
-        IPaymentCreditService          creditSvc)
+        ICreditRefundService          refundSvc)
     {
         _mediator    = mediator;
         _registerVal = registerVal;
@@ -38,7 +38,7 @@ public class ClientsController : BaseController
         _paymentVal  = paymentVal;
         _attSvc      = attSvc;
         _histSvc     = histSvc;
-        _creditSvc   = creditSvc;
+        _refundSvc   = refundSvc;
     }
 
 
@@ -314,7 +314,7 @@ public class ClientsController : BaseController
     public async Task<IActionResult> RefundCredit(
         Guid id, [FromBody] TelecomBoliviaNet.Application.DTOs.Payments.RefundCreditDto dto)
     {
-        var result = await _creditSvc.RefundCreditAsync(
+        var result = await _refundSvc.RefundCreditAsync(
             id, dto.Justificacion, CurrentUserId, CurrentUserName, ClientIp);
         return result.IsSuccess ? OkMessage("Crédito reembolsado.") : BadRequestResult(result.ErrorMessage);
     }

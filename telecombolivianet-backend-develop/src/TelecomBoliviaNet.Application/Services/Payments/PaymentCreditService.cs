@@ -18,12 +18,25 @@ using r = TelecomBoliviaNet.Domain.Primitives.Result;
 
 namespace TelecomBoliviaNet.Application.Services.Payments;
 
+/// <summary>
+/// Registrar un cobro aplicando el saldo a favor del cliente.
+///
+/// <para>Eran 344 líneas y doce dependencias que además repartían el importe
+/// entre facturas, devolvían el crédito y consultaban recibos (F5). El reparto
+/// vive en <see cref="PaymentAllocator"/>, la devolución en
+/// <see cref="CreditRefundService"/> y el recibo en
+/// <see cref="PaymentQueryService"/>.</para>
+///
+/// <para>Lo que queda sigue coordinando muchos colaboradores, y es lo que es: un
+/// cobro toca el pago, las facturas, el libro mayor de crédito, el cliente, el
+/// recibo, la auditoría, el aviso y el evento de dominio, todo dentro de una
+/// transacción.</para>
+/// </summary>
 public class PaymentCreditService : IPaymentCreditService
 {
     private readonly IGenericRepository<Payment>        _paymentRepo;
-    private readonly IGenericRepository<Invoice>        _invoiceRepo;
     private readonly IGenericRepository<Client>         _clientRepo;
-    private readonly IGenericRepository<PaymentInvoice> _piRepo;
+    private readonly PaymentAllocator                   _allocator;
     private readonly IGenericRepository<PaymentReceipt> _receiptRepo;
     private readonly ISequenceGenerator                 _seqGen;
     private readonly INotifPublisher                    _notif;
@@ -35,9 +48,8 @@ public class PaymentCreditService : IPaymentCreditService
 
     public PaymentCreditService(
         IGenericRepository<Payment>        paymentRepo,
-        IGenericRepository<Invoice>        invoiceRepo,
         IGenericRepository<Client>         clientRepo,
-        IGenericRepository<PaymentInvoice> piRepo,
+        PaymentAllocator                   allocator,
         IGenericRepository<PaymentReceipt> receiptRepo,
         ISequenceGenerator                 seqGen,
         INotifPublisher                    notif,
@@ -48,9 +60,8 @@ public class PaymentCreditService : IPaymentCreditService
         ILogger<PaymentCreditService>      logger)
     {
         _paymentRepo = paymentRepo;
-        _invoiceRepo = invoiceRepo;
         _clientRepo  = clientRepo;
-        _piRepo      = piRepo;
+        _allocator   = allocator;
         _receiptRepo = receiptRepo;
         _seqGen      = seqGen;
         _notif       = notif;
@@ -70,7 +81,7 @@ public class PaymentCreditService : IPaymentCreditService
         if (client is null)
             return Result<PaymentRegisteredDto>.Failure("Cliente no encontrado.");
 
-        var (invoices, error) = await LoadAndValidateInvoicesAsync(dto);
+        var (invoices, error) = await _allocator.LoadAndValidateAsync(dto);
         if (invoices is null)
             return Result<PaymentRegisteredDto>.Failure(error!);
 
@@ -97,7 +108,7 @@ public class PaymentCreditService : IPaymentCreditService
             };
             await _paymentRepo.AddAsync(payment);
 
-            var invoiceNumbers = await ApplyPaymentToInvoicesAsync(
+            var invoiceNumbers = await _allocator.ApplyAsync(
                 payment, invoices, dto.Amount + client.CreditBalance);
 
             // El saldo pasa de `prevCredit` a `excedente`, pero eso son DOS hechos
@@ -146,7 +157,7 @@ public class PaymentCreditService : IPaymentCreditService
             // explícito quedaba solo en el ChangeTracker en memoria y nunca
             // llegaba a la base. El pago se registraba "con éxito" pero
             // GetReceiptByPaymentAsync no encontraba ningún recibo.
-            await _invoiceRepo.SaveChangesAsync();
+            await _receiptRepo.SaveChangesAsync();
 
             await _uow.CommitAsync();
 
@@ -198,28 +209,6 @@ public class PaymentCreditService : IPaymentCreditService
     /// factura saldada es un error del operador, y convertir ese dinero en saldo a favor sin
     /// avisar sería una sorpresa desagradable.
     /// </summary>
-    private async Task<(List<Invoice>? Invoices, string? Error)> LoadAndValidateInvoicesAsync(
-        RegisterPaymentDto dto)
-    {
-        if (dto.InvoiceIds.Count == 0)
-            return (null, "Debe seleccionar al menos una factura.");
-
-        var invoices = await _invoiceRepo.GetAll()
-            .Where(i => dto.InvoiceIds.Contains(i.Id))
-            .ToListAsync();
-
-        if (invoices.Count != dto.InvoiceIds.Distinct().Count())
-            return (null, "Una o más facturas no existen.");
-
-        if (invoices.Any(i => i.ClientId != dto.ClientId))
-            return (null, "Una o más facturas no pertenecen a este cliente.");
-
-        if (invoices.Any(i => i.Status is InvoiceStatus.Pagada or InvoiceStatus.Anulada))
-            return (null, "Una o más facturas seleccionadas ya están pagadas o anuladas.");
-
-        return (invoices, null);
-    }
-
     /// <summary>
     /// Cuánto excedente deja el pago y cuánto saldo previo hace falta consumir.
     ///
@@ -246,50 +235,6 @@ public class PaymentCreditService : IPaymentCreditService
         return (excedente, creditoUsado);
     }
 
-    private async Task<List<string>> ApplyPaymentToInvoicesAsync(
-        Payment payment, List<Invoice> invoices, decimal effectiveAmount)
-    {
-        var invoiceNumbers = new List<string>();
-        var remaining      = effectiveAmount;
-
-        foreach (var inv in invoices.OrderBy(i => i.DueDate))
-        {
-            if (remaining <= 0) break;
-
-            // Una factura ya saldada o anulada no admite más cobro: enlazarla
-            // generaría un PaymentInvoice espurio y falsearía la conciliación.
-            if (inv.Status is InvoiceStatus.Anulada or InvoiceStatus.Pagada) continue;
-
-            var applied = Math.Min(inv.Amount - inv.AmountPaid, remaining);
-            if (applied <= 0) continue;
-
-            inv.AmountPaid += applied;
-            remaining      -= applied;
-            inv.Status    = inv.AmountPaid >= inv.Amount
-                ? InvoiceStatus.Pagada
-                : InvoiceStatus.ParcialmentePagada;
-            inv.UpdatedAt = DateTime.UtcNow;
-
-            // MarkModifiedAsync (no confirma) en vez de UpdateAsync (confirma cada
-            // vez): con varias facturas por pago, UpdateAsync hacía un round-trip
-            // de SaveChanges POR FACTURA. El guardado real ocurre una sola vez, al
-            // final de RegisterPaymentWithCreditAsync, dentro de la misma
-            // transacción que ya envuelve todo este método.
-            _invoiceRepo.Update(inv);
-            // Se registra CUÁNTO se aplicó a esta factura: es lo que permite
-            // revertir la anulación con exactitud cuando varios pagos la cubren.
-            await _piRepo.AddAsync(new PaymentInvoice
-            {
-                PaymentId     = payment.Id,
-                InvoiceId     = inv.Id,
-                AmountApplied = applied,
-            });
-            if (inv.InvoiceNumber is not null) invoiceNumbers.Add(inv.InvoiceNumber);
-        }
-
-        return invoiceNumbers;
-    }
-
     private async Task PublishPaymentNotificationAsync(
         Client client, decimal amount, List<Invoice> invoices)
     {
@@ -309,36 +254,4 @@ public class PaymentCreditService : IPaymentCreditService
                 ["periodo"] = periodoDesc.Length > 0 ? periodoDesc : "Varios periodos",
             });
     }
-
-    public async Task<r> RefundCreditAsync(
-        Guid clientId, string justificacion, Guid actorId, string actorName, string ip)
-    {
-        var client = await _clientRepo.GetByIdAsync(clientId);
-        if (client is null) return Result.Failure("Cliente no encontrado.");
-        if (client.CreditBalance <= 0) return Result.Failure("El cliente no tiene crédito a favor.");
-
-        var prev = client.CreditBalance;
-
-        // Antes esto era `client.CreditBalance = 0m` a secas: el saldo desaparecía
-        // del sistema dejando solo una línea de auditoría en texto, sin asiento que
-        // permitiera conciliar la devolución.
-        await _creditLedger.RecordAsync(
-            client, -prev, CreditMovementType.Reembolsado,
-            createdByUserId: actorId,
-            notes: $"Reembolso al cliente. Justificación: {justificacion}");
-
-        _clientRepo.Update(client);
-
-        await _clientRepo.SaveChangesAsync();
-        await _audit.LogAsync("Pagos", "CREDIT_REIMBURSED",
-            $"Crédito reembolsado: {client.TbnCode} monto={prev:F2} razón={justificacion}",
-            userId: actorId, userName: actorName, ip: ip,
-            prevData: JsonSerializer.Serialize(new { CreditBalance = prev }),
-            newData:  JsonSerializer.Serialize(new { CreditBalance = 0m, Justificacion = justificacion }));
-
-        return Result.Success();
-    }
-
-    public async Task<PaymentReceipt?> GetReceiptByPaymentAsync(Guid paymentId)
-        => await _receiptRepo.GetAll().FirstOrDefaultAsync(r => r.PaymentId == paymentId);
 }

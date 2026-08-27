@@ -4,6 +4,7 @@ using TelecomBoliviaNet.Application.DTOs.Common;
 using TelecomBoliviaNet.Application.DTOs.Payments;
 using TelecomBoliviaNet.Application.Interfaces;
 using TelecomBoliviaNet.Domain.Entities.Clients;
+using TelecomBoliviaNet.Domain.Entities.Payments;
 using TelecomBoliviaNet.Domain.Interfaces;
 
 namespace TelecomBoliviaNet.Application.Services.Payments;
@@ -21,10 +22,19 @@ namespace TelecomBoliviaNet.Application.Services.Payments;
 /// </summary>
 public class PaymentQueryService : IPaymentQueryService
 {
-    private readonly IGenericRepository<Payment> _paymentRepo;
+    private readonly IGenericRepository<Payment>        _paymentRepo;
+    private readonly IGenericRepository<PaymentReceipt> _receiptRepo;
 
-    public PaymentQueryService(IGenericRepository<Payment> paymentRepo)
-        => _paymentRepo = paymentRepo;
+    public PaymentQueryService(
+        IGenericRepository<Payment>        paymentRepo,
+        IGenericRepository<PaymentReceipt> receiptRepo)
+    {
+        _paymentRepo = paymentRepo;
+        _receiptRepo = receiptRepo;
+    }
+
+    public Task<PaymentReceipt?> GetReceiptByPaymentAsync(Guid paymentId)
+        => _receiptRepo.GetAll().FirstOrDefaultAsync(r => r.PaymentId == paymentId);
 
     public async Task<PagedResult<PaymentListItemDto>> GetAllAsync(PaymentFilterDto filter)
     {

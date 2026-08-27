@@ -164,7 +164,7 @@ public class PaymentsController : BaseController
     [Authorize(Policy = "AdminOrOperador")]
     public async Task<IActionResult> DownloadReceipt(Guid id)
     {
-        var receipt = await _creditSvc.GetReceiptByPaymentAsync(id);
+        var receipt = await _querySvc.GetReceiptByPaymentAsync(id);
         if (receipt is null) return NotFoundResult("Recibo no encontrado.");
         if (string.IsNullOrEmpty(receipt.PdfPath)) return NotFoundResult("El PDF aún no fue generado.");
 
