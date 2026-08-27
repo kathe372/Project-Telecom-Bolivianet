@@ -1,4 +1,4 @@
-using System.Globalization;
+﻿using System.Globalization;
 using TelecomBoliviaNet.Application.DTOs.Clients;
 using TelecomBoliviaNet.Domain.Entities.Clients;
 using TelecomBoliviaNet.Domain.Services;
@@ -31,7 +31,7 @@ internal static class ClientProjectionHelpers
         p.RegisteredBy?.FullName ?? "Sistema",
         p.FromWhatsApp,
         p.ReceiptImageUrl,
-        CanVoid:  !p.IsVoided && (DateTime.UtcNow - p.RegisteredAt).TotalDays <= 30,
+        CanVoid:  PaymentVoidPolicy.CanVoid(p.IsVoided, p.RegisteredAt, DateTime.UtcNow),
         IsVoided: p.IsVoided,
         p.PaymentInvoices.Select(pi =>
         {

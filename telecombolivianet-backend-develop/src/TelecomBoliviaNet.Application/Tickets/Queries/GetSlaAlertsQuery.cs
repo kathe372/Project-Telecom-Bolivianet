@@ -2,6 +2,7 @@
 using TelecomBoliviaNet.Application.DTOs.Tickets;
 using TelecomBoliviaNet.Domain.Entities.Tickets;
 using TelecomBoliviaNet.Domain.Interfaces;
+using TelecomBoliviaNet.Domain.Services;
 
 namespace TelecomBoliviaNet.Application.Tickets.Queries;
 
@@ -24,20 +25,26 @@ public class GetSlaAlertsHandler : IRequestHandler<GetSlaAlertsQuery, SlaAlertsD
 
         foreach (var t in tickets)
         {
-            var totalMin   = (t.DueDate - t.CreatedAt).TotalMinutes;
-            var elapsedMin = (now - t.CreatedAt).TotalMinutes;
-            var pct        = totalMin > 0 ? (int)(elapsedMin / totalMin * 100) : 100;
+            var pct   = SlaTrafficLight.PercentElapsed(t.CreatedAt, t.DueDate, now);
+            var nivel = SlaTrafficLight.Level(pct);
+
+            // Los que van sobrados no salen en el panel: es una lista de avisos,
+            // no el listado de tickets.
+            if (nivel == SlaLevel.Ok) continue;
 
             var item = new SlaAlertItemDto(
                 t.Id, t.TicketNumber ?? "", t.Subject,
                 t.Priority.ToString(), t.Status.ToString(),
                 t.ClientName, t.AssignedToName,
                 t.CreatedAt, t.DueDate, pct,
-                pct >= 100 ? "Breached" : pct >= 75 ? "Warning" : "Attention");
+                SlaTrafficLight.Label(nivel));
 
-            if      (pct >= 100) breached.Add(item);
-            else if (pct >= 75)  warning.Add(item);
-            else if (pct >= 50)  attention.Add(item);
+            switch (nivel)
+            {
+                case SlaLevel.Breached:  breached.Add(item);  break;
+                case SlaLevel.Warning:   warning.Add(item);   break;
+                case SlaLevel.Attention: attention.Add(item); break;
+            }
         }
 
         return new SlaAlertsDto(

@@ -91,9 +91,9 @@ public class PaymentService : IPaymentService
         if (payment.IsVoided)
             return Result<VoidPaymentResultDto>.Failure("Este pago ya fue anulado.");
 
-        if ((DateTime.UtcNow - payment.RegisteredAt).TotalDays > AppConstants.Security.VoidPaymentWindowDays)
+        if (!PaymentVoidPolicy.IsWithinWindow(payment.RegisteredAt, DateTime.UtcNow))
             return Result<VoidPaymentResultDto>.Failure(
-                $"Solo se pueden anular pagos registrados en los últimos {AppConstants.Security.VoidPaymentWindowDays} días.");
+                $"Solo se pueden anular pagos registrados en los últimos {PaymentVoidPolicy.WindowDays} días.");
 
         var now = DateTime.UtcNow;
 

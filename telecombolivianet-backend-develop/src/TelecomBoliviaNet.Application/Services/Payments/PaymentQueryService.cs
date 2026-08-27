@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using TelecomBoliviaNet.Application.Constants;
 using TelecomBoliviaNet.Application.DTOs.Common;
 using TelecomBoliviaNet.Application.DTOs.Payments;
@@ -6,6 +6,7 @@ using TelecomBoliviaNet.Application.Interfaces;
 using TelecomBoliviaNet.Domain.Entities.Clients;
 using TelecomBoliviaNet.Domain.Entities.Payments;
 using TelecomBoliviaNet.Domain.Interfaces;
+using TelecomBoliviaNet.Domain.Services;
 
 namespace TelecomBoliviaNet.Application.Services.Payments;
 
@@ -90,11 +91,11 @@ public class PaymentQueryService : IPaymentQueryService
 
         if (p is null) return null;
 
-        // Misma constante que usa la validación real de la anulación. Antes aquí
-        // había un 30 literal: si alguien cambiaba VoidPaymentWindowDays, la UI
-        // seguía ofreciendo "Anular" durante 30 días y el backend lo rechazaba.
-        var canVoid = (DateTime.UtcNow - p.RegisteredAt).TotalDays
-                      <= AppConstants.Security.VoidPaymentWindowDays;
+        // Misma regla que usa la validación real de la anulación. Antes aquí
+        // había un 30 literal —y además esta pantalla no miraba si el cobro ya
+        // estaba anulado, mientras la grilla de la ficha del cliente sí—, así que
+        // las dos ofrecían el botón "Anular" en casos distintos.
+        var canVoid = PaymentVoidPolicy.CanVoid(p.IsVoided, p.RegisteredAt, DateTime.UtcNow);
 
         return new PaymentDetailDto(
             p.Id, p.ClientId,

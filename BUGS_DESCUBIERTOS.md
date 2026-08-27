@@ -210,6 +210,58 @@ ve el operador, no una limpieza de refactor.
 una sola. Ahora vive en `BotProxyBase.SinRomperElPanelAsync`, así que el día que
 se decida distinguir los dos casos es **una** edición y no once.
 
+### 🟠 D-22 · El botón "Anular" aparecía en casos distintos según la pantalla — **CORREGIDO**
+
+La regla de si un cobro se puede anular estaba escrita **tres veces y de dos
+maneras distintas**:
+
+| Dónde | Plazo | ¿Mira si ya está anulado? |
+|---|---|---|
+| `PaymentService.VoidPaymentAsync` (la validación real) | constante | — (lo comprueba aparte) |
+| `PaymentQueryService.GetByIdAsync` (ficha del pago) | constante | **NO** |
+| `ClientProjectionHelpers.MapPaymentDto` (grilla de la ficha del cliente) | **`30` literal** | sí |
+
+Dos fallos distintos en la misma regla:
+
+1. **El literal.** Es exactamente el fallo que ya se había detectado y corregido
+   en la ficha del pago —el comentario que lo explica sigue ahí— y que aquí se
+   quedó sin tocar. Si alguien baja `VoidPaymentWindowDays` a 15, esta grilla
+   sigue ofreciendo "Anular" durante 30 días y el backend lo rechaza.
+
+2. **La divergencia de criterio.** La ficha del pago da `CanVoid = true` para un
+   cobro **ya anulado** que siga dentro del plazo; la grilla no. La misma acción
+   aparece o no según por dónde llegue el operador.
+
+**Arreglo:** `PaymentVoidPolicy` en el dominio, con el plazo y la regla completa.
+Expone `CanVoid` y `IsWithinWindow` por separado, porque el backend distingue
+"fuera de plazo" de "ya estaba anulado" en su mensaje y son dos cosas distintas
+que decirle al operador. `AppConstants.Security.VoidPaymentWindowDays` se conserva
+delegando en la constante del dominio, para no romper lo que la referenciaba.
+
+### 🟡 D-23 · El semáforo de SLA etiquetaba tickets que luego descartaba — **CORREGIDO**
+
+En `GetSlaAlertsQuery`, la etiqueta que se guardaba en el DTO y el reparto en
+listas usaban umbrales distintos:
+
+```csharp
+// etiqueta: todo lo que baje de 75 es "Attention"
+pct >= 100 ? "Breached" : pct >= 75 ? "Warning" : "Attention"
+
+// reparto: solo se recoge desde 50
+if      (pct >= 100) breached.Add(item);
+else if (pct >= 75)  warning.Add(item);
+else if (pct >= 50)  attention.Add(item);
+```
+
+Un ticket al 30 % recibía etiqueta `"Attention"` y acto seguido se descartaba sin
+entrar en ninguna lista. Sin consecuencia visible —el item no sale— pero el código
+afirmaba una clasificación de tres tramos donde en realidad hay cuatro.
+
+**Arreglo:** `SlaTrafficLight` en el dominio, con los umbrales nombrados y un
+`SlaLevel` del que salen tanto la etiqueta como el cubo, así que no pueden
+discrepar. De paso quedó escrito qué pasa cuando el vencimiento no es posterior a
+la creación: se cuenta como vencido, que es lo que ya hacía.
+
 ### 🔴 D-21 · Un horario 24x7 dejaba el calendario de instalaciones sin un solo hueco — **CORREGIDO**
 
 Salió al llevar la máscara de días laborables al dominio. `Is24x7` significaba

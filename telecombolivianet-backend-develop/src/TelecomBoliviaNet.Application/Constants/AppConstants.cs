@@ -1,4 +1,4 @@
-namespace TelecomBoliviaNet.Application.Constants;
+﻿namespace TelecomBoliviaNet.Application.Constants;
 
 public static class AppConstants
 {
@@ -37,7 +37,12 @@ public static class AppConstants
         public const int BcryptWorkFactor       = 12;
         public const int JwtExpirationHours     = 8;
         public const int RefreshTokenExpDays    = 30;
-        public const int VoidPaymentWindowDays  = 30;
+        /// <summary>
+        /// Se conserva por compatibilidad con lo que ya la referenciaba. La regla
+        /// completa —incluido que un cobro anulado no se re-anula— vive en
+        /// <c>PaymentVoidPolicy</c>.
+        /// </summary>
+        public const int VoidPaymentWindowDays  = Domain.Services.PaymentVoidPolicy.WindowDays;
     }
 
     public static class Pagination
