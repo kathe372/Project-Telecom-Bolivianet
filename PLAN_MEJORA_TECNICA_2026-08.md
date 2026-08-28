@@ -180,12 +180,24 @@ Build limpio (0 warnings), `SystemConfigKeys.TokenCleanupLastRunDay` existe, `Di
 | **F4** Sacar EF de Application | ✅ | 77 → 29 archivos · ADR-001 |
 | **F5** Partir servicios grandes | ✅ parcial argumentado | 9 → 2 clases > 250 líneas; el límite de 6 deps no se alcanzó |
 | **F6** Idioma inglés | ⬜ | No empezada. La de mayor radio de impacto |
-| **F7** Performance | ⬜ | No empezada |
+| **F7** Performance | ✅ lo medible sin producción · ⛔ el resto | 7.4 y 7.5 hechos; 7.1/7.2/7.3 exigen medir en producción |
 | **F8** Endurecer seguridad | ⬜ | No empezada |
 | **F9** Convención y documentación | ⬜ | No empezada |
 
-**Nada de esto está desplegado.** Se acumulan ~18 commits desde el último
+**Nada de esto está desplegado.** Se acumulan ~37 commits desde el último
 despliegue a producción (build del 2026-08-07).
+
+**F7 — qué se hizo y qué no.** Los tres pasos que empiezan por medir (7.1
+baseline con `pg_stat_statements`, 7.2 índices trigram verificados con
+`EXPLAIN ANALYZE`, 7.3 `AsSplitQuery` medido caso por caso) **no se tocaron a
+propósito**: el propio plan dice que no se apliquen a ciegas, y sin producción no
+hay nada que medir. Poner los índices "porque suenan bien" es exactamente lo que
+el paso 7.3 advierte de no hacer.
+
+Sí se hicieron los dos que no dependen de ninguna medición, porque no son
+optimizaciones sino topes: **7.4** (los tres recorridos que crecían con la
+cartera ahora van por tramos) y **7.5** (el `NOT IN` creciente del job de
+suspensión, sustituido por avance por clave).
 
 ### Lo que apareció por el camino y no estaba en el plan
 

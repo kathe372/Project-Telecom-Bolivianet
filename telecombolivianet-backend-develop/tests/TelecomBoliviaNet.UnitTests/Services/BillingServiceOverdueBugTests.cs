@@ -3,6 +3,7 @@ using TelecomBoliviaNet.Application.Services.Auth;
 using TelecomBoliviaNet.Application.Services.Invoices;
 using TelecomBoliviaNet.Domain.Entities.Clients;
 using TelecomBoliviaNet.Domain.Interfaces;
+using TelecomBoliviaNet.Domain.Services;
 using Microsoft.Extensions.Logging.Abstractions;
 
 namespace TelecomBoliviaNet.UnitTests.Services;
@@ -17,7 +18,7 @@ namespace TelecomBoliviaNet.UnitTests.Services;
 public class BillingServiceOverdueBugTests
 {
     private readonly Mock<IGenericRepository<Client>>  _clientRepoMock  = new(MockBehavior.Loose);
-    private readonly Mock<IGenericRepository<Invoice>> _invoiceRepoMock = new(MockBehavior.Loose);
+    private readonly Mock<IInvoiceRepository>          _invoiceRepoMock = new(MockBehavior.Loose);
     private readonly Mock<IInvoiceNumberService>       _invNumMock      = new(MockBehavior.Loose);
     private readonly Mock<INotifPublisher>             _notifMock       = new(MockBehavior.Loose);
 
@@ -63,8 +64,18 @@ public class BillingServiceOverdueBugTests
         var allInvoices = new[] { emitida, enviada, pendiente, pagada, futuraPend };
         var clients     = allInvoices.Select(i => MakeClient(i.ClientId)).ToList();
 
-        _invoiceRepoMock.Setup(r => r.GetAll())
-            .Returns(allInvoices.AsQueryable().BuildMock());
+        // F7.4 — Quién es elegible ya no lo decide el servicio sino la consulta.
+        // Para que este test siga cubriendo BUG-1 y no se vuelva una cáscara, el
+        // doble no devuelve una lista fija: aplica la REGLA DE VERDAD
+        // (OverduePolicy) sobre el conjunto completo, igual que hace el SQL.
+        // Que esa expresión y la de memoria coinciden lo prueba OverduePolicyTests;
+        // que PostgreSQL la traduce igual, OverdueBatchIntegrationTests.
+        _invoiceRepoMock
+            .Setup(r => r.GetOverdueBatchAsync(
+                It.IsAny<DateTime>(), It.IsAny<Guid>(), It.IsAny<int>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((DateTime asOf, Guid _, int _, CancellationToken _) =>
+                allInvoices.AsQueryable().Where(OverduePolicy.VencidasAl(asOf)).ToList());
+
         _clientRepoMock.Setup(r => r.GetAll())
             .Returns(clients.AsQueryable().BuildMock());
 
@@ -96,8 +107,10 @@ public class BillingServiceOverdueBugTests
                                   amount: 100m, amountPaid: 30m);  // crédito aplicado
         invoice.ClientId = client.Id;
 
-        _invoiceRepoMock.Setup(r => r.GetAll())
-            .Returns(new[] { invoice }.AsQueryable().BuildMock());
+        _invoiceRepoMock
+            .Setup(r => r.GetOverdueBatchAsync(
+                It.IsAny<DateTime>(), It.IsAny<Guid>(), It.IsAny<int>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync([invoice]);
         _clientRepoMock.Setup(r => r.GetAll())
             .Returns(new[] { client }.AsQueryable().BuildMock());
 

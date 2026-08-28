@@ -1,4 +1,4 @@
-using System.Globalization;
+﻿using System.Globalization;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using TelecomBoliviaNet.Application.Interfaces;
@@ -28,14 +28,14 @@ namespace TelecomBoliviaNet.Application.Services.Invoices;
 /// </summary>
 public class InvoiceStatusService : IInvoiceStatusService
 {
-    private readonly IGenericRepository<Invoice>     _invoiceRepo;
+    private readonly IInvoiceRepository              _invoiceRepo;
     private readonly IGenericRepository<Client>      _clientRepo;
     private readonly INotifPublisher                 _notif;
     private readonly AuditService                    _audit;
     private readonly ILogger<InvoiceStatusService>   _logger;
 
     public InvoiceStatusService(
-        IGenericRepository<Invoice>   invoiceRepo,
+        IInvoiceRepository            invoiceRepo,
         IGenericRepository<Client>    clientRepo,
         INotifPublisher               notif,
         AuditService                  audit,
@@ -50,17 +50,54 @@ public class InvoiceStatusService : IInvoiceStatusService
 
     private static string MonthName(int month) => InvoiceHelper.MonthName(month);
 
+    /// <summary>
+    /// Clientes por tramo. Se pagina por cliente y no por factura porque el aviso
+    /// que sale de aquí es uno por cliente: ver <c>IInvoiceRepository.GetOverdueBatchAsync</c>.
+    /// </summary>
+    private const int ClientesPorTramo = 200;
+
     public async Task<int> MarkOverdueInvoicesAsync(
         Guid? actorId = null, string actorName = "Sistema")
     {
-        var now = DateTime.UtcNow;
+        var now      = DateTime.UtcNow;
+        var marcadas = 0;
+        var avisados = 0;
 
-        var overdue = await _invoiceRepo.GetAll()
-            .Where(i => InvoiceDomainService.OverdueEligible.Contains(i.Status) && i.DueDate < now)
-            .ToListAsync();
+        // F7.4 — Antes cargaba de una vez TODAS las facturas vencibles de la
+        // historia. Ahora avanza por tramos de clientes; el `now` se fija una sola
+        // vez para que el corte sea el mismo en todo el recorrido.
+        Guid ultimoCliente = Guid.Empty;
+        while (true)
+        {
+            var tramo = await _invoiceRepo.GetOverdueBatchAsync(now, ultimoCliente, ClientesPorTramo);
+            if (tramo.Count == 0) break;
 
-        if (overdue.Count == 0) return 0;
+            // Se cuenta ANTES de marcar: si un cobro simultáneo obliga a descartar
+            // facturas, el tramo se encoge, y usar el recuento de después cortaría
+            // el recorrido dejando clientes sin revisar.
+            var clientesEnTramo = tramo.Select(i => i.ClientId).Distinct().Count();
+            ultimoCliente       = tramo[^1].ClientId;
 
+            var resultado = await MarcarTramoAsync(tramo, now);
+            marcadas += resultado.Marcadas;
+            avisados += resultado.Avisados;
+
+            // Vino un tramo incompleto: no hay más clientes que revisar.
+            if (clientesEnTramo < ClientesPorTramo) break;
+        }
+
+        await _audit.LogAsync(
+            "Facturación", "OVERDUE_JOB_EXECUTED",
+            $"{marcadas} facturas marcadas como vencidas al {now:dd/MM/yyyy}. Notificaciones encoladas: {avisados}.",
+            userId: actorId, userName: actorName,
+            newData: System.Text.Json.JsonSerializer.Serialize(new { Count = marcadas, Date = now }));
+
+        return marcadas;
+    }
+
+    /// <summary>Marca un tramo y encola un aviso por cliente. Devuelve (marcadas, avisados).</summary>
+    private async Task<(int Marcadas, int Avisados)> MarcarTramoAsync(List<Invoice> overdue, DateTime now)
+    {
         var porCliente = overdue.GroupBy(i => i.ClientId).ToList();
 
         foreach (var invoice in overdue)
@@ -137,13 +174,7 @@ public class InvoiceStatusService : IInvoiceStatusService
             }
         }
 
-        await _audit.LogAsync(
-            "Facturación", "OVERDUE_JOB_EXECUTED",
-            $"{overdue.Count} facturas marcadas como vencidas al {now:dd/MM/yyyy}. Notificaciones encoladas: {porCliente.Count}.",
-            userId: actorId, userName: actorName,
-            newData: System.Text.Json.JsonSerializer.Serialize(new { Count = overdue.Count, Date = now }));
-
-        return overdue.Count;
+        return (overdue.Count, porCliente.Count);
     }
 
 

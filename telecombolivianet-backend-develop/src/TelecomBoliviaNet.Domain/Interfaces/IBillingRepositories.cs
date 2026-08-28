@@ -34,6 +34,25 @@ public interface IInvoiceRepository : IGenericRepository<Invoice>
     /// </summary>
     Task<List<Invoice>> GetForClientBetweenAsync(
         Guid clientId, DateTime? from, DateTime? to, CancellationToken ct = default);
+
+    /// <summary>
+    /// Un tramo de las facturas que ya deberían estar vencidas, para marcarlas.
+    /// Devuelve las de hasta <paramref name="maxClientes"/> clientes con id mayor
+    /// que <paramref name="desdeClienteId"/>; se avanza pasando el id del último
+    /// cliente del tramo anterior (<see cref="Guid.Empty"/> para empezar).
+    /// </summary>
+    /// <remarks>
+    /// F7.4 — Se pagina por CLIENTE, no por factura, y esto no es un detalle de
+    /// eficiencia: el job agrupa las vencidas por cliente para mandarle UN aviso
+    /// que dice "3 meses". Si un tramo partiera a un cliente por la mitad,
+    /// recibiría dos avisos contradictorios por la misma deuda. Paginando por
+    /// cliente, un cliente entra entero en un tramo o no entra.
+    ///
+    /// <para>Vienen RASTREADAS a propósito: quien las pide es el job que les
+    /// cambia el estado.</para>
+    /// </remarks>
+    Task<List<Invoice>> GetOverdueBatchAsync(
+        DateTime asOf, Guid desdeClienteId, int maxClientes, CancellationToken ct = default);
 }
 
 /// <summary>Lo que costaba el plan del cliente en el momento de emitir la factura.</summary>

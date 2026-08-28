@@ -1,4 +1,4 @@
-using TelecomBoliviaNet.Domain.Entities.Clients;
+﻿using TelecomBoliviaNet.Domain.Entities.Clients;
 
 namespace TelecomBoliviaNet.Domain.Services;
 
@@ -68,7 +68,7 @@ public static class PaymentReversalService
 
         // Si vuelve a quedar impaga y su vencimiento ya pasó, corresponde Vencida
         // sin esperar a la próxima corrida del job de marcado.
-        if (InvoiceDomainService.OverdueEligible.Contains(status) && dueDate < now)
+        if (OverduePolicy.EstaVencida(status, dueDate, now))
             status = InvoiceStatus.Vencida;
 
         return (newAmountPaid, status, isExact);

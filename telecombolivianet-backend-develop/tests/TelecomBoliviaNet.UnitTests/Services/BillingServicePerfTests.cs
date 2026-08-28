@@ -15,7 +15,7 @@ namespace TelecomBoliviaNet.UnitTests.Services;
 public class BillingServicePerfTests
 {
     private readonly Mock<IGenericRepository<Client>>  _clientRepoMock  = new(MockBehavior.Loose);
-    private readonly Mock<IGenericRepository<Invoice>> _invoiceRepoMock = new(MockBehavior.Loose);
+    private readonly Mock<IInvoiceRepository>          _invoiceRepoMock = new(MockBehavior.Loose);
     private readonly Mock<IInvoiceNumberService>       _invNumMock      = new(MockBehavior.Loose);
     private readonly Mock<INotifPublisher>             _notifMock       = new(MockBehavior.Loose);
 
@@ -48,8 +48,9 @@ public class BillingServicePerfTests
             installationDate: DateTime.UtcNow.AddMonths(-3))).ToList();
 
         _invoiceRepoMock
-            .Setup(r => r.GetAll())
-            .Returns(overdueInvoices.AsQueryable().BuildMock());
+            .Setup(r => r.GetOverdueBatchAsync(
+                It.IsAny<DateTime>(), It.IsAny<Guid>(), It.IsAny<int>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(overdueInvoices);
 
         _invoiceRepoMock.Setup(r => r.UpdateRange(It.IsAny<IEnumerable<Invoice>>()));
 

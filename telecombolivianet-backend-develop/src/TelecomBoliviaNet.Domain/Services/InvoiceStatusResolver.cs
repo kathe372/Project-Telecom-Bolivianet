@@ -1,4 +1,4 @@
-using TelecomBoliviaNet.Domain.Entities.Clients;
+﻿using TelecomBoliviaNet.Domain.Entities.Clients;
 
 namespace TelecomBoliviaNet.Domain.Services;
 
@@ -12,16 +12,16 @@ namespace TelecomBoliviaNet.Domain.Services;
 /// </summary>
 public static class InvoiceStatusResolver
 {
-    // Se DERIVA de InvoiceDomainService.OverdueEligible en vez de repetir la lista: antes eran
-    // dos literales que decían ser "los mismos" y ya habían divergido — el HashSet local se
-    // quedó sin ParcialmentePagada. La única fuente de verdad es el servicio de dominio; acá
-    // solo se indexa para consultarla en O(1).
-    private static readonly HashSet<InvoiceStatus> OverdueEligible =
-        new(InvoiceDomainService.OverdueEligible);
-
     /// <summary>Estado efectivo considerando la fecha de vencimiento.</summary>
+    /// <remarks>
+    /// Cuándo está vencida no se decide aquí: lo dice <see cref="OverduePolicy"/>,
+    /// que es la misma regla que aplica el job de marcado y la que filtra la
+    /// consulta. Antes esta clase llevaba su propia copia de la lista de estados
+    /// vencibles y ya había divergido — se le había quedado sin
+    /// ParcialmentePagada.
+    /// </remarks>
     public static InvoiceStatus Effective(Invoice invoice, DateTime now)
-        => OverdueEligible.Contains(invoice.Status) && invoice.DueDate < now
+        => OverduePolicy.EstaVencida(invoice.Status, invoice.DueDate, now)
             ? InvoiceStatus.Vencida
             : invoice.Status;
 

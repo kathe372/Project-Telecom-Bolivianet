@@ -49,11 +49,19 @@ public class ClientRepository : GenericRepository<Client>, IClientRepository
             .OrderBy(c => c.CreatedAt)
             .ToListAsync(ct);
 
-    public Task<List<Client>> GetWithOverdueInvoicesAsync(CancellationToken ct = default)
+    public Task<List<Client>> GetWithOverdueInvoicesPageAsync(
+        Guid desdeId, int tamano, CancellationToken ct = default)
         => _db.Clients
-            .Include(c => c.Invoices)
+            .AsNoTracking()
+            // Include FILTRADO: de cada cliente bajan sus vencidas y nada más.
+            // Sin esto bajaba su historial de facturación completo para que el
+            // servicio descartara casi todo en memoria.
+            .Include(c => c.Invoices.Where(i => i.Status == InvoiceStatus.Vencida))
             .Where(c => (c.Status == ClientStatus.Activo || c.Status == ClientStatus.Suspendido)
+                     && c.Id > desdeId
                      && c.Invoices.Any(i => i.Status == InvoiceStatus.Vencida))
+            .OrderBy(c => c.Id)
+            .Take(tamano)
             .ToListAsync(ct);
 
     public async Task<(List<Client> Items, int Total)> GetPagedAsync(

@@ -62,7 +62,23 @@ public interface IClientRepository : IGenericRepository<Client>
     /// deuda a quien ya no es cliente se resuelve por otra vía, no por WhatsApp
     /// automático.</para>
     /// </summary>
-    Task<List<Client>> GetWithOverdueInvoicesAsync(CancellationToken ct = default);
+    /// <summary>
+    /// Un tramo de los clientes con facturas vencidas, ordenados por id: los
+    /// primeros <paramref name="tamano"/> cuyo id sea mayor que
+    /// <paramref name="desdeId"/> (<see cref="Guid.Empty"/> para empezar).
+    /// Cada uno trae en <c>Invoices</c> SOLO sus vencidas.
+    /// </summary>
+    /// <remarks>
+    /// F7.4 — Reemplaza a <c>GetWithOverdueInvoicesAsync</c>, que traía a todos
+    /// los morosos de golpe y, de cada uno, TODAS sus facturas —incluidas las
+    /// pagadas de años anteriores— para quedarse solo con las vencidas.
+    ///
+    /// <para>Avanzar por id es seguro aquí porque el recordatorio no cambia el
+    /// estado de nadie: solo encola avisos. El conjunto no se mueve bajo los pies
+    /// del recorrido, al revés que en el job de suspensión.</para>
+    /// </remarks>
+    Task<List<Client>> GetWithOverdueInvoicesPageAsync(
+        Guid desdeId, int tamano, CancellationToken ct = default);
 }
 
 /// <summary>

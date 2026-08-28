@@ -23,6 +23,7 @@ public sealed class BillingServiceBuilder
 {
     private IGenericRepository<Client>?  _clientRepo;
     private IGenericRepository<Invoice>? _invoiceRepo;
+    private IInvoiceRepository?          _invoiceAgg;
     private IInvoiceNumberService?       _invNumSvc;
     private INotifPublisher?             _notif;
     private IUnitOfWork?                 _uow;
@@ -33,6 +34,14 @@ public sealed class BillingServiceBuilder
 
     public BillingServiceBuilder WithInvoices(IGenericRepository<Invoice> repo)
     { _invoiceRepo = repo; return this; }
+
+    /// <summary>
+    /// El repositorio de facturas en su forma específica. InvoiceStatusService lo
+    /// necesita así desde F7.4: pide las vencidas por tramos con una consulta con
+    /// nombre de negocio, no componiendo un IQueryable.
+    /// </summary>
+    public BillingServiceBuilder WithInvoices(IInvoiceRepository repo)
+    { _invoiceRepo = repo; _invoiceAgg = repo; return this; }
 
     public BillingServiceBuilder WithInvoiceNumbers(IInvoiceNumberService svc)
     { _invNumSvc = svc; return this; }
@@ -60,7 +69,7 @@ public sealed class BillingServiceBuilder
     /// los mismos dobles para que los tests que ya existían no tengan que saberlo.
     /// </summary>
     public InvoiceStatusService BuildStatusService() => new(
-        _invoiceRepo ?? Mock.Of<IGenericRepository<Invoice>>(),
+        _invoiceAgg  ?? Mock.Of<IInvoiceRepository>(),
         _clientRepo  ?? Mock.Of<IGenericRepository<Client>>(),
         _notif       ?? Mock.Of<INotifPublisher>(),
         TestAudit.Real(),

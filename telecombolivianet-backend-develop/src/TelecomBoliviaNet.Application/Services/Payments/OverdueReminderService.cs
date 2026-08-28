@@ -1,4 +1,4 @@
-using System.Text.Json;
+﻿using System.Text.Json;
 using Microsoft.Extensions.Logging;
 using TelecomBoliviaNet.Application.DTOs.Payments;
 using TelecomBoliviaNet.Application.Interfaces;
@@ -32,14 +32,49 @@ public class OverdueReminderService : IOverdueReminderService
         _logger     = logger;
     }
 
+    /// <summary>
+    /// Clientes por tramo. No es un número afinado contra ninguna medición: es
+    /// un techo, para que el trabajo no crezca con la cartera.
+    /// </summary>
+    private const int ClientesPorTramo = 200;
+
     public async Task<ReminderJobResultDto> SendOverdueRemindersAsync(
         Guid? actorId = null, string actorName = "Sistema")
     {
-        var overdueClients = await _clientRepo.GetWithOverdueInvoicesAsync();
-
         int sent = 0, skipped = 0, errors = 0;
 
-        foreach (var client in overdueClients)
+        // F7.4 — Antes: todos los morosos en memoria de una vez, con el historial
+        // de facturación COMPLETO de cada uno, para quedarse con las vencidas.
+        // Ahora se recorre por tramos y cada cliente trae solo sus vencidas.
+        Guid ultimoId = Guid.Empty;
+        while (true)
+        {
+            var tramo = await _clientRepo.GetWithOverdueInvoicesPageAsync(ultimoId, ClientesPorTramo);
+            if (tramo.Count == 0) break;
+
+            ultimoId = tramo[^1].Id;
+            (var s2, var e2) = await EncolarTramoAsync(tramo);
+            sent   += s2;
+            errors += e2;
+
+            if (tramo.Count < ClientesPorTramo) break;
+        }
+
+        await _audit.LogAsync(
+            "Pagos", "REMINDER_JOB_EXECUTED",
+            $"Recordatorios encolados en outbox: {sent} clientes, {errors} errores",
+            userId: actorId, userName: actorName,
+            newData: JsonSerializer.Serialize(new { Enqueued = sent, Errors = errors }));
+
+        return new ReminderJobResultDto(sent, skipped, errors,
+            DateTime.UtcNow.ToString("dd/MM/yyyy HH:mm"));
+    }
+
+    private async Task<(int Enviados, int Errores)> EncolarTramoAsync(List<Client> tramo)
+    {
+        int sent = 0, errors = 0;
+
+        foreach (var client in tramo)
         {
             try
             {
@@ -74,13 +109,6 @@ public class OverdueReminderService : IOverdueReminderService
             }
         }
 
-        await _audit.LogAsync(
-            "Pagos", "REMINDER_JOB_EXECUTED",
-            $"Recordatorios encolados en outbox: {sent} clientes, {errors} errores",
-            userId: actorId, userName: actorName,
-            newData: JsonSerializer.Serialize(new { Enqueued = sent, Errors = errors }));
-
-        return new ReminderJobResultDto(sent, skipped, errors,
-            DateTime.UtcNow.ToString("dd/MM/yyyy HH:mm"));
+        return (sent, errors);
     }
 }
