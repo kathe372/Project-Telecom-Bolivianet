@@ -43,4 +43,27 @@ public class BusinessSchedule : Entity
     /// porque el validador no los comprueba.
     /// </summary>
     public (int From, int To) OpenHours => Is24x7 ? (0, 24) : (StartHour, EndHour);
+
+    /// <summary>
+    /// Deja los campos coherentes con <see cref="Is24x7"/> antes de guardar.
+    ///
+    /// <para>Un horario 24x7 se almacena con los siete días y de 0 a 24. No es
+    /// cosmética: sin esto se guarda lo que mandara el formulario —y la pantalla
+    /// no pide horas ni días cuando se marca 24x7, así que llegan en cero—. Los
+    /// lectores lo interpretan bien gracias a <see cref="IsWorkingDay"/> y
+    /// <see cref="OpenHours"/>, pero el dato guardado seguiría siendo mentira, y
+    /// el día que alguien <b>desmarque</b> la casilla esos ceros pasarían a ser
+    /// efectivos y el calendario se quedaría sin un solo hueco.</para>
+    ///
+    /// <para>Normalizando al guardar, desmarcar 24x7 deja un horario válido —toda
+    /// la semana, día completo— que el operador puede ajustar.</para>
+    /// </summary>
+    public void NormalizeSchedule()
+    {
+        if (!Is24x7) return;
+
+        WorkingDaysMask = WorkingDays.EveryDay;
+        StartHour       = 0;
+        EndHour         = 24;
+    }
 }

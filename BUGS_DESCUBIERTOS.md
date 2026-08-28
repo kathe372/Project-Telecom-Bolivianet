@@ -300,11 +300,40 @@ que `SlaCalculator` nunca ve un horario 24x7.
 
 Cubierto por `BusinessSchedule24x7Tests`, verificados fallando sin el arreglo.
 
-**Lo que NO se tocó:** `ValidateDto` sigue sin comprobar nada cuando `Is24x7` es
-true. Endurecerlo rechazaría peticiones que hoy se aceptan, y con el arreglo de
-arriba las horas y la máscara de un 24x7 ya no se usan para nada. Queda anotado
-por si algún día alguien desmarca la casilla de un horario creado así: en ese
-momento esos ceros pasarían a ser efectivos.
+**Segunda pasada (2026-08-27) — el arreglo anterior era incompleto.**
+
+Dejar que `IsWorkingDay` y `OpenHours` interpretaran bien un 24x7 mal guardado
+quitaba el síntoma pero **dejaba la mentira en la base**. Yo mismo lo anoté como
+riesgo aceptado: "si alguien desmarca la casilla, esos ceros pasarían a ser
+efectivos". Eso no es un riesgo aceptable, es el mismo bug esperando.
+
+Al mirarlo de nuevo apareció además un fallo distinto en `UpdateAsync`:
+
+```csharp
+schedule.Name = ...;  schedule.StartHour = ...;  schedule.Is24x7 = ...;   // muta
+if (dto.IsDefault == true) { await ClearDefaultFlagAsync(); }             // ¡GUARDA!
+var validation = ValidateDto(...);                                        // valida
+if (validation is not null) return Failure(validation);                   // sin deshacer
+```
+
+`ClearDefaultFlagAsync` llama a `SaveChangesAsync`. Como la entidad ya está
+mutada y rastreada, **ese guardado persiste los valores inválidos** y acto seguido
+la respuesta dice que la operación falló. Una petición con `isDefault: true` y
+horas inválidas dejaba el horario roto e informaba de error.
+
+**Lo que se hizo ahora:**
+
+1. `BusinessSchedule.NormalizeSchedule()` — un 24x7 se **guarda** como los siete
+   días de 0 a 24. El dato deja de ser mentira, y desmarcar la casilla deja un
+   horario válido que el operador puede ajustar, en vez de uno muerto.
+2. `CreateAsync` y `UpdateAsync` normalizan antes de persistir.
+3. `UpdateAsync` **valida antes de tocar la entidad**: se calculan los valores
+   pretendidos, se validan, y solo entonces se asignan.
+4. Eliminado el `SaveChangesAsync` duplicado del final.
+
+`IsWorkingDay` y `OpenHours` se quedan como red: interpretan correctamente las
+filas que ya estén mal guardadas en producción, que la normalización solo arregla
+la próxima vez que se editen.
 
 ### 🟡 OBS-03 · Un segmento con el operador equivocado no alcanza a nadie y no lo dice
 

@@ -62,6 +62,11 @@ public class BusinessScheduleService : IBusinessScheduleService
             CreatedAt       = DateTime.UtcNow,
         };
 
+        // D-21 — Un 24x7 se guarda como los siete días de 0 a 24. La pantalla no
+        // pide días ni horas cuando se marca esa casilla, así que llegan en cero
+        // y ValidateDto no los mira: sin esto, el dato guardado sería mentira.
+        schedule.NormalizeSchedule();
+
         await _scheduleRepo.AddAsync(schedule);
         await _scheduleRepo.SaveChangesAsync();
 
@@ -79,16 +84,29 @@ public class BusinessScheduleService : IBusinessScheduleService
         {
             var taken = await _scheduleRepo.AnyAsync(s => s.Name == dto.Name.Trim() && s.Id != id);
             if (taken) return Result<BusinessScheduleDto>.Failure("Ya existe un horario con ese nombre.");
-            schedule.Name = dto.Name.Trim();
         }
 
+        // D-21 — Se valida ANTES de tocar la entidad. Antes se asignaban todos los
+        // campos y se validaba después, devolviendo Failure sin deshacer nada: si
+        // la petición traía isDefault, ClearDefaultFlagAsync guardaba en medio y
+        // los valores inválidos quedaban persistidos mientras la respuesta decía
+        // que había fallado.
+        var startH = dto.StartHour       ?? schedule.StartHour;
+        var endH   = dto.EndHour         ?? schedule.EndHour;
+        var mask   = dto.WorkingDaysMask ?? schedule.WorkingDaysMask;
+        var is24   = dto.Is24x7          ?? schedule.Is24x7;
+
+        var validation = ValidateDto(startH, endH, mask, is24);
+        if (validation is not null) return Result<BusinessScheduleDto>.Failure(validation);
+
+        if (dto.Name is not null)         schedule.Name            = dto.Name.Trim();
         if (dto.TimeZoneName is not null) schedule.TimeZoneName    = dto.TimeZoneName.Trim();
         if (dto.UtcOffsetHours.HasValue)  schedule.UtcOffsetHours  = dto.UtcOffsetHours.Value;
-        if (dto.WorkingDaysMask.HasValue) schedule.WorkingDaysMask = dto.WorkingDaysMask.Value;
-        if (dto.StartHour.HasValue)       schedule.StartHour        = dto.StartHour.Value;
-        if (dto.EndHour.HasValue)         schedule.EndHour          = dto.EndHour.Value;
-        if (dto.Is24x7.HasValue)          schedule.Is24x7           = dto.Is24x7.Value;
-        if (dto.IsActive.HasValue)        schedule.IsActive         = dto.IsActive.Value;
+        schedule.WorkingDaysMask = mask;
+        schedule.StartHour       = startH;
+        schedule.EndHour         = endH;
+        schedule.Is24x7          = is24;
+        if (dto.IsActive.HasValue)        schedule.IsActive        = dto.IsActive.Value;
 
         if (dto.IsDefault == true && !schedule.IsDefault)
         {
@@ -96,17 +114,9 @@ public class BusinessScheduleService : IBusinessScheduleService
             schedule.IsDefault = true;
         }
 
-        var startH = dto.StartHour ?? schedule.StartHour;
-        var endH   = dto.EndHour   ?? schedule.EndHour;
-        var mask   = dto.WorkingDaysMask ?? schedule.WorkingDaysMask;
-        var is24   = dto.Is24x7 ?? schedule.Is24x7;
-
-        var validation = ValidateDto(startH, endH, mask, is24);
-        if (validation is not null) return Result<BusinessScheduleDto>.Failure(validation);
-
+        schedule.NormalizeSchedule();
         schedule.UpdatedAt = DateTime.UtcNow;
         _scheduleRepo.Update(schedule);
-        await _scheduleRepo.SaveChangesAsync();
         await _scheduleRepo.SaveChangesAsync();
 
         return Result<BusinessScheduleDto>.Success(ToDto(schedule));

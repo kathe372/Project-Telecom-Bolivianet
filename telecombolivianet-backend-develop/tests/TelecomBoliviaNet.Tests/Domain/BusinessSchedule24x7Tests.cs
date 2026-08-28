@@ -72,4 +72,56 @@ public class BusinessSchedule24x7Tests
         foreach (var dia in Enum.GetValues<DayOfWeek>())
             schedule.IsWorkingDay(dia).Should().BeFalse();
     }
+
+    // ── El dato guardado también tiene que ser cierto ───────────────────────
+    //
+    // Que IsWorkingDay y OpenHours interpreten bien un 24x7 mal guardado evita el
+    // síntoma, pero deja la mentira en la base. El día que alguien DESMARQUE la
+    // casilla, esos ceros pasan a ser efectivos y el calendario vuelve a morir.
+
+    [Fact]
+    public void AlGuardar_Un24x7_SeNormalizaATodaLaSemanaYDiaCompleto()
+    {
+        var schedule = Veinticuatro7SinConfigurar();
+
+        schedule.NormalizeSchedule();
+
+        schedule.WorkingDaysMask.Should().Be(WorkingDays.EveryDay);
+        schedule.StartHour.Should().Be(0);
+        schedule.EndHour.Should().Be(24);
+    }
+
+    [Fact]
+    public void DesmarcarEl24x7_DejaUnHorarioValido_NoUnoMuerto()
+    {
+        // Ésta es la razón de normalizar. Antes: 24x7 guardado con máscara 0, el
+        // operador desmarca la casilla y se queda con un horario que no trabaja
+        // ningún día — sin ningún error, solo una agenda vacía.
+        var schedule = Veinticuatro7SinConfigurar();
+        schedule.NormalizeSchedule();
+
+        schedule.Is24x7 = false;
+
+        WorkingDays.IsValid(schedule.WorkingDaysMask).Should().BeTrue();
+        schedule.OpenHours.Should().Be((0, 24));
+        foreach (var dia in Enum.GetValues<DayOfWeek>())
+            schedule.IsWorkingDay(dia).Should().BeTrue();
+    }
+
+    [Fact]
+    public void UnHorarioNormal_NoSeToca_AlNormalizar()
+    {
+        var schedule = new BusinessSchedule
+        {
+            Is24x7          = false,
+            WorkingDaysMask = WorkingDays.MondayToFriday,
+            StartHour       = 8,
+            EndHour         = 18,
+        };
+
+        schedule.NormalizeSchedule();
+
+        schedule.WorkingDaysMask.Should().Be(WorkingDays.MondayToFriday);
+        schedule.OpenHours.Should().Be((8, 18));
+    }
 }
