@@ -61,31 +61,37 @@ public class BillingService : IBillingService
 
         // Congelamiento: solo se factura a clientes facturables (activos), no a suspendidos.
         var billable = BillingEligibility.BillableStatuses;
-        var clients = await _clientRepo.GetAll()
-            .AsNoTracking()
-            .Include(c => c.Plan)
-            .Where(c => billable.Contains(c.Status) && c.InstallationDate < monthEnd)
-            .ToListAsync();
 
-        var existingClientIds = (await _invoiceRepo.GetAll()
-            .AsNoTracking()
+        // F7.4 — Los cuatro números se cuentan en SQL.
+        //
+        // Antes se traían a memoria TODOS los clientes facturables con su plan
+        // —la ficha entera de cada uno— para recorrerlos en un foreach y contar.
+        // Es una pantalla de "qué se va a facturar este mes": el coste crecía con
+        // la cartera aunque el resultado sean cuatro enteros y un total.
+        var yaFacturados = _invoiceRepo.GetAllReadOnly()
             .Where(i => i.Year == year && i.Month == month && i.Type == InvoiceType.Mensualidad)
-            .Select(i => i.ClientId)
-            .ToListAsync()).ToHashSet();
+            .Select(i => i.ClientId);
 
-        int     toGenerate   = 0;
-        int     alreadyBilled = 0;
-        int     withErrors   = 0;
-        decimal estimatedTotal = 0m;
+        var stats = await _clientRepo.GetAllReadOnly()
+            .Where(c => billable.Contains(c.Status) && c.InstallationDate < monthEnd)
+            .GroupBy(_ => 1)
+            .Select(g => new
+            {
+                AlreadyBilled = g.Count(c => yaFacturados.Contains(c.Id)),
+                // D-08: con la FK a Plans, un cliente sin plan no puede existir.
+                // La rama se conserva —la caracterización congela que vale 0—
+                // pero el contador nunca se moverá.
+                WithErrors    = g.Count(c => !yaFacturados.Contains(c.Id) && c.Plan == null),
+                ToGenerate    = g.Count(c => !yaFacturados.Contains(c.Id) && c.Plan != null),
+                Estimated     = g.Where(c => !yaFacturados.Contains(c.Id) && c.Plan != null)
+                                  .Sum(c => (decimal?)c.Plan!.MonthlyPrice),
+            })
+            .FirstOrDefaultAsync();
 
-        foreach (var client in clients)
-        {
-            if (existingClientIds.Contains(client.Id)) { alreadyBilled++; continue; }
-            if (client.Plan is null)                   { withErrors++;    continue; }
-
-            toGenerate++;
-            estimatedTotal += client.Plan.MonthlyPrice;
-        }
+        var toGenerate     = stats?.ToGenerate    ?? 0;
+        var alreadyBilled  = stats?.AlreadyBilled ?? 0;
+        var withErrors     = stats?.WithErrors    ?? 0;
+        var estimatedTotal = stats?.Estimated     ?? 0m;
 
         int excludedBaja = await _clientRepo.GetAll()
             .CountAsync(c => c.Status == ClientStatus.DadoDeBaja);

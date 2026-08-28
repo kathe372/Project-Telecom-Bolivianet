@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using TelecomBoliviaNet.Application.Constants;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -108,12 +108,20 @@ public class AutoSuspendClientJob : BackgroundService
         var dias    = int.TryParse(diasStr, out var d) ? d : 10;
         var cutoff  = DateTime.UtcNow.AddDays(-dias);
 
-        // Un cliente suspendido sale solo del filtro (cambia de estado), así que el
-        // lote siguiente avanza por sí mismo. Los únicos que permanecerían dando
-        // vueltas son los omitidos por pago reciente, así que se excluyen
-        // explícitamente: es un conjunto pequeño (pagos de las últimas 24 h dentro
-        // de los morosos), no la lista completa de procesados.
-        var skippedIds = new List<Guid>();
+        // F7.5 — Se avanza por CLAVE (c.Id > ultimoId), no con una lista de
+        // exclusión.
+        //
+        // Antes se acumulaban en `skippedIds` los omitidos por pago reciente y los
+        // que fallaban al suspender, y esa lista entraba entera en el WHERE de
+        // cada ronda como un NOT IN que crecía a cada vuelta. El comentario de
+        // entonces decía que era "un conjunto pequeño", pero contaba solo los
+        // pagos recientes: los errores también se acumulaban ahí.
+        //
+        // Con paginación por clave el WHERE no crece: cada ronda arranca donde
+        // terminó la anterior. Un cliente suspendido sale solo del filtro al
+        // cambiar de estado, y los omitidos quedan atrás sin necesidad de
+        // nombrarlos — se reintentarán mañana, que es lo que ya se pretendía.
+        Guid ultimoId = Guid.Empty;
         int suspended = 0, skippedRecentPayer = 0, errors = 0, rounds = 0;
 
         while (rounds++ < MaxRoundsPerRun)
@@ -122,11 +130,11 @@ public class AutoSuspendClientJob : BackgroundService
             // al día y, al no haber orden determinista, PostgreSQL tendía a devolver
             // siempre las mismas filas — el resto no se suspendía NUNCA, mientras el
             // log reportaba "20 clientes suspendidos" cada día.
-            var excluded = skippedIds;
+            var desde = ultimoId;
             var batch = await db.Clients
                 .Include(c => c.Plan)
                 .Where(c => c.Status == ClientStatus.Activo && !c.IsDeleted &&
-                            !excluded.Contains(c.Id) &&
+                            c.Id.CompareTo(desde) > 0 &&
                             db.Invoices.Any(i =>
                                 i.ClientId == c.Id && !i.IsDeleted &&
                                 i.Status == InvoiceStatus.Vencida &&
@@ -136,6 +144,9 @@ public class AutoSuspendClientJob : BackgroundService
                 .ToListAsync(ct);
 
             if (batch.Count == 0) break;
+
+            // El lote viene ordenado por Id: la próxima ronda arranca tras el último.
+            ultimoId = batch[^1].Id;
 
             var batchIds    = batch.Select(c => c.Id).ToList();
             var graceWindow = DateTime.UtcNow.AddHours(-GraceHoursAfterPayment);
@@ -151,8 +162,8 @@ public class AutoSuspendClientJob : BackgroundService
             {
                 if (recentPayerSet.Contains(client.Id))
                 {
+                    // Queda atrás por el avance de clave; se reintentará mañana.
                     skippedRecentPayer++;
-                    skippedIds.Add(client.Id);   // que no vuelva a salir en el próximo lote
                     continue;
                 }
 
@@ -185,9 +196,8 @@ public class AutoSuspendClientJob : BackgroundService
                 catch (Exception ex)
                 {
                     errors++;
-                    // Sigue Activo, así que volvería a salir en el lote siguiente:
-                    // se excluye para que el bucle avance y se reintente mañana.
-                    skippedIds.Add(client.Id);
+                    // Sigue Activo, pero el avance de clave ya lo dejó atrás:
+                    // el bucle no se atasca y se reintenta mañana.
                     _logger.LogWarning(ex, "AutoSuspendClientJob: no se pudo suspender cliente {TbnCode}.", client.TbnCode);
                 }
             }
