@@ -1,4 +1,4 @@
-using System.Linq.Expressions;
+﻿using System.Linq.Expressions;
 using FluentAssertions;
 using Moq;
 using TelecomBoliviaNet.Application.DTOs.Installations;
@@ -230,5 +230,47 @@ public class SlotCalculatorTests
         var clasica    = SlotTimeGenerator.Generate(8, 18, 120).ToList();
 
         conBuffer0.Should().BeEquivalentTo(clasica);
+    }
+
+    // ── D-21 · el generador y la medianoche ─────────────────────────────────
+
+    [Fact]
+    public void Cierre24_NoRevienta_YOfreceHuecosDesdeMedianoche()
+    {
+        // Antes: new TimeOnly(24, 0) lanzaba ArgumentOutOfRangeException y la
+        // consulta de huecos devolvía un 500 con cualquier horario 24x7.
+        var slots = SlotTimeGenerator.Generate(startHour: 0, endHour: 24, duracionMin: 120).ToList();
+
+        slots.Should().NotBeEmpty();
+        slots[0].Inicio.Should().Be(new TimeOnly(0, 0));
+    }
+
+    [Fact]
+    public void Cierre24_NoOfreceUnSlotQueTermineAMedianoche()
+    {
+        // Límite asumido y documentado: TimeOnly llega a 23:59, y el cálculo de
+        // capacidad tomaría un fin a las 00:00 como anterior al inicio.
+        var slots = SlotTimeGenerator.Generate(startHour: 0, endHour: 24, duracionMin: 120).ToList();
+
+        slots.Last().Fin.Should().Be(new TimeOnly(22, 0));
+        slots.Should().OnlyContain(s => s.Fin > s.Inicio,
+            "ningún slot puede cruzar la medianoche");
+    }
+
+    [Fact]
+    public void NingunSlotDaLaVueltaAlReloj()
+    {
+        // AddMinutes sobre TimeOnly envuelve: un slot que se pasara de medianoche
+        // volvía a las 00:xx y seguía pareciendo "antes del cierre".
+        var slots = SlotTimeGenerator.Generate(startHour: 22, endHour: 24, duracionMin: 90).ToList();
+
+        slots.Should().OnlyContain(s => s.Fin > s.Inicio);
+    }
+
+    [Fact]
+    public void DuracionCeroONegativa_NoGeneraNada_NiSeCuelga()
+    {
+        SlotTimeGenerator.Generate(8, 18, duracionMin: 0).Should().BeEmpty();
+        SlotTimeGenerator.Generate(8, 18, duracionMin: -30).Should().BeEmpty();
     }
 }

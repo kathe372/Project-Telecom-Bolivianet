@@ -331,9 +331,50 @@ horas inválidas dejaba el horario roto e informaba de error.
    pretendidos, se validan, y solo entonces se asignan.
 4. Eliminado el `SaveChangesAsync` duplicado del final.
 
-`IsWorkingDay` y `OpenHours` se quedan como red: interpretan correctamente las
-filas que ya estén mal guardadas en producción, que la normalización solo arregla
-la próxima vez que se editen.
+**Tercera pasada — el test de extremo a extremo encontró lo que faltaba.**
+
+Las dos pasadas anteriores probaban la ENTIDAD. Ninguna probaba lo que le importa
+al operador: que al marcar "24x7" el calendario siga ofreciendo citas. Al
+escribir ese test —crear el horario como lo crea la pantalla y pedir los huecos—
+apareció un tercer fallo, **peor que el original**:
+
+```
+System.ArgumentOutOfRangeException : Hour, Minute, and Second parameters
+describe an un-representable DateTime.
+   at SlotTimeGenerator.Generate(...)
+```
+
+`OpenHours` devuelve `(0, 24)` para un 24x7, y el generador hacía
+`new TimeOnly(endHour, 0)`. **`TimeOnly` llega a las 23:59**, así que las 24 la
+revientan: la consulta de huecos pasó de devolver una lista vacía en silencio a
+morir con un 500. Mi propio arreglo introdujo eso.
+
+Del mismo origen había un segundo problema latente: `AddMinutes` sobre `TimeOnly`
+**da la vuelta al reloj**. Un slot que se pasara de medianoche volvía a las 00:30
+y seguía pareciendo anterior al cierre, así que el bucle no paraba donde debía.
+
+`SlotTimeGenerator` calcula ahora en **minutos desde medianoche**, no con
+`TimeOnly`.
+
+**Límite asumido y escrito:** no se ofrece un slot que termine exactamente a
+medianoche. No es representable, y el cálculo de capacidad —que construye
+`fecha + horaFin`— tomaría las 00:00 como un instante ANTERIOR al inicio y
+contaría mal. Con 24x7 y visitas de dos horas, la última franja es 20:00–22:00.
+Ofrecer instalaciones de 22:00 a medianoche no es un caso real de este negocio;
+un 500 sí lo era.
+
+**Migración `20260827000001_NormalizeTwentyFourSevenSchedules`** — normaliza las
+filas que YA están mal en producción. Idempotente y acotada: solo toca
+`Is24x7 = true` cuyos valores no sean ya los correctos.
+
+`IsWorkingDay` y `OpenHours` se quedan como red para las filas mal guardadas que
+existan antes de aplicar la migración.
+
+**Cobertura final:** 7 tests de dominio (entidad y normalización), 4 de
+integración de extremo a extremo (crear desde la pantalla → la agenda tiene
+huecos; el dato se guarda normalizado; un horario normal no abre el domingo;
+desmarcar 24x7 no mata el calendario) y 4 del generador en el borde de la
+medianoche.
 
 ### 🟡 OBS-03 · Un segmento con el operador equivocado no alcanza a nadie y no lo dice
 
