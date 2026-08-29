@@ -93,3 +93,41 @@ El sistema está desplegado en Railway (un servicio por carpeta, cada una con su
 ```bash
 npx @railway/cli up --service <telecom-backend|telecom-chatbot|telecom-frontend|telecom-notifier>
 ```
+
+## Supuestos de seguridad
+
+Estas son cosas que el código da por ciertas y que **no puede comprobar por sí
+mismo**. Si alguna deja de cumplirse, deja de haber una protección sin que nada
+falle ni avise.
+
+### El backend no se alcanza sin pasar por el proxy
+
+`Program.cs` configura `ForwardedHeaders` con `KnownNetworks.Clear()` y
+`KnownProxies.Clear()`: acepta la IP que venga en `X-Forwarded-For` **sin
+verificar quién la puso**. Es necesario porque el proxy de Railway no tiene una
+IP fija que se pueda declarar.
+
+La consecuencia es que cualquiera que llegue **directamente** al servicio puede
+decir que es la IP que quiera. Con eso se falsea la IP de los registros de
+auditoría y se esquiva cualquier límite por IP —incluido el bloqueo por intentos
+de acceso fallidos—.
+
+El supuesto que lo sostiene: **el contenedor del backend solo es accesible a
+través del proxy de Railway**, nunca por su dirección interna desde fuera. Al
+cambiar de proveedor o abrir un puerto, esto hay que rehacerlo: declarar el
+proxy en `KnownProxies` o volver a no confiar en la cabecera.
+
+### `style-src 'unsafe-inline'` en la política de contenido
+
+La CSP permite estilos en línea. No es un descuido: quitarlo rompe el panel, que
+los usa. Rebaja la protección contra inyección de estilos (exfiltración por CSS,
+suplantación visual), no contra ejecución de scripts — `script-src` sigue siendo
+`'self'`.
+
+### Credenciales
+
+`appsettings.Production.json` no lleva ninguna: cadena de conexión, clave JWT y
+tokens de WhatsApp se inyectan por variables de entorno. Los valores por defecto
+que aparecen en `docker-compose.yml` (`${DB_PASSWORD:-...}`) son para levantar el
+sistema en local; **un despliegue que no defina `DB_PASSWORD` se queda con una
+contraseña que está publicada en este repositorio**.

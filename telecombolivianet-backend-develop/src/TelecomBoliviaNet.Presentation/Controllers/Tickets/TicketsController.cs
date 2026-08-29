@@ -1,4 +1,4 @@
-using FluentValidation;
+﻿using FluentValidation;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -12,7 +12,7 @@ using TelecomBoliviaNet.Presentation.Controllers;
 namespace TelecomBoliviaNet.Presentation.Controllers.Tickets;
 
 [Route("api/tickets")]
-[Authorize(Policy = "AdminOrTecnico")]
+[Authorize(Policy = "AdminOrTecnicoOrBot")]
 public class TicketsController : BaseController
 {
     private readonly IMediator                            _mediator;
@@ -75,6 +75,10 @@ public class TicketsController : BaseController
     // por su propio id sin importar qué haya mandado el cliente, para que no
     // pueda ver la carga de trabajo de otros técnicos cambiando el query string.
     [HttpGet]
+        // F8.1 — Fijada explícitamente. Antes heredaba la de la clase; al
+        // ampliar el piso de la clase para admitir al bot, heredarla la
+        // habría abierto también a él sin que nadie lo decidiera.
+    [Authorize(Policy = "AdminOrTecnico")]
     public async Task<IActionResult> GetAll([FromQuery] TicketFilterDto f)
     {
         if (CurrentUserRole == "Tecnico") f.AssignedToId = CurrentUserId;
@@ -82,6 +86,10 @@ public class TicketsController : BaseController
     }
 
     [HttpGet("{id:guid}")]
+        // F8.1 — Fijada explícitamente. Antes heredaba la de la clase; al
+        // ampliar el piso de la clase para admitir al bot, heredarla la
+        // habría abierto también a él sin que nadie lo decidiera.
+    [Authorize(Policy = "AdminOrTecnico")]
     public async Task<IActionResult> GetById(Guid id)
     {
         var t = await _mediator.Send(new GetTicketByIdQuery(id));
@@ -92,6 +100,10 @@ public class TicketsController : BaseController
     }
 
     [HttpGet("kanban")]
+        // F8.1 — Fijada explícitamente. Antes heredaba la de la clase; al
+        // ampliar el piso de la clase para admitir al bot, heredarla la
+        // habría abierto también a él sin que nadie lo decidiera.
+    [Authorize(Policy = "AdminOrTecnico")]
     public async Task<IActionResult> GetKanban([FromQuery] TicketFilterDto f)
     {
         if (CurrentUserRole == "Tecnico") f.AssignedToId = CurrentUserId;
@@ -99,30 +111,45 @@ public class TicketsController : BaseController
     }
 
     [HttpGet("kpi")]
+        // F8.1 — Fijada explícitamente. Antes heredaba la de la clase; al
+        // ampliar el piso de la clase para admitir al bot, heredarla la
+        // habría abierto también a él sin que nadie lo decidiera.
+    [Authorize(Policy = "AdminOrTecnico")]
     public async Task<IActionResult> GetKpi(
         [FromQuery] DateTime? desde = null, [FromQuery] DateTime? hasta = null, [FromQuery] string? tecnico = null)
         => OkResult(await _mediator.Send(new GetTicketKpiQuery(desde, hasta, tecnico)));
 
     [HttpGet("overdue-sla")]
+        // F8.1 — Fijada explícitamente. Antes heredaba la de la clase; al
+        // ampliar el piso de la clase para admitir al bot, heredarla la
+        // habría abierto también a él sin que nadie lo decidiera.
+    [Authorize(Policy = "AdminOrTecnico")]
     public async Task<IActionResult> GetOverdueSla()
         => OkResult(await _mediator.Send(new GetOverdueSlaQuery()));
 
     [HttpGet("sla-alerts")]
+        // F8.1 — Fijada explícitamente. Antes heredaba la de la clase; al
+        // ampliar el piso de la clase para admitir al bot, heredarla la
+        // habría abierto también a él sin que nadie lo decidiera.
+    [Authorize(Policy = "AdminOrTecnico")]
     public async Task<IActionResult> GetSlaAlerts()
         => OkResult(await _mediator.Send(new GetSlaAlertsQuery()));
 
     [HttpGet("by-client/{clientId:guid}")]
+    [Authorize(Policy = "AdminOrTecnicoOrBot")]
     public async Task<IActionResult> GetByClient(Guid clientId)
         => OkResult(await _mediator.Send(new GetTicketsByClientQuery(clientId)));
 
     // PASO 16 Fase A: conteo de tickets previos del mismo tipo, dentro de una
     // ventana de días — usado por el chatbot para detectar reclamos recurrentes.
     [HttpGet("by-client/{clientId:guid}/recent-count")]
+    [Authorize(Policy = "AdminOrTecnicoOrBot")]
     public async Task<IActionResult> GetRecentTicketCount(
         Guid clientId, [FromQuery] TicketType type, [FromQuery] int sinceDays = 0)
         => OkResult(await _mediator.Send(new CountRecentClientTicketsQuery(clientId, type, sinceDays)));
 
     [HttpPost]
+    [Authorize(Policy = "AdminOrTecnicoOrBot")]
     public async Task<IActionResult> Create([FromBody] CreateTicketDto dto)
     {
         var v = await _createVal.ValidateAsync(dto);
@@ -132,6 +159,7 @@ public class TicketsController : BaseController
     }
 
     [HttpPut("{id:guid}")]
+    [Authorize(Policy = "AdminOrTecnicoOrBot")]
     public async Task<IActionResult> Update(Guid id, [FromBody] UpdateTicketDto dto)
     {
         if (!await CanActOnTicketAsync(id)) return NotFoundResult("Ticket no encontrado.");
@@ -142,6 +170,7 @@ public class TicketsController : BaseController
     }
 
     [HttpPatch("{id:guid}/status")]
+    [Authorize(Policy = "AdminOrTecnicoOrBot")]
     public async Task<IActionResult> ChangeStatus(Guid id, [FromBody] ChangeTicketStatusDto dto)
     {
         if (!await CanActOnTicketAsync(id)) return NotFoundResult("Ticket no encontrado.");
@@ -170,6 +199,10 @@ public class TicketsController : BaseController
     }
 
     [HttpPost("{id:guid}/comments")]
+        // F8.1 — Fijada explícitamente. Antes heredaba la de la clase; al
+        // ampliar el piso de la clase para admitir al bot, heredarla la
+        // habría abierto también a él sin que nadie lo decidiera.
+    [Authorize(Policy = "AdminOrTecnico")]
     public async Task<IActionResult> AddComment(Guid id, [FromBody] AddCommentDto dto)
     {
         if (!await CanActOnTicketAsync(id)) return NotFoundResult("Ticket no encontrado.");
@@ -180,6 +213,10 @@ public class TicketsController : BaseController
     }
 
     [HttpPost("{id:guid}/worklogs")]
+        // F8.1 — Fijada explícitamente. Antes heredaba la de la clase; al
+        // ampliar el piso de la clase para admitir al bot, heredarla la
+        // habría abierto también a él sin que nadie lo decidiera.
+    [Authorize(Policy = "AdminOrTecnico")]
     public async Task<IActionResult> AddWorkLog(Guid id, [FromBody] AddWorkLogDto dto)
     {
         if (!await CanActOnTicketAsync(id)) return NotFoundResult("Ticket no encontrado.");
@@ -195,6 +232,7 @@ public class TicketsController : BaseController
     // ya usa la cuenta de servicio del chatbot para crear tickets (Create) y
     // consultar recurrencia (GetRecentTicketCount, Fase A) — sin cambios de auth.
     [HttpGet("{id:guid}/visit-slots")]
+    [Authorize(Policy = "AdminOrTecnicoOrBot")]
     public async Task<IActionResult> GetVisitSlots(Guid id, [FromQuery] int diasAdelante = 5)
     {
         if (!await CanActOnTicketAsync(id)) return NotFoundResult("Ticket no encontrado.");
@@ -203,6 +241,7 @@ public class TicketsController : BaseController
     }
 
     [HttpPost("{id:guid}/visits")]
+    [Authorize(Policy = "AdminOrTecnicoOrBot")]
     public async Task<IActionResult> ScheduleVisit(Guid id, [FromBody] ScheduleVisitDto dto)
     {
         if (!await CanActOnTicketAsync(id)) return NotFoundResult("Ticket no encontrado.");
@@ -213,7 +252,7 @@ public class TicketsController : BaseController
     }
 
     [HttpPatch("{id:guid}/reschedule")]
-    [Authorize(Policy = "AllRoles")]
+    [Authorize(Policy = "AllRolesOrBot")]
     public async Task<IActionResult> RescheduleVisit(Guid id, [FromBody] RescheduleTicketVisitDto dto)
     {
         var v = await _rescheduleVal.ValidateAsync(dto);
@@ -223,6 +262,10 @@ public class TicketsController : BaseController
     }
 
     [HttpGet("sla-plans")]
+        // F8.1 — Fijada explícitamente. Antes heredaba la de la clase; al
+        // ampliar el piso de la clase para admitir al bot, heredarla la
+        // habría abierto también a él sin que nadie lo decidiera.
+    [Authorize(Policy = "AdminOrTecnico")]
     public async Task<IActionResult> GetSlaPlans()
         => OkResult(await _mediator.Send(new GetSlaPlansQuery()));
 

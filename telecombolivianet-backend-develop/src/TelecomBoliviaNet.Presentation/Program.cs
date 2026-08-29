@@ -1,4 +1,4 @@
-using Serilog;
+﻿using Serilog;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.EntityFrameworkCore;
 using TelecomBoliviaNet.Infrastructure.Data;
@@ -106,7 +106,21 @@ try
 
         try
         {
+            // F8.2 — Qué esquema cambia en ESTE arranque, por su nombre y ANTES de
+            // aplicarlo. Hasta ahora el arranque solo decía cuántas migraciones
+            // había en total al terminar, así que cuando un despliegue rompía la
+            // base no quedaba registro de qué había tocado. Con el historial de
+            // este proyecto —migraciones sin [Migration], PostGIS que no existía en
+            // Railway— es la línea de log que hace falta para el diagnóstico.
+            var pending = (await db.Database.GetPendingMigrationsAsync()).ToList();
+            if (pending.Count > 0)
+                Log.Warning("Migraciones PENDIENTES ({Count}): {Migraciones}",
+                    pending.Count, string.Join(", ", pending));
+            else
+                Log.Information("Sin migraciones pendientes.");
+
             await db.Database.MigrateAsync();
+
             var applied = (await db.Database.GetAppliedMigrationsAsync()).ToList();
             Log.Information("Migraciones al día. Total en DB: {Count}", applied.Count);
         }
@@ -251,14 +265,19 @@ try
                     FullName               = "Bot Chatbot WhatsApp",
                     Email                  = botEmail,
                     PasswordHash           = botHash,
-                    Role                   = TelecomBoliviaNet.Domain.Entities.Auth.UserRole.Tecnico,
+                    // F8.1 — Rol propio. En una base nueva el chatbot nace ya
+                    // acotado a sus 22 endpoints. El usuario que YA existe en
+                    // producción sigue como Tecnico: moverlo es un UPDATE de una
+                    // fila y está condicionado a probar el flujo por WhatsApp
+                    // primero — ver PLAN_MEJORA_TECNICA_2026-08.md, paso 8.1.
+                    Role                   = TelecomBoliviaNet.Domain.Entities.Auth.UserRole.Bot,
                     Status                 = TelecomBoliviaNet.Domain.Entities.Auth.UserStatus.Activo,
                     RequiresPasswordChange = false,
                     FailedLoginAttempts    = 0,
                     CreatedAt              = DateTime.UtcNow
                 });
                 await db.SaveChangesAsync();
-                Log.Information("Usuario bot creado: {Email} (rol Tecnico)", botEmail);
+                Log.Information("Usuario bot creado: {Email} (rol Bot)", botEmail);
             }
             else
             {

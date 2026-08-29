@@ -7,7 +7,7 @@ using TelecomBoliviaNet.Application.Services.Bot;
 namespace TelecomBoliviaNet.Presentation.Controllers.Bot;
 
 [Route("api/conversaciones")]
-[Authorize(Policy = "AdminOrOperadorOrTecnico")]
+[Authorize(Policy = "AdminOrOperadorOrTecnicoOrBot")]
 public class ConversationsController : BaseController
 {
     private readonly IBotMonitorProxy  _proxy;
@@ -29,6 +29,10 @@ public class ConversationsController : BaseController
 
 
     [HttpGet]
+        // F8.1 — Fijada explícitamente. Antes heredaba la de la clase; al
+        // ampliar el piso de la clase para admitir al bot, heredarla la
+        // habría abierto también a él sin que nadie lo decidiera.
+    [Authorize(Policy = "AdminOrOperadorOrTecnico")]
     public async Task<IActionResult> GetConversaciones(
         [FromQuery] int    page          = 1,
         [FromQuery] int    limit         = 20,
@@ -41,6 +45,10 @@ public class ConversationsController : BaseController
     }
 
     [HttpGet("{phone}")]
+        // F8.1 — Fijada explícitamente. Antes heredaba la de la clase; al
+        // ampliar el piso de la clase para admitir al bot, heredarla la
+        // habría abierto también a él sin que nadie lo decidiera.
+    [Authorize(Policy = "AdminOrOperadorOrTecnico")]
     public async Task<IActionResult> GetConversacion(string phone)
     {
         var detail = await _proxy.GetConversationByPhoneAsync(
@@ -51,17 +59,29 @@ public class ConversationsController : BaseController
     }
 
     [HttpGet("stats")]
+        // F8.1 — Fijada explícitamente. Antes heredaba la de la clase; al
+        // ampliar el piso de la clase para admitir al bot, heredarla la
+        // habría abierto también a él sin que nadie lo decidiera.
+    [Authorize(Policy = "AdminOrOperadorOrTecnico")]
     public async Task<IActionResult> GetStats()
         => OkResult(await _proxy.GetStatsAsync());
 
 
     [HttpGet("cliente/{phone}")]
+        // F8.1 — Fijada explícitamente. Antes heredaba la de la clase; al
+        // ampliar el piso de la clase para admitir al bot, heredarla la
+        // habría abierto también a él sin que nadie lo decidiera.
+    [Authorize(Policy = "AdminOrOperadorOrTecnico")]
     public async Task<IActionResult> GetClientHistory(string phone)
         => OkResult(await _proxy.GetClientHistoryAsync(
             Uri.UnescapeDataString(phone)));
 
 
     [HttpPost("{phone}/tomar")]
+        // F8.1 — Fijada explícitamente. Antes heredaba la de la clase; al
+        // ampliar el piso de la clase para admitir al bot, heredarla la
+        // habría abierto también a él sin que nadie lo decidiera.
+    [Authorize(Policy = "AdminOrOperadorOrTecnico")]
     public async Task<IActionResult> TakeoverConversacion(string phone)
     {
         var ok = await _proxy.TakeoverConversationAsync(
@@ -72,6 +92,10 @@ public class ConversationsController : BaseController
     }
 
     [HttpPost("{phone}/devolver")]
+        // F8.1 — Fijada explícitamente. Antes heredaba la de la clase; al
+        // ampliar el piso de la clase para admitir al bot, heredarla la
+        // habría abierto también a él sin que nadie lo decidiera.
+    [Authorize(Policy = "AdminOrOperadorOrTecnico")]
     public async Task<IActionResult> ReleaseConversacion(string phone)
     {
         var ok = await _proxy.ReleaseConversationAsync(Uri.UnescapeDataString(phone));
@@ -81,6 +105,10 @@ public class ConversationsController : BaseController
     }
 
     [HttpPost("{phone}/responder")]
+        // F8.1 — Fijada explícitamente. Antes heredaba la de la clase; al
+        // ampliar el piso de la clase para admitir al bot, heredarla la
+        // habría abierto también a él sin que nadie lo decidiera.
+    [Authorize(Policy = "AdminOrOperadorOrTecnico")]
     public async Task<IActionResult> ResponderConversacion(
         string phone, [FromBody] SendMessageRequestDto dto)
     {
@@ -96,6 +124,10 @@ public class ConversationsController : BaseController
 
 
     [HttpGet("~/api/bot-config")]
+        // F8.1 — Fijada explícitamente. Antes heredaba la de la clase; al
+        // ampliar el piso de la clase para admitir al bot, heredarla la
+        // habría abierto también a él sin que nadie lo decidiera.
+    [Authorize(Policy = "AdminOrOperadorOrTecnico")]
     public async Task<IActionResult> GetBotConfig()
         => OkResult(await _config.GetAsync());
 
@@ -118,7 +150,7 @@ public class ConversationsController : BaseController
     }
 
     [HttpGet("~/api/bot-config/public")]
-    [Authorize(Policy = "AllRoles")]
+    [Authorize(Policy = "AllRolesOrBot")]
     public async Task<IActionResult> GetBotConfigPublic()
         => OkResult(await _config.GetAsync());
 
@@ -150,7 +182,7 @@ public class ConversationsController : BaseController
     }
 
     [HttpGet("~/api/bot-config/company-qr")]
-    [Authorize(Policy = "AllRoles")]
+    [Authorize(Policy = "AllRolesOrBot")]
     public async Task<IActionResult> GetCompanyQr()
     {
         var qr = await _companyQr.GetFileAsync();

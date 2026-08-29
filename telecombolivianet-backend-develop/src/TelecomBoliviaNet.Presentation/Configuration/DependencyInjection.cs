@@ -150,13 +150,26 @@ public static class DependencyInjection
 
         services.AddScoped<ITbnService, TbnService>();
         services.AddScoped<IPlanService, PlanService>();
-        services.AddHttpClient<IWhatsAppNotifier, WhatsAppNotifier>();
+        // F8.2 — Aviso interno al teléfono del administrador (vencimiento del QR
+        // de pago), no un mensaje a un cliente: si un corte de red hiciera llegar
+        // el aviso dos veces, no pasa nada; que no llegue, sí. Por eso reintenta
+        // también ante fallo de red.
+        services.AddHttpClient<IWhatsAppNotifier, WhatsAppNotifier>()
+            .ConReintentos(intentosExtra: 3, segundosPorIntento: 10,
+                           soloSiElServidorRespondio: false);
 
         // Email:Provider = "Smtp" (Gmail, envía a cualquier destinatario) o "Resend"
         if (string.Equals(config["Email:Provider"], "Smtp", StringComparison.OrdinalIgnoreCase))
             services.AddScoped<IEmailService, SmtpEmailService>();
         else
-            services.AddHttpClient<IEmailService, ResendEmailService>();
+            // F8.2 — Correo a una persona: recuperar contraseña, activar cuenta.
+            // Solo se reintenta si Resend contestó que rechazó el envío. Ante un
+            // timeout no se repite: no hay forma de saber si el correo ya salió,
+            // y dos enlaces de recuperación en la bandeja de alguien es peor que
+            // un error visible.
+            services.AddHttpClient<IEmailService, ResendEmailService>()
+                .ConReintentos(intentosExtra: 2, segundosPorIntento: 10,
+                               soloSiElServidorRespondio: true);
 
         services.AddScoped<IJwtConfiguration, JwtConfigurationOptions>();
 
@@ -206,6 +219,8 @@ public static class DependencyInjection
         services.AddScoped<IBotOutboundProxy, BotOutboundProxy>();
         services.AddScoped<IBotConfigService, BotConfigService>();
         services.AddScoped<CompanyQrService>();
+        // F8.2 — SIN reintentos, a propósito: ChatbotDirectNotifier ya cae al
+        // notifier con plantilla si esto falla. Ver HttpResilience.
         services.AddHttpClient("ChatbotMonitor")
             .ConfigureHttpClient((sp, client) =>
             {
@@ -274,7 +289,13 @@ public static class DependencyInjection
         services.AddScoped<IBoxReservationService, BoxReservationService>();
         services.AddScoped<IPortReservationStore, PortReservationStore>();
         services.AddScoped<ICoverageDemandRecorder, CoverageDemandRecorder>();
-        services.AddHttpClient<IGeocoder, NominatimGeocoder>();
+        // F8.2 — Una lectura, sin efecto en el mundo: se puede repetir sin
+        // pensarlo. Pocos intentos y con espera creciente a propósito, porque
+        // Nominatim es un servicio público que limita a una consulta por segundo
+        // y bloquea a quien insiste.
+        services.AddHttpClient<IGeocoder, NominatimGeocoder>()
+            .ConReintentos(intentosExtra: 2, segundosPorIntento: 5,
+                           soloSiElServidorRespondio: false);
         services.AddScoped<IAddressGeocodingService, AddressGeocodingService>();
         services.AddScoped<INapPortService, NapPortService>();
 

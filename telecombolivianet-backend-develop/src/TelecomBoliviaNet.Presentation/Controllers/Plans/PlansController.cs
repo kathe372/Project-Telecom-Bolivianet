@@ -1,4 +1,4 @@
-using FluentValidation;
+﻿using FluentValidation;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using TelecomBoliviaNet.Application.Interfaces;
@@ -26,7 +26,7 @@ public class PlansController : BaseController
     }
 
     [HttpGet]
-    [Authorize(Policy = "AllRoles")]
+    [Authorize(Policy = "AllRolesOrBot")]
     public async Task<IActionResult> GetAll([FromQuery] bool onlyActive = false)
     {
         var plans = await _service.GetAllAsync(onlyActive);

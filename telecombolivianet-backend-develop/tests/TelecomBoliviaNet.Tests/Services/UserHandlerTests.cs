@@ -1,4 +1,4 @@
-using TelecomBoliviaNet.Domain.Interfaces;
+﻿using TelecomBoliviaNet.Domain.Interfaces;
 ﻿using FluentAssertions;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -150,14 +150,44 @@ public class UserHandlerTests
     // ── TC-USR-04 · Matriz de permisos → 4 roles ──────────────────────────────
 
     [Fact]
-    public async Task GetPermissionMatrix_ReturnsFourRoles()
+    public async Task GetPermissionMatrix_IncluyeTodoLoQuePuedeEntrar()
     {
         var handler = new GetPermissionMatrixHandler();
 
         var matrix = await handler.Handle(new GetPermissionMatrixQuery(), CancellationToken.None);
 
-        matrix.Should().HaveCount(4);
-        matrix.Select(r => r.Role).Should().Contain(["Admin", "Operador", "Tecnico", "SocioLectura"]);
+        // F8.1 — Cinco, no cuatro: el chatbot dejó de entrar disfrazado de técnico
+        // y tiene identidad propia. Aparece en la matriz porque quien la consulta
+        // quiere saber TODO lo que puede entrar al sistema, no solo quién se
+        // sienta delante de una pantalla.
+        matrix.Should().HaveCount(5);
+        matrix.Select(r => r.Role).Should().Contain(
+            ["Admin", "Operador", "Tecnico", "SocioLectura", "Bot"]);
+
+        matrix.Single(r => r.Role == "Bot").Politicas
+            .Should().BeEquivalentTo(["AllRolesOrBot", "AdminOrTecnicoOrBot"],
+                "son las dos únicas puertas por las que el bot entra");
+    }
+
+    // ── F8.1 · el rol del chatbot no se reparte por el panel ───────────────────
+
+    [Fact]
+    public async Task CreateUser_ConRolBot_EsRechazado()
+    {
+        // El alta acepta cualquier rol que el enum sepa interpretar. En cuanto
+        // existió UserRole.Bot, un administrador podía crear una PERSONA con la
+        // identidad del chatbot —y con ella, acceso a los endpoints del bot— desde
+        // la pantalla de usuarios.
+        var handler = MakeCreateHandler();
+
+        var result = await handler.Handle(
+            new CreateUserCommand(
+                new CreateUserDto("Falso Bot", "falso@bo.com", "Password1!", "Bot"),
+                ActorId, "Admin", "127.0.0.1"),
+            CancellationToken.None);
+
+        result.IsSuccess.Should().BeFalse();
+        result.ErrorMessage.Should().Contain("chatbot");
     }
 
     // ── TC-USR-05 · Create usuario válido → éxito ──────────────────────────────

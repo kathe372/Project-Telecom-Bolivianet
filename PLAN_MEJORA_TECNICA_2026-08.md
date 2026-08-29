@@ -181,11 +181,41 @@ Build limpio (0 warnings), `SystemConfigKeys.TokenCleanupLastRunDay` existe, `Di
 | **F5** Partir servicios grandes | ✅ parcial argumentado | 9 → 2 clases > 250 líneas; el límite de 6 deps no se alcanzó |
 | **F6** Idioma inglés | ⬜ | No empezada. La de mayor radio de impacto |
 | **F7** Performance | ✅ lo medible sin producción · ⛔ el resto | 7.4 y 7.5 hechos; 7.1/7.2/7.3 exigen medir en producción |
-| **F8** Endurecer seguridad | ⬜ | No empezada |
+| **F8** Endurecer seguridad | ✅ código · ⛔ un UPDATE en producción | Rol Bot creado y probado; falta mover la fila del bot tras verificar por WhatsApp |
 | **F9** Convención y documentación | ⬜ | No empezada |
 
-**Nada de esto está desplegado.** Se acumulan ~37 commits desde el último
+**Nada de esto está desplegado.** Se acumulan ~39 commits desde el último
 despliegue a producción (build del 2026-08-07).
+
+**F8 — el paso 8.1 era mucho más grande de lo que decía el plan.**
+
+El plan daba por hecho que el chatbot usaba **4 endpoints**. Usa **22**, leídos
+uno a uno de `SistemaApiService` (el único cliente HTTP vivo del chatbot: las
+otras dos clases de repositorio son código muerto y lo dicen en sus comentarios).
+Nueve de esos 22 eran `AdminOrTecnico`: el bot llegaba a ellos **solo por tener
+rol de técnico**, que es exactamente el problema que la fase venía a resolver.
+
+Y al escribir el test apareció **D-25**: en ASP.NET Core un `[Authorize]` en el
+método **no reemplaza** al de la clase, se exigen los dos. El proyecto estaba
+escrito dando por hecho lo contrario, así que varios `AllRoles` puestos en
+métodos de controladores `AdminOrTecnico` no amplían nada — un `SocioLectura`
+nunca pudo consultar un cliente por teléfono. 33 acciones que heredaban la
+política de su clase quedaron fijadas explícitamente antes de tocar nada.
+
+**Lo que queda, y por qué no se hizo:** mover el usuario del bot de `Tecnico` a
+`Bot` en producción. Es un `UPDATE` de una fila y el plan mismo exige verificar
+el flujo por WhatsApp antes. No se puso en una migración a propósito: eso lo
+haría automático en el próximo despliegue, sin la verificación que el plan pide.
+
+```sql
+-- Tras verificar E2E por WhatsApp con un número de prueba:
+UPDATE "UserSystems" SET "Role" = 'Bot' WHERE "Email" = '<BOT_EMAIL>';
+-- Revertir, si algo falla:
+UPDATE "UserSystems" SET "Role" = 'Tecnico' WHERE "Email" = '<BOT_EMAIL>';
+```
+
+Hasta que ese UPDATE se ejecute **no cambia nada en producción**: las políticas
+nuevas SUMAN el rol Bot, no le quitan nada a ningún humano.
 
 **F7 — qué se hizo y qué no.** Los tres pasos que empiezan por medir (7.1
 baseline con `pg_stat_statements`, 7.2 índices trigram verificados con

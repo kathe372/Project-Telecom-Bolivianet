@@ -1,4 +1,4 @@
-using Microsoft.AspNetCore.Authorization;
+﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using TelecomBoliviaNet.Application.DTOs.Notifications;
 using TelecomBoliviaNet.Application.Services.Notifications;
@@ -7,7 +7,7 @@ using TelecomBoliviaNet.Domain.Entities.Notifications;
 namespace TelecomBoliviaNet.Presentation.Controllers.Notifications;
 
 [Route("api/notifications")]
-[Authorize(Policy = "AdminOrTecnico")]
+[Authorize(Policy = "AdminOrTecnicoOrBot")]
 public class NotificationsController : BaseController
 {
     private readonly NotifHistoryService          _historialSvc;
@@ -25,7 +25,7 @@ public class NotificationsController : BaseController
     }
 
     [HttpPost("delivery-status")]
-    [Authorize(Policy = "AllRoles")]
+    [Authorize(Policy = "AllRolesOrBot")]
     public IActionResult ReceiveDeliveryStatus([FromBody] WhatsappDeliveryStatusDto dto)
     {
         if (dto is null || string.IsNullOrWhiteSpace(dto.WaMessageId))

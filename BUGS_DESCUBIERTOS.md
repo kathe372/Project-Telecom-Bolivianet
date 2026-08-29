@@ -998,3 +998,65 @@ completar.
 Contiene `Password=telecom_pass_2025`, el mismo default de `docker-compose.yml`.
 No es la credencial de Railway (esa se inyecta por variable de entorno), pero es una
 contraseña versionada. **F8** decide si se vacía como en `appsettings.json`.
+
+
+---
+
+## D-25 — Un `[Authorize]` en el método NO reemplaza al de la clase: los amplía nadie
+
+**Dónde:** todos los controladores con política a nivel de clase.
+**Encontrado:** al escribir `BotEndpointsIntegrationTests` (F8.1), que dio 403 en
+22 de 23 rutas que "según los atributos" tenían que pasar.
+
+En ASP.NET Core, cuando una clase lleva `[Authorize(Policy = "A")]` y un método
+lleva `[Authorize(Policy = "B")]`, **se exigen las dos**. No se sustituye: se
+intersecan. El proyecto estaba escrito dando por hecho lo contrario.
+
+La consecuencia es que varios atributos del código **no hacen nada de lo que
+parecen decir**:
+
+```csharp
+[Authorize(Policy = "AdminOrTecnico")]      // ← clase
+public class ClientsController
+{
+    [HttpGet("by-phone")]
+    [Authorize(Policy = "AllRoles")]        // ← "que entren todos"
+    public async Task<IActionResult> GetByPhone(...)
+}
+```
+
+Efectivo: `AdminOrTecnico ∩ AllRoles = AdminOrTecnico`. Un usuario
+**SocioLectura nunca pudo** consultar un cliente por teléfono, ni ver su deuda,
+ni los huecos de agenda, pese a que el atributo anuncia lo contrario. Nadie lo
+notó porque ese rol casi no se usa; el chatbot tampoco lo notó porque entraba
+como Técnico, que sí pasa el filtro de la clase.
+
+**Alcance:** 33 acciones repartidas en 8 controladores heredaban la política de
+su clase sin declararla. Todas quedaron **fijadas explícitamente** con la que ya
+tenían de hecho — un no-op deliberado, para que ampliar el piso de la clase (y
+admitir al bot) no abriera de paso 33 endpoints que nadie revisó.
+
+**Lo que NO se hizo:** revisar si el `AllRoles` que no amplía debería ampliar de
+verdad. Eso es una decisión de negocio sobre qué ve un socio, no un arreglo
+técnico, y cambiarla ahora movería permisos de personas reales sin que nadie lo
+haya pedido. Queda anotado.
+
+---
+
+## OBS-04 — El chatbot se trae 100 instalaciones de toda la empresa para buscar una
+
+**Dónde:** `SistemaApiService.findScheduledInstallationByPhone` (chatbot).
+
+Para saber si un teléfono tiene una instalación agendada, pide
+`GET /api/instalaciones?PageSize=100` —el listado general, sin filtro— y cruza
+en memoria contra `ProspectPhone` y `ClientePhone`. Es decir: para atender a una
+persona, el bot lee el nombre, el teléfono y la dirección de las últimas cien
+que pasaron por la agenda.
+
+Es también lo que obliga a que el rol `Bot` tenga acceso al listado completo de
+instalaciones, que es la concesión más ancha de las 22 de F8.1.
+
+**Arreglo que lo cierra:** un `GET /api/instalaciones/by-phone`. Con él, la
+concesión al listado general se puede retirar y el bot deja de ver lo que no es
+suyo. No se hace aquí porque toca el chatbot y su despliegue, y esta fase se
+está haciendo sin desplegar.

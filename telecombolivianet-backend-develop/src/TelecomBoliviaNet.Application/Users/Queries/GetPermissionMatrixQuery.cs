@@ -1,4 +1,4 @@
-using MediatR;
+﻿using MediatR;
 using TelecomBoliviaNet.Application.DTOs.Auth;
 
 namespace TelecomBoliviaNet.Application.Users.Queries;
@@ -29,5 +29,13 @@ public class GetPermissionMatrixHandler : IRequestHandler<GetPermissionMatrixQue
             new("SocioLectura", "Socio / Lectura", "Solo lectura en dashboard y reportes",
                 Modulos:  ["Dashboard (lectura)", "Reportes"],
                 Politicas: ["AllRoles"]),
+
+            // No es una persona: es el chatbot de WhatsApp. Aparece en la matriz
+            // para que quien la mire vea TODO lo que puede entrar al sistema, no
+            // solo lo que se sienta delante de una pantalla.
+            new("Bot", "Chatbot (servicio)", "Identidad del chatbot de WhatsApp; no asignable a personas",
+                Modulos:  ["Consulta de cliente por teléfono", "Deuda", "Tickets del cliente",
+                           "Instalaciones", "Cobertura", "Planes"],
+                Politicas: ["AllRolesOrBot", "AdminOrTecnicoOrBot"]),
         ]);
 }

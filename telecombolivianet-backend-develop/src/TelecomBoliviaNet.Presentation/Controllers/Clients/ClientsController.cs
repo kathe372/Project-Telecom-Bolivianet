@@ -12,7 +12,7 @@ using TelecomBoliviaNet.Presentation.Controllers;
 namespace TelecomBoliviaNet.Presentation.Controllers.Clients;
 
 [Route("api/clients")]
-[Authorize(Policy = "AdminOrTecnico")]
+[Authorize(Policy = "AdminOrTecnicoOrBot")]
 public class ClientsController : BaseController
 {
     private readonly IMediator                       _mediator;
@@ -43,6 +43,10 @@ public class ClientsController : BaseController
 
 
     [HttpGet("next-tbn")]
+        // F8.1 — Fijada explícitamente. Antes heredaba la de la clase; al
+        // ampliar el piso de la clase para admitir al bot, heredarla la
+        // habría abierto también a él sin que nadie lo decidiera.
+    [Authorize(Policy = "AdminOrTecnico")]
     public async Task<IActionResult> PeekTbn()
     {
         var code = await _mediator.Send(new PeekTbnQuery());
@@ -51,7 +55,7 @@ public class ClientsController : BaseController
 
 
     [HttpGet("by-phone")]
-    [Authorize(Policy = "AllRoles")]
+    [Authorize(Policy = "AllRolesOrBot")]
     public async Task<IActionResult> GetByPhone([FromQuery] string phone)
     {
         if (string.IsNullOrWhiteSpace(phone))
@@ -73,7 +77,7 @@ public class ClientsController : BaseController
     /// preguntar con cuál cuenta continuar en vez de elegir una al azar.
     /// </summary>
     [HttpGet("by-phone-all")]
-    [Authorize(Policy = "AllRoles")]
+    [Authorize(Policy = "AllRolesOrBot")]
     public async Task<IActionResult> GetAllByPhone([FromQuery] string phone)
     {
         if (string.IsNullOrWhiteSpace(phone))
@@ -85,6 +89,10 @@ public class ClientsController : BaseController
 
 
     [HttpGet]
+        // F8.1 — Fijada explícitamente. Antes heredaba la de la clase; al
+        // ampliar el piso de la clase para admitir al bot, heredarla la
+        // habría abierto también a él sin que nadie lo decidiera.
+    [Authorize(Policy = "AdminOrTecnico")]
     public async Task<IActionResult> GetAll([FromQuery] ClientFilterDto filter)
     {
         var result = await _mediator.Send(new GetClientsQuery(filter));
@@ -93,6 +101,10 @@ public class ClientsController : BaseController
 
 
     [HttpGet("{id:guid}")]
+        // F8.1 — Fijada explícitamente. Antes heredaba la de la clase; al
+        // ampliar el piso de la clase para admitir al bot, heredarla la
+        // habría abierto también a él sin que nadie lo decidiera.
+    [Authorize(Policy = "AdminOrTecnico")]
     public async Task<IActionResult> GetById(Guid id)
     {
         var client = await _mediator.Send(new GetClientByIdQuery(id));
@@ -102,6 +114,10 @@ public class ClientsController : BaseController
 
 
     [HttpGet("{id:guid}/invoices")]
+        // F8.1 — Fijada explícitamente. Antes heredaba la de la clase; al
+        // ampliar el piso de la clase para admitir al bot, heredarla la
+        // habría abierto también a él sin que nadie lo decidiera.
+    [Authorize(Policy = "AdminOrTecnico")]
     public async Task<IActionResult> GetInvoices(Guid id, [FromQuery] int year = 0)
     {
         if (year == 0) year = DateTime.UtcNow.Year;
@@ -111,7 +127,7 @@ public class ClientsController : BaseController
 
 
     [HttpGet("{id:guid}/invoices/bot")]
-    [Authorize(Policy = "AllRoles")]
+    [Authorize(Policy = "AllRolesOrBot")]
     public async Task<IActionResult> GetInvoicesForBot(Guid id, [FromQuery] int year = 0)
     {
         if (year == 0) year = DateTime.UtcNow.Year;
@@ -157,6 +173,10 @@ public class ClientsController : BaseController
 
 
     [HttpPost]
+        // F8.1 — Fijada explícitamente. Antes heredaba la de la clase; al
+        // ampliar el piso de la clase para admitir al bot, heredarla la
+        // habría abierto también a él sin que nadie lo decidiera.
+    [Authorize(Policy = "AdminOrTecnico")]
     public async Task<IActionResult> Register([FromBody] RegisterClientDto dto)
     {
         var v = await _registerVal.ValidateAsync(dto);
@@ -229,6 +249,10 @@ public class ClientsController : BaseController
 
 
     [HttpPost("{id:guid}/payments")]
+        // F8.1 — Fijada explícitamente. Antes heredaba la de la clase; al
+        // ampliar el piso de la clase para admitir al bot, heredarla la
+        // habría abierto también a él sin que nadie lo decidiera.
+    [Authorize(Policy = "AdminOrTecnico")]
     public async Task<IActionResult> RegisterPayment(Guid id, [FromBody] RegisterPaymentDto dto)
     {
         if (dto.ClientId != id)

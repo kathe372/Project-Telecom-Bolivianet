@@ -1,4 +1,4 @@
-using TelecomBoliviaNet.Application.DTOs.Auth;
+﻿using TelecomBoliviaNet.Application.DTOs.Auth;
 using TelecomBoliviaNet.Domain.Entities.Auth;
 
 namespace TelecomBoliviaNet.Application.Users;
@@ -29,6 +29,7 @@ internal static class UserMapper
         UserRole.Operador     => "Operador de Cobros",
         UserRole.Tecnico      => "Técnico",
         UserRole.SocioLectura => "Socio / Lectura",
+        UserRole.Bot          => "Chatbot (servicio)",
         _                     => r.ToString()
     };
 

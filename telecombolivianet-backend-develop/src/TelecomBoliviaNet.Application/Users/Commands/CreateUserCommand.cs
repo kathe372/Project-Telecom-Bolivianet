@@ -1,4 +1,4 @@
-using MediatR;
+﻿using MediatR;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using System.Net.Sockets;
@@ -55,6 +55,15 @@ public class CreateUserHandler : IRequestHandler<CreateUserCommand, Result<UserS
 
         if (!Enum.TryParse<UserRole>(dto.Role, out var role))
             return Result<UserSystemDto>.Failure("Rol inválido.");
+
+        // F8.1 — El alta de usuarios acepta cualquier rol que el enum sepa
+        // interpretar, así que en cuanto existió UserRole.Bot un administrador
+        // podía crear una PERSONA con la identidad del chatbot desde el panel.
+        // Bot es una identidad de servicio: la crea el arranque a partir de
+        // BOT_PASSWORD y no se reparte por la pantalla de usuarios.
+        if (role == UserRole.Bot)
+            return Result<UserSystemDto>.Failure(
+                "El rol Bot es la identidad del chatbot y no puede asignarse a una persona.");
 
         var domain = dto.Email.Split('@', 2).ElementAtOrDefault(1) ?? "";
         if (!await DomainExistsAsync(domain))

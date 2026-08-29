@@ -7,7 +7,7 @@ using TelecomBoliviaNet.Presentation.Controllers;
 namespace TelecomBoliviaNet.Presentation.Controllers.Clients;
 
 [Route("api/plan-changes")]
-[Authorize(Policy = "AdminOrTecnico")]
+[Authorize(Policy = "AdminOrTecnicoOrBot")]
 public class PlanChangeController : BaseController
 {
     private readonly IPlanChangeService        _svc;
@@ -25,11 +25,15 @@ public class PlanChangeController : BaseController
     }
 
     [HttpGet("pending")]
+        // F8.1 — Fijada explícitamente. Antes heredaba la de la clase; al
+        // ampliar el piso de la clase para admitir al bot, heredarla la
+        // habría abierto también a él sin que nadie lo decidiera.
+    [Authorize(Policy = "AdminOrTecnico")]
     public async Task<IActionResult> GetPending([FromQuery] Guid? clientId = null)
         => OkResult(await _querySvc.GetPendingAsync(clientId));
 
     [HttpPost("/api/clients/{clientId:guid}/plan-change")]
-    [Authorize(Policy = "AllRoles")]
+    [Authorize(Policy = "AllRolesOrBot")]
     public async Task<IActionResult> RequestChange(
         Guid clientId,
         [FromBody] RequestChangeDto dto)
