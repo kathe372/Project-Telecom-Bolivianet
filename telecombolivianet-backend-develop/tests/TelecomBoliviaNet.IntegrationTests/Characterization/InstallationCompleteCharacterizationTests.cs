@@ -1,4 +1,4 @@
-using MediatR;
+﻿using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using NetTopologySuite.Geometries;
@@ -218,8 +218,15 @@ public class InstallationCompleteCharacterizationTests : IClassFixture<CustomWeb
     }
 
     [Fact]
-    public async Task El_serial_de_la_ONU_NO_se_copia_al_cliente()
+    public async Task El_serial_de_la_ONU_se_copia_al_cliente()
     {
+        // D-09 CORREGIDO. Este test congelaba a propósito el comportamiento
+        // anterior —el serial se quedaba solo en la instalación— y se actualiza
+        // aquí conscientemente, que es justo para lo que estaba puesto.
+        //
+        // Por qué importaba: CancelClientCommand crea el ticket de recolección
+        // leyendo Client.OnuSerialNumber. Con el campo vacío, al dar de baja a
+        // alguien el ticket salía sin el número del equipo que hay que recuperar.
         var esc = await SeedAsync();
         using var _ = esc.Scope;
 
@@ -229,16 +236,32 @@ public class InstallationCompleteCharacterizationTests : IClassFixture<CustomWeb
         });
         esc.Db.ChangeTracker.Clear();
 
-        // Comportamiento ACTUAL, congelado a propósito: el serial queda solo en la
-        // instalación y Client.OnuSerialNumber sigue vacío. Son dos fuentes de
-        // verdad que ya divergen. Ver D-09 en BUGS_DESCUBIERTOS.md — si algún día
-        // se sincronizan, este test lo detectará y habrá que actualizarlo
-        // conscientemente.
         var inst    = await esc.Db.Set<Installation>().AsNoTracking().SingleAsync(i => i.Id == esc.InstalacionId);
         var cliente = await esc.Db.Set<Client>().AsNoTracking().SingleAsync(c => c.Id == inst.ClientId!.Value);
 
         inst.EquipoOnuSerial.Should().Be("ONU-ZXHN-998877");
-        cliente.OnuSerialNumber.Should().BeNull();
+        cliente.OnuSerialNumber.Should().Be("ONU-ZXHN-998877",
+            "el ticket de recolección lee este campo, no el de la instalación");
+    }
+
+    [Fact]
+    public async Task Cerrar_sin_serial_no_borra_el_que_el_cliente_ya_tenia()
+    {
+        // Que el técnico no lo anote no significa "este cliente no tiene ONU".
+        var esc = await SeedAsync();
+        using var _ = esc.Scope;
+
+        var inst0 = await esc.Db.Set<Installation>().AsNoTracking().SingleAsync(i => i.Id == esc.InstalacionId);
+        var previo = await esc.Db.Set<Client>().SingleAsync(c => c.Id == inst0.ClientId!.Value);
+        previo.OnuSerialNumber = "ONU-ANTERIOR-111";
+        await esc.Db.SaveChangesAsync();
+        esc.Db.ChangeTracker.Clear();
+
+        await CompletarAsync(esc, new CompleteInstallationDto { NotasTecnico = "sin equipo anotado" });
+        esc.Db.ChangeTracker.Clear();
+
+        var cliente = await esc.Db.Set<Client>().AsNoTracking().SingleAsync(c => c.Id == inst0.ClientId!.Value);
+        cliente.OnuSerialNumber.Should().Be("ONU-ANTERIOR-111");
     }
 
     [Fact]

@@ -48,7 +48,6 @@ public class GetInstallationSlotsHandler
         // StartHour/EndHour valgan cualquier cosa, que es lo que pasa cuando se
         // creó marcando 24x7 (el validador no los comprueba en ese caso).
         var (startHour, endHour) = schedule?.OpenHours ?? (8, 18);
-        var workingDaysMask  = schedule?.WorkingDaysMask  ?? WorkingDays.MondayToFriday;
 
         var plan = req.PlanId.HasValue
             ? await _planRepo.GetByIdAsync(req.PlanId.Value)
@@ -67,28 +66,24 @@ public class GetInstallationSlotsHandler
         // vez pasada esa hora: nunca se filtraban los slots de HOY que ya
         // pasaron (ej. ofrecer 08:00 estando ya en las 09:41).
         var ahoraLocal = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, NotifShared.BoliviaZone);
-        var hoy   = ahoraLocal.Date;
-        var hasta = hoy.AddDays(req.DiasAdelante);
         var slots = new List<SlotDisponibleDto>();
 
-        for (var dia = hoy; dia <= hasta; dia = dia.AddDays(1))
+        // D-12 — Qué días se pueden ofrecer lo decide SlotWindow, que es la
+        // misma regla que usa la agenda de instalaciones. Antes estaba escrita
+        // aquí y allí, idéntica, y se corrigió dos veces.
+        var dias = SlotWindow.DiasOfrecibles(
+            ahoraLocal, req.DiasAdelante, endHour,
+            SlotWindow.LaborableSegun(schedule),
+            SlotWindow.FeriadosSegun(schedule));
+
+        foreach (var fecha in dias)
         {
-            if (dia == hoy && ahoraLocal.Hour >= endHour) continue;
-
-            var diaActivo = schedule is not null
-                ? schedule.IsWorkingDay(dia.DayOfWeek)
-                : WorkingDays.Includes(workingDaysMask, dia.DayOfWeek);
-
-            if (!diaActivo) continue;
-
-            var fecha = DateOnly.FromDateTime(dia);
-
-            if (schedule?.Holidays.Any(h => h.Date == fecha) == true) continue;
+            var dia = fecha.ToDateTime(TimeOnly.MinValue);
 
             foreach (var (inicio, fin) in SlotTimeGenerator.Generate(startHour, endHour, duracionMin, bufferMin))
             {
                 // Slot de HOY que ya empezó (o está por empezar ahora mismo) → no se ofrece.
-                if (dia == hoy && inicio <= TimeOnly.FromDateTime(ahoraLocal)) continue;
+                if (SlotWindow.YaPaso(fecha, inicio, ahoraLocal)) continue;
 
                 var comprometidos = await _slotCalc.GetCommittedCapacityAsync(fecha, inicio, fin, ct: ct);
                 var disponibles   = tecnicosPool - comprometidos;

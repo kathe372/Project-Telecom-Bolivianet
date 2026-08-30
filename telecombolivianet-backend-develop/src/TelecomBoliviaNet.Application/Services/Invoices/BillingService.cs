@@ -133,9 +133,24 @@ public class BillingService : IBillingService
         {
             if (existingClientIds.Contains(client.Id)) { skipped++; continue; }
 
+            // D-08 — Esto NO es "el cliente no tiene plan": la FK
+            // FK_Clients_Plans_PlanId hace imposible ese caso, y PostgreSQL lo
+            // rechaza con 23503 si se intenta sembrar. Si llega aquí en null es
+            // porque la consulta vino sin su Include, es decir, un error de
+            // programación, y facturar a ciegas emitiría importes equivocados.
+            //
+            // Se conserva la rama —quitarla convertiría ese fallo en una
+            // NullReferenceException a mitad de la facturación mensual— pero
+            // dice lo que de verdad significa. El contador debe quedarse en cero:
+            // si alguna vez se mueve, no hay ningún cliente que arreglar, hay una
+            // consulta que corregir.
             if (client.Plan is null)
             {
-                _logger.LogWarning("Cliente {TbnCode} sin plan, omitido", client.TbnCode);
+                _logger.LogError(
+                    "Facturación {Anio}-{Mes}: el cliente {TbnCode} llegó sin plan cargado. " +
+                    "La FK lo hace imposible en los datos, así que falta un Include en la " +
+                    "consulta. Se omite para no emitir un importe inventado.",
+                    year, month, client.TbnCode);
                 errors++;
                 continue;
             }

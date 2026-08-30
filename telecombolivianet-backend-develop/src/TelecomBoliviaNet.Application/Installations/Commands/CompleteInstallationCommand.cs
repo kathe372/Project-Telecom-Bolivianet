@@ -88,6 +88,36 @@ public class CompleteInstallationHandler : IRequestHandler<CompleteInstallationC
             inst.ActualizadoAt = DateTime.UtcNow;
             _instRepo.Update(inst);
 
+            // D-09 — El serial de la ONU se copia también a la ficha del cliente.
+            //
+            // Se guardaba SOLO en la instalación, y `CancelClientCommand` crea el
+            // ticket de recolección leyendo `client.OnuSerialNumber`: al dar de baja
+            // a alguien, el ticket salía sin el número del equipo que hay que ir a
+            // recuperar. Eran dos sitios para el mismo dato y ya divergían.
+            //
+            // Va dentro de la MISMA transacción: instalación cerrada con la ficha
+            // sin actualizar es exactamente la inconsistencia que se está cerrando.
+            // El cliente ya viene cargado por GetForCommandAsync, así que no hace
+            // falta otra dependencia.
+            var serial = inst.EquipoOnuSerial;
+            if (inst.Client is not null && !string.IsNullOrWhiteSpace(serial))
+            {
+                // Un cierre sin serial NO borra el que ya hubiera: el técnico pudo
+                // no anotarlo, y eso no es lo mismo que "este cliente no tiene ONU".
+                if (!string.Equals(inst.Client.OnuSerialNumber, serial, StringComparison.OrdinalIgnoreCase))
+                {
+                    // Si ya había otro, es un cambio de equipo: la instalación que
+                    // se acaba de cerrar es el dato más reciente, pero el anterior
+                    // no puede desaparecer sin dejar rastro.
+                    if (!string.IsNullOrWhiteSpace(inst.Client.OnuSerialNumber))
+                        _logger.LogInformation(
+                            "Instalación {Id}: la ONU del cliente {ClientId} pasa de {Anterior} a {Nuevo}.",
+                            cmd.InstalacionId, inst.Client.Id, inst.Client.OnuSerialNumber, serial);
+
+                    inst.Client.OnuSerialNumber = serial;
+                }
+            }
+
             if (inst.Ticket is not null &&
                 inst.Ticket.Status is TicketStatus.Abierto or TicketStatus.EnProceso)
             {

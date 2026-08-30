@@ -540,10 +540,22 @@ quedan huecos hoy.
 —comprueban disponibilidad, SLA y capacidad—, así que ampliarla conserva su
 intención y elimina la dependencia del calendario.
 
-**Arreglo de fondo, pendiente:** los handlers leen `DateTime.UtcNow`
-directamente. Inyectar `TimeProvider` permitiría fijar la fecha en los tests y
-probar de verdad los casos de borde (viernes por la tarde, feriados) en vez de
-esquivarlos. Candidato natural para **F5**, al tocar esos handlers.
+**Arreglo de fondo, hecho (2026-08-29) — por otra vía.** Inyectar `TimeProvider`
+habría llevado a los dos handlers a **siete** dependencias, rompiendo la regla 2
+de `CONVENCIONES.md`. En su lugar, la decisión que depende del calendario se
+extrajo a `Domain/Services/SlotWindow`, donde "ahora" es un **parámetro**.
+
+Al extraerla apareció que estaba escrita **dos veces, línea por línea idéntica**,
+en `GetInstallationSlotsQuery` y `GetTicketVisitSlotsQuery` — el comentario de la
+segunda lo decía sin rodeos: *"mismo bug ya corregido en
+GetInstallationSlotsQuery"*. Se había corregido dos veces porque estaba dos
+veces. Es el mismo patrón que `WorkingDays`, `OverduePolicy` y el prorrateo.
+
+`SlotWindowTests` prueba ahora de frente lo que antes se esquivaba: viernes por
+la mañana con ventana de dos días, viernes pasadas las 18:00 (cero huecos es la
+respuesta CORRECTA), las 18:00 en punto contra las 17:59, un feriado en día
+laborable, un horario 24x7 que sí abre en fin de semana, y la franja que empieza
+justo ahora mismo.
 
 #### Séptimo caso, con causa distinta (2026-08-23)
 
@@ -947,7 +959,7 @@ Al unificar los cuatro servicios en un monorepo, los workflows quedaron en
 **Corrección:** creado `.github/workflows/backend-ci.yml` en la raíz, con filtro de
 rutas. **Pendiente:** hacer lo mismo para chatbot y frontend (fuera del alcance de F0).
 
-### 🟡 D-08 · Rama muerta en `BillingService`: el cliente sin plan no existe
+### 🟡 D-08 · Rama muerta en `BillingService`: el cliente sin plan no existe — **RESUELTO**
 
 `GenerateMonthlyInvoicesAsync` trata `client.Plan is null` como error y lo cuenta
 en `BillingJobResultDto.Errors`:
@@ -969,11 +981,18 @@ exista. Se descubrió al intentar sembrar ese caso en
 **Consecuencia:** `Errors` siempre vale 0 en esa rama, y el panel muestra un
 contador que nunca se moverá.
 
-**Qué hacer:** en **F5**, al partir `BillingService`, decidir entre eliminar la
-rama (y el contador) o convertirla en una aserción de invariante. No tocar antes:
-el test de caracterización congela `Errors == 0` y detectará el cambio.
+**Resuelto (2026-08-29): invariante, no caso de negocio.** La rama se conserva
+—quitarla convertiría un `Include` olvidado en una `NullReferenceException` a
+mitad de la facturación mensual— pero ahora dice lo que de verdad significa: si
+un cliente llega sin plan cargado, la FK descarta que sea un problema de datos,
+así que falta un `Include` en la consulta. Es un `LogError`, no un `LogWarning`
+sobre "cliente sin plan".
 
-### 🟠 D-09 · El serial de la ONU no se propaga de la instalación al cliente
+El contador debe seguir en cero. Si alguna vez se mueve, no hay ningún cliente
+que arreglar: hay una consulta que corregir. `BillingPreviewIntegrationTests` lo
+fija.
+
+### 🟠 D-09 · El serial de la ONU no se propaga de la instalación al cliente — **CORREGIDO**
 
 `CompleteInstallationCommand` guarda `EquipoOnuSerial` en la **instalación**, pero
 nunca lo copia a `Client.OnuSerialNumber`. Son dos fuentes de verdad para el mismo
@@ -988,12 +1007,25 @@ que hay que recuperar.
 Si algún día se sincronizan, ese test lo detectará y habrá que actualizarlo a
 conciencia.
 
-**Dónde resolverlo:** es exactamente el problema que ataca el módulo de inventario
-(entidad de equipo con serial único y movimientos), analizado en la conversación
-previa al plan. Mientras tanto, la corrección mínima es propagar el serial al
-completar.
+**Corregido (2026-08-29).** `CompleteInstallationCommand` copia el serial a
+`Client.OnuSerialNumber` dentro de la MISMA transacción: una instalación cerrada
+con la ficha sin actualizar es exactamente la inconsistencia que se cierra. El
+cliente ya venía cargado por `GetForCommandAsync`, así que no hizo falta una
+séptima dependencia.
 
-### 🟡 D-07 · `appsettings.Production.json` con contraseña por defecto
+Dos decisiones que el código deja escritas: un cierre **sin** serial no borra el
+que el cliente ya tuviera —que el técnico no lo anote no significa que no haya
+ONU— y un serial distinto sí lo sustituye, pero deja el anterior en el log,
+porque es un cambio de equipo y no puede desaparecer sin rastro.
+
+El test de caracterización que congelaba el comportamiento viejo se actualizó
+**conscientemente**, que es justo para lo que estaba puesto, y se le sumó el caso
+del cierre sin serial.
+
+**Dónde se resuelve de verdad:** el módulo de inventario (entidad de equipo con
+serial único y movimientos). Esto es la corrección mínima, no el diseño final.
+
+### 🟡 D-07 · `appsettings.Production.json` con contraseña por defecto — **CORREGIDO en F8.4**
 
 Contiene `Password=telecom_pass_2025`, el mismo default de `docker-compose.yml`.
 No es la credencial de Railway (esa se inyecta por variable de entorno), pero es una
