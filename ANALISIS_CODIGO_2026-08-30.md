@@ -196,7 +196,7 @@ debería vivir está construida y sin usar.
 **Arreglo:** un `AuditBehavior` en el pipeline. Bajaría una dependencia a 57 clases
 y dejaría la regla de las 6 midiendo lo que pretendía medir.
 
-## E-03 · Dos mecanismos de validación conviviendo, aplicados de forma desigual
+## E-03 · Dos mecanismos de validación conviviendo, aplicados de forma desigual — **CORREGIDO**
 
 | | |
 |---|---:|
@@ -220,9 +220,31 @@ if (!v.IsValid) return BadRequestResult(string.Join(" ", v.Errors.Select(e => e.
 
 Cada endpoint nuevo suma una dependencia al controlador y otra copia del bloque.
 
-**Arreglo:** un `ValidationBehavior` en el pipeline que ya existe. Elimina las 17
-copias, quita 8 dependencias de `TicketsController` y hace que validar deje de
-depender de que quien escriba el endpoint se acuerde.
+**Corregido (2026-08-30).** Un filtro de acción, `ValidacionDeCuerpoFilter`, que
+resuelve el validador del argumento por reflexión desde el contenedor. **Sin añadir
+ningún paquete.**
+
+| | Antes | Ahora |
+|---|---:|---:|
+| Dependencias de `TicketsController` | 12 | **4** |
+| `IValidator<T>` inyectados en controladores | 17 | **0** |
+| Bloques `ValidateAsync` copiados | 17 | **0** |
+
+No se eligió el `ValidationBehavior` de MediatR que proponía el hallazgo: los
+validadores son de **DTOs** y el pipeline ve **comandos**, que los envuelven. Un
+filtro de acción los ve tal cual llegan.
+
+**Y arregla un fallo que apareció al hacerlo.** Había *dos* sobres de error:
+`{ success, message }` en ocho endpoints y `{ success, errors: [...] }` en siete.
+El frontend lee **solo `message`** (`extractApiError`, 29 usos), así que en esos
+siete el usuario veía el texto genérico de reserva —"no se pudo guardar"— en lugar
+del motivo real. Ahora hay un solo sobre, y es el que el frontend sabe leer.
+
+`ValidacionDeCuerpoIntegrationTests` va por HTTP porque un filtro es justo lo que
+no se ve llamando al handler. **Se comprobó que sirven**: al quitar el filtro del
+registro se ponen rojos. Uno de ellos afina el detalle de que sin filtro
+`[ApiController]` devuelve 400 igualmente por las anotaciones del DTO, pero con
+`ProblemDetails` — sin `success` y sin `message`.
 
 ## M-01 · La lógica de autorización vive en el controlador y no la prueba nadie — **CORREGIDO**
 
@@ -419,7 +441,7 @@ renombrado masivo.
 | 2 | **S-02** advisory lock en el generador (+ **S-03**) | ✅ **hecho** | 30 min |
 | 3 | **M-01** tests HTTP de los roles humanos | ✅ **hecho** | medio día |
 | 4 | **P-01** el N+1 del dashboard | ✅ **hecho** | 1 hora |
-| 5 | **E-03** `ValidationBehavior` | Quita 17 copias y 8 dependencias | medio día |
+| 5 | **E-03** validación en un filtro | ✅ **hecho** | medio día |
 | 6 | **E-01** partir `TicketHelper` | El único SRP roto de verdad | medio día |
 | 7 | **E-02** `AuditBehavior` | Toca 57 clases: hacerlo con el resto en verde | 1 día |
 | 8 | **E-04** transiciones en 3 entidades | Cierra la puerta por la que volvería D-17 | 1 día |

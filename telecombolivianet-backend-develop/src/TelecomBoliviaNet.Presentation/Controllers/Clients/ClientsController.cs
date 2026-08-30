@@ -16,26 +16,17 @@ namespace TelecomBoliviaNet.Presentation.Controllers.Clients;
 public class ClientsController : BaseController
 {
     private readonly IMediator                       _mediator;
-    private readonly IValidator<RegisterClientDto>   _registerVal;
-    private readonly IValidator<UpdateClientDto>     _updateVal;
-    private readonly IValidator<RegisterPaymentDto>  _paymentVal;
     private readonly IClientAttachmentService         _attSvc;
     private readonly IClientHistoryService          _histSvc;
     private readonly ICreditRefundService            _refundSvc;
 
     public ClientsController(
         IMediator                      mediator,
-        IValidator<RegisterClientDto>  registerVal,
-        IValidator<UpdateClientDto>    updateVal,
-        IValidator<RegisterPaymentDto> paymentVal,
         IClientAttachmentService        attSvc,
         IClientHistoryService         histSvc,
         ICreditRefundService          refundSvc)
     {
         _mediator    = mediator;
-        _registerVal = registerVal;
-        _updateVal   = updateVal;
-        _paymentVal  = paymentVal;
         _attSvc      = attSvc;
         _histSvc     = histSvc;
         _refundSvc   = refundSvc;
@@ -179,9 +170,6 @@ public class ClientsController : BaseController
     [Authorize(Policy = "AdminOrTecnico")]
     public async Task<IActionResult> Register([FromBody] RegisterClientDto dto)
     {
-        var v = await _registerVal.ValidateAsync(dto);
-        if (!v.IsValid)
-            return BadRequest(new { success = false, errors = v.Errors.Select(e => e.ErrorMessage) });
 
         var result = await _mediator.Send(new RegisterClientCommand(dto, CurrentUserId, CurrentUserName, ClientIp));
         if (!result.IsSuccess) return BadRequestResult(result.ErrorMessage);
@@ -193,9 +181,6 @@ public class ClientsController : BaseController
     [Authorize(Policy = "AdminOnly")]
     public async Task<IActionResult> Update(Guid id, [FromBody] UpdateClientDto dto)
     {
-        var v = await _updateVal.ValidateAsync(dto);
-        if (!v.IsValid)
-            return BadRequest(new { success = false, errors = v.Errors.Select(e => e.ErrorMessage) });
 
         var result = await _mediator.Send(new UpdateClientCommand(id, dto, CurrentUserId, CurrentUserName, ClientIp));
         if (result.IsConflict) return ConflictResult(result.ErrorMessage);
@@ -258,9 +243,6 @@ public class ClientsController : BaseController
         if (dto.ClientId != id)
             return BadRequestResult("El ID del cliente no coincide.");
 
-        var v = await _paymentVal.ValidateAsync(dto);
-        if (!v.IsValid)
-            return BadRequest(new { success = false, errors = v.Errors.Select(e => e.ErrorMessage) });
 
         var result = await _mediator.Send(new RegisterPaymentCommand(dto, CurrentUserId, CurrentUserName, ClientIp));
         if (!result.IsSuccess) return BadRequestResult(result.ErrorMessage);

@@ -86,7 +86,11 @@ try
     }).AddMvc();
 
     builder.Services
-        .AddControllers()
+        // E-03 — Validar el cuerpo deja de ser cosa de cada endpoint. Antes el
+        // mismo bloque estaba copiado 17 veces y dependía de que quien escribiera
+        // el endpoint se acordara; ahora, si el DTO tiene validador registrado, se
+        // valida. Ver ValidacionDeCuerpoFilter.
+        .AddControllers(o => o.Filters.Add<ValidacionDeCuerpoFilter>())
         .AddJsonOptions(o =>
         {
             o.JsonSerializerOptions.PropertyNamingPolicy = null;

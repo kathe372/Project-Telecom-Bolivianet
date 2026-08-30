@@ -14,17 +14,12 @@ namespace TelecomBoliviaNet.Presentation.Controllers.Users;
 public class UserSystemController : BaseController
 {
     private readonly IMediator                 _mediator;
-    private readonly IValidator<CreateUserDto> _createValidator;
-    private readonly IValidator<UpdateUserDto> _updateValidator;
 
     public UserSystemController(
-        IMediator                  mediator,
-        IValidator<CreateUserDto>  createValidator,
-        IValidator<UpdateUserDto>  updateValidator)
+        IMediator                  mediator
+)
     {
         _mediator        = mediator;
-        _createValidator = createValidator;
-        _updateValidator = updateValidator;
     }
 
     [HttpGet]
@@ -57,9 +52,6 @@ public class UserSystemController : BaseController
     [Authorize(Policy = "AdminOnly")]
     public async Task<IActionResult> Create([FromBody] CreateUserDto dto)
     {
-        var validation = await _createValidator.ValidateAsync(dto);
-        if (!validation.IsValid)
-            return BadRequest(new { success = false, errors = validation.Errors.Select(e => e.ErrorMessage) });
 
         var result = await _mediator.Send(
             new CreateUserCommand(dto, CurrentUserId, CurrentUserName, ClientIp));
@@ -75,9 +67,6 @@ public class UserSystemController : BaseController
     [Authorize(Policy = "AdminOnly")]
     public async Task<IActionResult> Update(Guid id, [FromBody] UpdateUserDto dto)
     {
-        var validation = await _updateValidator.ValidateAsync(dto);
-        if (!validation.IsValid)
-            return BadRequest(new { success = false, errors = validation.Errors.Select(e => e.ErrorMessage) });
 
         var result = await _mediator.Send(
             new UpdateUserCommand(id, dto, CurrentUserId, CurrentUserName, ClientIp));

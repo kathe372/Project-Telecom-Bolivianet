@@ -1,4 +1,4 @@
-using TelecomBoliviaNet.Application.Interfaces;
+﻿using TelecomBoliviaNet.Application.Interfaces;
 ﻿using FluentValidation;
 using Microsoft.Extensions.Caching.Memory;
 using TelecomBoliviaNet.Application.Constants;
@@ -18,8 +18,6 @@ public class AuthController : BaseController
     private readonly AuthService                   _authService;
     private readonly ISessionService               _sessions;
     private readonly IPasswordChangeService        _passwords;
-    private readonly IValidator<LoginDto>          _loginValidator;
-    private readonly IValidator<ChangePasswordDto> _changePassValidator;
     private readonly IMemoryCache                  _cache;
 
     public const string RefreshTokenCookieName = "rt";
@@ -28,15 +26,11 @@ public class AuthController : BaseController
         AuthService                    authService,
         ISessionService                sessions,
         IPasswordChangeService         passwords,
-        IValidator<LoginDto>           loginValidator,
-        IValidator<ChangePasswordDto>  changePassValidator,
         IMemoryCache                   cache)
     {
         _authService         = authService;
         _sessions    = sessions;
         _passwords   = passwords;
-        _loginValidator      = loginValidator;
-        _changePassValidator = changePassValidator;
         _cache               = cache;
     }
 
@@ -48,14 +42,6 @@ public class AuthController : BaseController
     [ProducesResponseType(429)]
     public async Task<IActionResult> Login([FromBody] LoginDto dto)
     {
-        var validation = await _loginValidator.ValidateAsync(dto);
-        if (!validation.IsValid)
-            return BadRequest(new
-            {
-                success = false,
-                errors  = validation.Errors.Select(e => e.ErrorMessage)
-            });
-
         var result = await _authService.LoginAsync(dto, ClientIp);
         if (!result.IsSuccess)
             return Unauthorized(new { success = false, message = result.ErrorMessage });
@@ -118,14 +104,6 @@ public class AuthController : BaseController
     [ProducesResponseType(401)]
     public async Task<IActionResult> ChangePassword([FromBody] ChangePasswordDto dto)
     {
-        var validation = await _changePassValidator.ValidateAsync(dto);
-        if (!validation.IsValid)
-            return BadRequest(new
-            {
-                success = false,
-                errors  = validation.Errors.Select(e => e.ErrorMessage)
-            });
-
         var result = await _passwords.ChangePasswordAsync(
             CurrentUserId, dto, ClientIp);
 

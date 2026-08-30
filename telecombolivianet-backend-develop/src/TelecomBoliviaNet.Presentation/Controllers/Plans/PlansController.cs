@@ -12,17 +12,12 @@ namespace TelecomBoliviaNet.Presentation.Controllers.Plans;
 public class PlansController : BaseController
 {
     private readonly IPlanService _service;
-    private readonly IValidator<CreatePlanDto> _createVal;
-    private readonly IValidator<UpdatePlanDto> _updateVal;
 
     public PlansController(
-        IPlanService service,
-        IValidator<CreatePlanDto> createVal,
-        IValidator<UpdatePlanDto> updateVal)
+        IPlanService service
+)
     {
         _service   = service;
-        _createVal = createVal;
-        _updateVal = updateVal;
     }
 
     [HttpGet]
@@ -46,9 +41,6 @@ public class PlansController : BaseController
     [Authorize(Policy = "AdminOnly")]
     public async Task<IActionResult> Create([FromBody] CreatePlanDto dto)
     {
-        var v = await _createVal.ValidateAsync(dto);
-        if (!v.IsValid)
-            return BadRequest(new { success = false, errors = v.Errors.Select(e => e.ErrorMessage) });
 
         var result = await _service.CreateAsync(dto, CurrentUserId, CurrentUserName, ClientIp);
         if (!result.IsSuccess) return BadRequestResult(result.ErrorMessage);
@@ -59,9 +51,6 @@ public class PlansController : BaseController
     [Authorize(Policy = "AdminOnly")]
     public async Task<IActionResult> Update(Guid id, [FromBody] UpdatePlanDto dto)
     {
-        var v = await _updateVal.ValidateAsync(dto);
-        if (!v.IsValid)
-            return BadRequest(new { success = false, errors = v.Errors.Select(e => e.ErrorMessage) });
 
         var result = await _service.UpdateAsync(id, dto, CurrentUserId, CurrentUserName, ClientIp);
         if (!result.IsSuccess) return BadRequestResult(result.ErrorMessage);

@@ -18,41 +18,17 @@ namespace TelecomBoliviaNet.Presentation.Controllers.Tickets;
 public class TicketsController : BaseController
 {
     private readonly IMediator                            _mediator;
-    private readonly IValidator<CreateTicketDto>          _createVal;
-    private readonly IValidator<UpdateTicketDto>          _updateVal;
-    private readonly IValidator<ChangeTicketStatusDto>    _statusVal;
-    private readonly IValidator<AssignTicketDto>          _assignVal;
-    private readonly IValidator<AddCommentDto>            _commentVal;
-    private readonly IValidator<AddWorkLogDto>            _workLogVal;
-    private readonly IValidator<ScheduleVisitDto>         _visitVal;
-    private readonly IValidator<RescheduleTicketVisitDto> _rescheduleVal;
     private readonly TicketBalancingService                _balanceoSvc;
     private readonly TicketAttachmentService              _attSvc;
     private readonly IConfiguration                       _config;
 
     public TicketsController(
         IMediator                         mediator,
-        IValidator<CreateTicketDto>       createVal,
-        IValidator<UpdateTicketDto>       updateVal,
-        IValidator<ChangeTicketStatusDto> statusVal,
-        IValidator<AssignTicketDto>       assignVal,
-        IValidator<AddCommentDto>         commentVal,
-        IValidator<AddWorkLogDto>         workLogVal,
-        IValidator<ScheduleVisitDto>      visitVal,
-        IValidator<RescheduleTicketVisitDto> rescheduleVal,
         TicketBalancingService             balanceoSvc,
         TicketAttachmentService           attSvc,
         IConfiguration                    config)
     {
         _mediator      = mediator;
-        _createVal     = createVal;
-        _updateVal     = updateVal;
-        _statusVal     = statusVal;
-        _assignVal     = assignVal;
-        _commentVal    = commentVal;
-        _workLogVal    = workLogVal;
-        _visitVal      = visitVal;
-        _rescheduleVal = rescheduleVal;
         _balanceoSvc   = balanceoSvc;
         _attSvc        = attSvc;
         _config        = config;
@@ -160,8 +136,6 @@ public class TicketsController : BaseController
     [Authorize(Policy = "AdminOrTecnicoOrBot")]
     public async Task<IActionResult> Create([FromBody] CreateTicketDto dto)
     {
-        var v = await _createVal.ValidateAsync(dto);
-        if (!v.IsValid) return BadRequestResult(string.Join(" ", v.Errors.Select(e => e.ErrorMessage)));
         var r = await _mediator.Send(new CreateTicketCommand(dto, CurrentUserId, CurrentUserName, ClientIp, UserAgent));
         return r.IsSuccess ? OkResult(r.Value) : BadRequestResult(r.ErrorMessage);
     }
@@ -196,8 +170,6 @@ public class TicketsController : BaseController
     public async Task<IActionResult> Update(Guid id, [FromBody] UpdateTicketDto dto)
     {
         if (!await CanActOnTicketAsync(id)) return NotFoundResult("Ticket no encontrado.");
-        var v = await _updateVal.ValidateAsync(dto);
-        if (!v.IsValid) return BadRequestResult(string.Join(" ", v.Errors.Select(e => e.ErrorMessage)));
         var r = await _mediator.Send(new UpdateTicketCommand(id, dto, CurrentUserId, CurrentUserName, ClientIp, UserAgent));
         return r.IsSuccess ? OkResult(r.Value) : BadRequestResult(r.ErrorMessage);
     }
@@ -207,8 +179,6 @@ public class TicketsController : BaseController
     public async Task<IActionResult> ChangeStatus(Guid id, [FromBody] ChangeTicketStatusDto dto)
     {
         if (!await CanActOnTicketAsync(id)) return NotFoundResult("Ticket no encontrado.");
-        var v = await _statusVal.ValidateAsync(dto);
-        if (!v.IsValid) return BadRequestResult(string.Join(" ", v.Errors.Select(e => e.ErrorMessage)));
         var r = await _mediator.Send(new ChangeTicketStatusCommand(id, dto, CurrentUserId, CurrentUserName, ClientIp, UserAgent));
         return r.IsSuccess ? OkResult(r.Value) : BadRequestResult(r.ErrorMessage);
     }
@@ -217,8 +187,6 @@ public class TicketsController : BaseController
     [Authorize(Policy = "AdminOnly")]
     public async Task<IActionResult> Assign(Guid id, [FromBody] AssignTicketDto dto)
     {
-        var v = await _assignVal.ValidateAsync(dto);
-        if (!v.IsValid) return BadRequestResult(string.Join(" ", v.Errors.Select(e => e.ErrorMessage)));
         var r = await _mediator.Send(new AssignTicketCommand(id, dto, CurrentUserId, CurrentUserName, ClientIp, UserAgent));
         return r.IsSuccess ? OkResult(r.Value) : BadRequestResult(r.ErrorMessage);
     }
@@ -239,8 +207,6 @@ public class TicketsController : BaseController
     public async Task<IActionResult> AddComment(Guid id, [FromBody] AddCommentDto dto)
     {
         if (!await CanActOnTicketAsync(id)) return NotFoundResult("Ticket no encontrado.");
-        var v = await _commentVal.ValidateAsync(dto);
-        if (!v.IsValid) return BadRequestResult(string.Join(" ", v.Errors.Select(e => e.ErrorMessage)));
         var r = await _mediator.Send(new AddCommentCommand(id, dto, CurrentUserId, CurrentUserName, ClientIp, UserAgent));
         return r.IsSuccess ? OkResult(r.Value) : BadRequestResult(r.ErrorMessage);
     }
@@ -253,8 +219,6 @@ public class TicketsController : BaseController
     public async Task<IActionResult> AddWorkLog(Guid id, [FromBody] AddWorkLogDto dto)
     {
         if (!await CanActOnTicketAsync(id)) return NotFoundResult("Ticket no encontrado.");
-        var v = await _workLogVal.ValidateAsync(dto);
-        if (!v.IsValid) return BadRequestResult(string.Join(" ", v.Errors.Select(e => e.ErrorMessage)));
         var r = await _mediator.Send(new AddWorkLogCommand(id, dto, CurrentUserId, CurrentUserName, ClientIp, UserAgent));
         return r.IsSuccess ? OkResult(r.Value) : BadRequestResult(r.ErrorMessage);
     }
@@ -278,8 +242,6 @@ public class TicketsController : BaseController
     public async Task<IActionResult> ScheduleVisit(Guid id, [FromBody] ScheduleVisitDto dto)
     {
         if (!await CanActOnTicketAsync(id)) return NotFoundResult("Ticket no encontrado.");
-        var v = await _visitVal.ValidateAsync(dto);
-        if (!v.IsValid) return BadRequestResult(string.Join(" ", v.Errors.Select(e => e.ErrorMessage)));
         var r = await _mediator.Send(new ScheduleVisitCommand(id, dto, CurrentUserId, CurrentUserName, ClientIp, UserAgent));
         return r.IsSuccess ? OkResult(r.Value) : BadRequestResult(r.ErrorMessage);
     }
@@ -288,8 +250,6 @@ public class TicketsController : BaseController
     [Authorize(Policy = "AllRolesOrBot")]
     public async Task<IActionResult> RescheduleVisit(Guid id, [FromBody] RescheduleTicketVisitDto dto)
     {
-        var v = await _rescheduleVal.ValidateAsync(dto);
-        if (!v.IsValid) return BadRequestResult(string.Join(" ", v.Errors.Select(e => e.ErrorMessage)));
         var r = await _mediator.Send(new RescheduleTicketVisitCommand(id, dto, CurrentUserId, CurrentUserName, ClientIp, UserAgent));
         return r.IsSuccess ? OkResult(r.Value) : BadRequestResult(r.ErrorMessage);
     }
