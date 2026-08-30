@@ -1,5 +1,6 @@
-using TelecomBoliviaNet.Application.DTOs.Bot;
+﻿using TelecomBoliviaNet.Application.DTOs.Bot;
 using Microsoft.AspNetCore.Http;
+using TelecomBoliviaNet.Application.Services.Bot;
 
 namespace TelecomBoliviaNet.Application.Interfaces;
 
@@ -19,13 +20,13 @@ public interface IBotMonitorProxy
     Task<ConversationStatsDto> GetStatsAsync();
 
     /// <summary>Un agente humano toma la conversación y el bot deja de responder.</summary>
-    Task<bool> TakeoverConversationAsync(string phone, string agentName);
+    Task<BotResult> TakeoverConversationAsync(string phone, string agentName);
 
     /// <summary>El agente la devuelve al bot.</summary>
-    Task<bool> ReleaseConversationAsync(string phone);
+    Task<BotResult> ReleaseConversationAsync(string phone);
 
     /// <summary>Mensaje escrito por un agente dentro de una conversación.</summary>
-    Task<bool> SendAdminMessageAsync(string phone, string text);
+    Task<BotResult> SendAdminMessageAsync(string phone, string text);
 }
 
 /// <summary>Documentos que alimentan el RAG del chatbot.</summary>
@@ -35,7 +36,7 @@ public interface IBotRagProxy
 
     Task<object?> RagUploadDocumentAsync(IFormFile file, string? title);
 
-    Task<bool> RagDeleteDocumentAsync(string id);
+    Task<BotResult> RagDeleteDocumentAsync(string id);
 }
 
 /// <summary>
@@ -52,7 +53,7 @@ public interface IBotOutboundProxy
     /// Envía por WhatsApp la confirmación de instalación del día siguiente con
     /// botones interactivos (Confirmar / Reagendar) vía el chatbot.
     /// </summary>
-    Task<bool> SendInstallationConfirmationAsync(
+    Task<BotResult> SendInstallationConfirmationAsync(
         string phone, string nombre, string fecha, string hora, string direccion);
 
     /// <summary>
@@ -63,5 +64,5 @@ public interface IBotOutboundProxy
     /// mensaje en vez de esperar hasta 2 horas (el re-check periódico sigue
     /// existiendo como red de seguridad si esta llamada falla).
     /// </summary>
-    Task<bool> InvalidateIdentityAsync(string phone);
+    Task<BotResult> InvalidateIdentityAsync(string phone);
 }

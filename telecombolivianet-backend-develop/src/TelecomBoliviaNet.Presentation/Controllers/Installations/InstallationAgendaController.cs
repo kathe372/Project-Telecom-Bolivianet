@@ -28,9 +28,9 @@ public class InstallationAgendaController : BaseController
     }
 
     [HttpGet("mi-agenda")]
-        // F8.1 — Fijada explícitamente. Antes heredaba la de la clase; al
-        // ampliar el piso de la clase para admitir al bot, heredarla la
-        // habría abierto también a él sin que nadie lo decidiera.
+    // F8.1 — Fijada explícitamente. Antes heredaba la de la clase; al
+    // ampliar el piso de la clase para admitir al bot, heredarla la
+    // habría abierto también a él sin que nadie lo decidiera.
     [Authorize(Policy = "AdminOrTecnico")]
     public async Task<IActionResult> GetMiAgenda([FromQuery] string fecha)
     {
@@ -48,9 +48,9 @@ public class InstallationAgendaController : BaseController
     // Un técnico solo ve su propia agenda: se fuerza tecnicoId a su propio id,
     // ignorando cualquier otro valor que mande en el query string.
     [HttpGet("calendario")]
-        // F8.1 — Fijada explícitamente. Antes heredaba la de la clase; al
-        // ampliar el piso de la clase para admitir al bot, heredarla la
-        // habría abierto también a él sin que nadie lo decidiera.
+    // F8.1 — Fijada explícitamente. Antes heredaba la de la clase; al
+    // ampliar el piso de la clase para admitir al bot, heredarla la
+    // habría abierto también a él sin que nadie lo decidiera.
     [Authorize(Policy = "AdminOrTecnico")]
     public async Task<IActionResult> GetCalendario(
         [FromQuery] string desde,
@@ -72,9 +72,9 @@ public class InstallationAgendaController : BaseController
     // son propias de instalaciones, no de tickets). Mismo criterio: un técnico
     // solo ve sus propias visitas.
     [HttpGet("calendario/visitas-tickets")]
-        // F8.1 — Fijada explícitamente. Antes heredaba la de la clase; al
-        // ampliar el piso de la clase para admitir al bot, heredarla la
-        // habría abierto también a él sin que nadie lo decidiera.
+    // F8.1 — Fijada explícitamente. Antes heredaba la de la clase; al
+    // ampliar el piso de la clase para admitir al bot, heredarla la
+    // habría abierto también a él sin que nadie lo decidiera.
     [Authorize(Policy = "AdminOrTecnico")]
     public async Task<IActionResult> GetCalendarioVisitasTickets(
         [FromQuery] string desde,

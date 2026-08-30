@@ -52,6 +52,15 @@ public class NotifSegmentService
         if (!dto.Reglas.Any() || dto.Reglas.All(g => !g.Condiciones.Any()))
             return Result<NotifSegmentDto>.Failure("El segmento debe tener al menos 1 condición.");
 
+        // OBS-03 — Una regla mal escrita se guardaba sin protestar y luego no
+        // alcanzaba a nadie. El operador se enteraba porque el envío masivo salió
+        // a cero personas, sin poder distinguir "mi regla está mal" de "no hay
+        // clientes que cumplan". Ahora se dice al guardar, que es cuando se
+        // puede corregir.
+        var malFormadas = ProblemasDeLasReglas(dto);
+        if (malFormadas.Count > 0)
+            return Result<NotifSegmentDto>.Failure(string.Join(" ", malFormadas));
+
         if (await _repo.GetAll().AnyAsync(s => s.Nombre == dto.Nombre))
             return Result<NotifSegmentDto>.Failure($"Ya existe un segmento con el nombre '{dto.Nombre}'.");
 
@@ -81,6 +90,15 @@ public class NotifSegmentService
 
         if (!dto.Reglas.Any() || dto.Reglas.All(g => !g.Condiciones.Any()))
             return Result<NotifSegmentDto>.Failure("El segmento debe tener al menos 1 condición.");
+
+        // OBS-03 — Una regla mal escrita se guardaba sin protestar y luego no
+        // alcanzaba a nadie. El operador se enteraba porque el envío masivo salió
+        // a cero personas, sin poder distinguir "mi regla está mal" de "no hay
+        // clientes que cumplan". Ahora se dice al guardar, que es cuando se
+        // puede corregir.
+        var malFormadas = ProblemasDeLasReglas(dto);
+        if (malFormadas.Count > 0)
+            return Result<NotifSegmentDto>.Failure(string.Join(" ", malFormadas));
 
         if (await _repo.GetAll().AnyAsync(s => s.Nombre == dto.Nombre && s.Id != id))
             return Result<NotifSegmentDto>.Failure($"Ya existe un segmento con el nombre '{dto.Nombre}'.");
@@ -185,6 +203,17 @@ public class NotifSegmentService
             .Select(c => (c, invMap.TryGetValue(c.Id, out var inv) ? inv : new List<Invoice>()))
             .ToList();
     }
+    /// <summary>
+    /// Qué está mal en las condiciones del segmento, en lenguaje para quien las
+    /// escribió. Lista vacía = todas son evaluables. Ver <see cref="SegmentRules"/>.
+    /// </summary>
+    private static List<string> ProblemasDeLasReglas(CreateOrUpdateSegmentDto dto)
+        => dto.Reglas
+            .SelectMany(g => g.Condiciones)
+            .SelectMany(c => SegmentRules.Problemas(c.Campo, c.Operador, c.Valor))
+            .Distinct()
+            .ToList();
+
 
     private static List<SegmentConditionGroup> DeserializeReglas(string json)
         => string.IsNullOrEmpty(json)

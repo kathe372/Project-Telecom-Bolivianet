@@ -299,29 +299,40 @@ export class SistemaApiService implements OnModuleInit,
   /** FASE G5: la instalacion vigente del cliente, sin depender de la sesion.
    *  Se ordena por fecha+hora y se toma la primera no cerrada. */
   async findScheduledInstallationId(clientId: string): Promise<string | null> {
-    const res = await this.http.get('/api/instalaciones', {
-      params: { ClienteId: clientId, PageSize: 20 },
-    });
-    const items: any[] = res.data?.data?.Items ?? res.data?.data?.items ?? [];
-    const vigentes = items
-      .filter(i => !['Completada', 'Cancelada', 'NoRealizada'].includes(i.Status))
-      .sort((a, b) => `${a.Fecha}T${a.HoraInicio}`.localeCompare(`${b.Fecha}T${b.HoraInicio}`));
-    return vigentes[0]?.Id ?? null;
+    return this.findVigenteId({ clienteId: clientId });
   }
 
   /** Instalacion vigente por telefono — cubre prospectos y clientes. El
    *  backend indexa el prospecto por ProspectPhone; el cliente, por ClienteId.
    *  Se consulta el listado sin filtro de cliente y se cotejan ambos. */
   async findScheduledInstallationByPhone(phone: string): Promise<string | null> {
-    const local = PhoneNumberLocal(phone);
-    const res = await this.http.get('/api/instalaciones', { params: { PageSize: 100 } });
-    const items: any[] = res.data?.data?.Items ?? res.data?.data?.items ?? [];
-    const vigente = items
-      .filter((i) => !['Completada', 'Cancelada', 'NoRealizada'].includes(i.Status))
-      .filter((i) => [i.ProspectPhone, i.ClientePhone]
-        .some((t) => t && PhoneNumberLocal(String(t)) === local))
-      .sort((a, b) => `${a.Fecha}T${a.HoraInicio}`.localeCompare(`${b.Fecha}T${b.HoraInicio}`));
-    return vigente[0]?.Id ?? null;
+    return this.findVigenteId({ telefono: PhoneNumberLocal(phone) });
+  }
+
+  /**
+   * OBS-04: la instalacion vigente la resuelve AHORA EL BACKEND.
+   *
+   * Antes se pedia `/api/instalaciones` con PageSize=100 —el listado general, sin
+   * filtro— y se cruzaba en memoria contra ProspectPhone y ClientePhone. Es decir:
+   * para atender a una persona, el bot leia el nombre, el telefono y la direccion
+   * de las ultimas cien que pasaron por la agenda.
+   *
+   * Era tambien lo que obligaba a que el rol Bot tuviera acceso al listado
+   * general de instalaciones, la concesion mas ancha de las que se le dieron.
+   * Con este endpoint esa concesion se retiro.
+   *
+   * 404 = no tiene ninguna vigente. No es un error: es la respuesta.
+   */
+  private async findVigenteId(
+    params: { clienteId?: string; telefono?: string },
+  ): Promise<string | null> {
+    try {
+      const res = await this.http.get('/api/instalaciones/vigente', { params });
+      return res.data?.data?.Id ?? null;
+    } catch (err: any) {
+      if (err?.response?.status === 404) return null;
+      throw err;
+    }
   }
 
   async getInstallationSlots(diasAdelante = 7, planId?: string): Promise<SlotDto[]> {

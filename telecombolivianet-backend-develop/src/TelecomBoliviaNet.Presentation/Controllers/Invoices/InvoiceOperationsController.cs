@@ -27,9 +27,9 @@ public class InvoiceOperationsController : BaseController
     }
 
     [HttpPost("extraordinary")]
-        // F9 — Fijada explícitamente. Antes heredaba la de la clase; el
-        // [Authorize] del método no la reemplaza, se exigen los dos (D-25),
-        // así que ampliar el piso del controlador la abriría sin decidirlo.
+    // F9 — Fijada explícitamente. Antes heredaba la de la clase; el
+    // [Authorize] del método no la reemplaza, se exigen los dos (D-25),
+    // así que ampliar el piso del controlador la abriría sin decidirlo.
     [Authorize(Policy = "AdminOnly")]
     public async Task<IActionResult> CreateExtraordinary([FromBody] CreateExtraordinaryInvoiceDto dto)
     {
@@ -40,9 +40,9 @@ public class InvoiceOperationsController : BaseController
     }
 
     [HttpPatch("{id:guid}/estado")]
-        // F9 — Fijada explícitamente. Antes heredaba la de la clase; el
-        // [Authorize] del método no la reemplaza, se exigen los dos (D-25),
-        // así que ampliar el piso del controlador la abriría sin decidirlo.
+    // F9 — Fijada explícitamente. Antes heredaba la de la clase; el
+    // [Authorize] del método no la reemplaza, se exigen los dos (D-25),
+    // así que ampliar el piso del controlador la abriría sin decidirlo.
     [Authorize(Policy = "AdminOnly")]
     public async Task<IActionResult> TransicionarEstado(Guid id, [FromBody] TransicionEstadoDto dto)
     {
@@ -56,9 +56,9 @@ public class InvoiceOperationsController : BaseController
     }
 
     [HttpPost("marcar-enviadas")]
-        // F9 — Fijada explícitamente. Antes heredaba la de la clase; el
-        // [Authorize] del método no la reemplaza, se exigen los dos (D-25),
-        // así que ampliar el piso del controlador la abriría sin decidirlo.
+    // F9 — Fijada explícitamente. Antes heredaba la de la clase; el
+    // [Authorize] del método no la reemplaza, se exigen los dos (D-25),
+    // así que ampliar el piso del controlador la abriría sin decidirlo.
     [Authorize(Policy = "AdminOnly")]
     public async Task<IActionResult> MarkSent([FromBody] MarkSentDto dto)
     {
@@ -67,9 +67,9 @@ public class InvoiceOperationsController : BaseController
     }
 
     [HttpPost("{id:guid}/aplicar-credito")]
-        // F9 — Fijada explícitamente. Antes heredaba la de la clase; el
-        // [Authorize] del método no la reemplaza, se exigen los dos (D-25),
-        // así que ampliar el piso del controlador la abriría sin decidirlo.
+    // F9 — Fijada explícitamente. Antes heredaba la de la clase; el
+    // [Authorize] del método no la reemplaza, se exigen los dos (D-25),
+    // así que ampliar el piso del controlador la abriría sin decidirlo.
     [Authorize(Policy = "AdminOnly")]
     public async Task<IActionResult> ApplyCredit(Guid id)
     {

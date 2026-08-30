@@ -75,9 +75,9 @@ public class TicketsController : BaseController
     // por su propio id sin importar qué haya mandado el cliente, para que no
     // pueda ver la carga de trabajo de otros técnicos cambiando el query string.
     [HttpGet]
-        // F8.1 — Fijada explícitamente. Antes heredaba la de la clase; al
-        // ampliar el piso de la clase para admitir al bot, heredarla la
-        // habría abierto también a él sin que nadie lo decidiera.
+    // F8.1 — Fijada explícitamente. Antes heredaba la de la clase; al
+    // ampliar el piso de la clase para admitir al bot, heredarla la
+    // habría abierto también a él sin que nadie lo decidiera.
     [Authorize(Policy = "AdminOrTecnico")]
     public async Task<IActionResult> GetAll([FromQuery] TicketFilterDto f)
     {
@@ -86,9 +86,9 @@ public class TicketsController : BaseController
     }
 
     [HttpGet("{id:guid}")]
-        // F8.1 — Fijada explícitamente. Antes heredaba la de la clase; al
-        // ampliar el piso de la clase para admitir al bot, heredarla la
-        // habría abierto también a él sin que nadie lo decidiera.
+    // F8.1 — Fijada explícitamente. Antes heredaba la de la clase; al
+    // ampliar el piso de la clase para admitir al bot, heredarla la
+    // habría abierto también a él sin que nadie lo decidiera.
     [Authorize(Policy = "AdminOrTecnico")]
     public async Task<IActionResult> GetById(Guid id)
     {
@@ -100,9 +100,9 @@ public class TicketsController : BaseController
     }
 
     [HttpGet("kanban")]
-        // F8.1 — Fijada explícitamente. Antes heredaba la de la clase; al
-        // ampliar el piso de la clase para admitir al bot, heredarla la
-        // habría abierto también a él sin que nadie lo decidiera.
+    // F8.1 — Fijada explícitamente. Antes heredaba la de la clase; al
+    // ampliar el piso de la clase para admitir al bot, heredarla la
+    // habría abierto también a él sin que nadie lo decidiera.
     [Authorize(Policy = "AdminOrTecnico")]
     public async Task<IActionResult> GetKanban([FromQuery] TicketFilterDto f)
     {
@@ -111,26 +111,26 @@ public class TicketsController : BaseController
     }
 
     [HttpGet("kpi")]
-        // F8.1 — Fijada explícitamente. Antes heredaba la de la clase; al
-        // ampliar el piso de la clase para admitir al bot, heredarla la
-        // habría abierto también a él sin que nadie lo decidiera.
+    // F8.1 — Fijada explícitamente. Antes heredaba la de la clase; al
+    // ampliar el piso de la clase para admitir al bot, heredarla la
+    // habría abierto también a él sin que nadie lo decidiera.
     [Authorize(Policy = "AdminOrTecnico")]
     public async Task<IActionResult> GetKpi(
         [FromQuery] DateTime? desde = null, [FromQuery] DateTime? hasta = null, [FromQuery] string? tecnico = null)
         => OkResult(await _mediator.Send(new GetTicketKpiQuery(desde, hasta, tecnico)));
 
     [HttpGet("overdue-sla")]
-        // F8.1 — Fijada explícitamente. Antes heredaba la de la clase; al
-        // ampliar el piso de la clase para admitir al bot, heredarla la
-        // habría abierto también a él sin que nadie lo decidiera.
+    // F8.1 — Fijada explícitamente. Antes heredaba la de la clase; al
+    // ampliar el piso de la clase para admitir al bot, heredarla la
+    // habría abierto también a él sin que nadie lo decidiera.
     [Authorize(Policy = "AdminOrTecnico")]
     public async Task<IActionResult> GetOverdueSla()
         => OkResult(await _mediator.Send(new GetOverdueSlaQuery()));
 
     [HttpGet("sla-alerts")]
-        // F8.1 — Fijada explícitamente. Antes heredaba la de la clase; al
-        // ampliar el piso de la clase para admitir al bot, heredarla la
-        // habría abierto también a él sin que nadie lo decidiera.
+    // F8.1 — Fijada explícitamente. Antes heredaba la de la clase; al
+    // ampliar el piso de la clase para admitir al bot, heredarla la
+    // habría abierto también a él sin que nadie lo decidiera.
     [Authorize(Policy = "AdminOrTecnico")]
     public async Task<IActionResult> GetSlaAlerts()
         => OkResult(await _mediator.Send(new GetSlaAlertsQuery()));
@@ -199,9 +199,9 @@ public class TicketsController : BaseController
     }
 
     [HttpPost("{id:guid}/comments")]
-        // F8.1 — Fijada explícitamente. Antes heredaba la de la clase; al
-        // ampliar el piso de la clase para admitir al bot, heredarla la
-        // habría abierto también a él sin que nadie lo decidiera.
+    // F8.1 — Fijada explícitamente. Antes heredaba la de la clase; al
+    // ampliar el piso de la clase para admitir al bot, heredarla la
+    // habría abierto también a él sin que nadie lo decidiera.
     [Authorize(Policy = "AdminOrTecnico")]
     public async Task<IActionResult> AddComment(Guid id, [FromBody] AddCommentDto dto)
     {
@@ -213,9 +213,9 @@ public class TicketsController : BaseController
     }
 
     [HttpPost("{id:guid}/worklogs")]
-        // F8.1 — Fijada explícitamente. Antes heredaba la de la clase; al
-        // ampliar el piso de la clase para admitir al bot, heredarla la
-        // habría abierto también a él sin que nadie lo decidiera.
+    // F8.1 — Fijada explícitamente. Antes heredaba la de la clase; al
+    // ampliar el piso de la clase para admitir al bot, heredarla la
+    // habría abierto también a él sin que nadie lo decidiera.
     [Authorize(Policy = "AdminOrTecnico")]
     public async Task<IActionResult> AddWorkLog(Guid id, [FromBody] AddWorkLogDto dto)
     {
@@ -262,9 +262,9 @@ public class TicketsController : BaseController
     }
 
     [HttpGet("sla-plans")]
-        // F8.1 — Fijada explícitamente. Antes heredaba la de la clase; al
-        // ampliar el piso de la clase para admitir al bot, heredarla la
-        // habría abierto también a él sin que nadie lo decidiera.
+    // F8.1 — Fijada explícitamente. Antes heredaba la de la clase; al
+    // ampliar el piso de la clase para admitir al bot, heredarla la
+    // habría abierto también a él sin que nadie lo decidiera.
     [Authorize(Policy = "AdminOrTecnico")]
     public async Task<IActionResult> GetSlaPlans()
         => OkResult(await _mediator.Send(new GetSlaPlansQuery()));

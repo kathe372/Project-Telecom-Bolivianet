@@ -67,6 +67,24 @@ public interface IInstallationRepository : IGenericRepository<Installation>
     /// </summary>
     Task<List<Installation>> GetTechnicianDayAsync(
         Guid tecnicoId, DateTime fecha, CancellationToken ct = default);
+
+    /// <summary>
+    /// La instalación VIGENTE de alguien: la más próxima que aún no se cerró.
+    /// Se identifica por cliente o por teléfono —que cubre también a los
+    /// prospectos, que todavía no son clientes—.
+    /// </summary>
+    /// <remarks>
+    /// OBS-04 — El chatbot resolvía esto pidiendo <c>GET /api/instalaciones</c>
+    /// con <c>PageSize=100</c> y filtrando en memoria. Es decir: para atender a
+    /// una persona leía el nombre, el teléfono y la dirección de las últimas cien
+    /// que pasaron por la agenda. Y era lo que obligaba a darle al rol Bot acceso
+    /// al listado general de instalaciones, la concesión más ancha de F8.1.
+    ///
+    /// <para>"Vigente" = ni Completada, ni Cancelada, ni NoRealizada; la primera
+    /// por fecha y hora.</para>
+    /// </remarks>
+    Task<Installation?> GetVigenteAsync(
+        Guid? clienteId, IReadOnlyCollection<string> telefonos, CancellationToken ct = default);
 }
 
 /// <summary>

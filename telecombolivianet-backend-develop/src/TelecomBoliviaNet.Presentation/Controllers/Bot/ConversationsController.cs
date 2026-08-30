@@ -29,9 +29,9 @@ public class ConversationsController : BaseController
 
 
     [HttpGet]
-        // F8.1 — Fijada explícitamente. Antes heredaba la de la clase; al
-        // ampliar el piso de la clase para admitir al bot, heredarla la
-        // habría abierto también a él sin que nadie lo decidiera.
+    // F8.1 — Fijada explícitamente. Antes heredaba la de la clase; al
+    // ampliar el piso de la clase para admitir al bot, heredarla la
+    // habría abierto también a él sin que nadie lo decidiera.
     [Authorize(Policy = "AdminOrOperadorOrTecnico")]
     public async Task<IActionResult> GetConversaciones(
         [FromQuery] int    page          = 1,
@@ -45,9 +45,9 @@ public class ConversationsController : BaseController
     }
 
     [HttpGet("{phone}")]
-        // F8.1 — Fijada explícitamente. Antes heredaba la de la clase; al
-        // ampliar el piso de la clase para admitir al bot, heredarla la
-        // habría abierto también a él sin que nadie lo decidiera.
+    // F8.1 — Fijada explícitamente. Antes heredaba la de la clase; al
+    // ampliar el piso de la clase para admitir al bot, heredarla la
+    // habría abierto también a él sin que nadie lo decidiera.
     [Authorize(Policy = "AdminOrOperadorOrTecnico")]
     public async Task<IActionResult> GetConversacion(string phone)
     {
@@ -59,18 +59,18 @@ public class ConversationsController : BaseController
     }
 
     [HttpGet("stats")]
-        // F8.1 — Fijada explícitamente. Antes heredaba la de la clase; al
-        // ampliar el piso de la clase para admitir al bot, heredarla la
-        // habría abierto también a él sin que nadie lo decidiera.
+    // F8.1 — Fijada explícitamente. Antes heredaba la de la clase; al
+    // ampliar el piso de la clase para admitir al bot, heredarla la
+    // habría abierto también a él sin que nadie lo decidiera.
     [Authorize(Policy = "AdminOrOperadorOrTecnico")]
     public async Task<IActionResult> GetStats()
         => OkResult(await _proxy.GetStatsAsync());
 
 
     [HttpGet("cliente/{phone}")]
-        // F8.1 — Fijada explícitamente. Antes heredaba la de la clase; al
-        // ampliar el piso de la clase para admitir al bot, heredarla la
-        // habría abierto también a él sin que nadie lo decidiera.
+    // F8.1 — Fijada explícitamente. Antes heredaba la de la clase; al
+    // ampliar el piso de la clase para admitir al bot, heredarla la
+    // habría abierto también a él sin que nadie lo decidiera.
     [Authorize(Policy = "AdminOrOperadorOrTecnico")]
     public async Task<IActionResult> GetClientHistory(string phone)
         => OkResult(await _proxy.GetClientHistoryAsync(
@@ -78,36 +78,37 @@ public class ConversationsController : BaseController
 
 
     [HttpPost("{phone}/tomar")]
-        // F8.1 — Fijada explícitamente. Antes heredaba la de la clase; al
-        // ampliar el piso de la clase para admitir al bot, heredarla la
-        // habría abierto también a él sin que nadie lo decidiera.
+    // F8.1 — Fijada explícitamente. Antes heredaba la de la clase; al
+    // ampliar el piso de la clase para admitir al bot, heredarla la
+    // habría abierto también a él sin que nadie lo decidiera.
     [Authorize(Policy = "AdminOrOperadorOrTecnico")]
     public async Task<IActionResult> TakeoverConversacion(string phone)
     {
-        var ok = await _proxy.TakeoverConversationAsync(
+        var r = await _proxy.TakeoverConversationAsync(
             Uri.UnescapeDataString(phone), CurrentUserName);
-        return ok
+        return r.EsExito
             ? OkMessage("Conversación tomada correctamente.")
-            : StatusCode(502, new { error = "Error al tomar la conversación.", code = "TAKEOVER_ERROR" });
+            : SegunElBot(r, "No se pudo tomar la conversación. Puede que ya la tenga otro agente.",
+                         "TAKEOVER_ERROR");
     }
 
     [HttpPost("{phone}/devolver")]
-        // F8.1 — Fijada explícitamente. Antes heredaba la de la clase; al
-        // ampliar el piso de la clase para admitir al bot, heredarla la
-        // habría abierto también a él sin que nadie lo decidiera.
+    // F8.1 — Fijada explícitamente. Antes heredaba la de la clase; al
+    // ampliar el piso de la clase para admitir al bot, heredarla la
+    // habría abierto también a él sin que nadie lo decidiera.
     [Authorize(Policy = "AdminOrOperadorOrTecnico")]
     public async Task<IActionResult> ReleaseConversacion(string phone)
     {
-        var ok = await _proxy.ReleaseConversationAsync(Uri.UnescapeDataString(phone));
-        return ok
+        var r = await _proxy.ReleaseConversationAsync(Uri.UnescapeDataString(phone));
+        return r.EsExito
             ? OkMessage("Conversación devuelta al bot.")
-            : StatusCode(502, new { error = "Error al devolver la conversación.", code = "RELEASE_ERROR" });
+            : SegunElBot(r, "No se pudo devolver la conversación al bot.", "RELEASE_ERROR");
     }
 
     [HttpPost("{phone}/responder")]
-        // F8.1 — Fijada explícitamente. Antes heredaba la de la clase; al
-        // ampliar el piso de la clase para admitir al bot, heredarla la
-        // habría abierto también a él sin que nadie lo decidiera.
+    // F8.1 — Fijada explícitamente. Antes heredaba la de la clase; al
+    // ampliar el piso de la clase para admitir al bot, heredarla la
+    // habría abierto también a él sin que nadie lo decidiera.
     [Authorize(Policy = "AdminOrOperadorOrTecnico")]
     public async Task<IActionResult> ResponderConversacion(
         string phone, [FromBody] SendMessageRequestDto dto)
@@ -115,18 +116,18 @@ public class ConversationsController : BaseController
         if (string.IsNullOrWhiteSpace(dto.Texto))
             return BadRequestResult("El texto del mensaje es requerido.");
 
-        var ok = await _proxy.SendAdminMessageAsync(
+        var r = await _proxy.SendAdminMessageAsync(
             Uri.UnescapeDataString(phone), dto.Texto);
-        return ok
+        return r.EsExito
             ? OkMessage("Mensaje enviado correctamente.")
-            : StatusCode(502, new { error = "Error al enviar el mensaje.", code = "SEND_ERROR" });
+            : SegunElBot(r, "El chatbot rechazó el envío del mensaje.", "SEND_ERROR");
     }
 
 
     [HttpGet("~/api/bot-config")]
-        // F8.1 — Fijada explícitamente. Antes heredaba la de la clase; al
-        // ampliar el piso de la clase para admitir al bot, heredarla la
-        // habría abierto también a él sin que nadie lo decidiera.
+    // F8.1 — Fijada explícitamente. Antes heredaba la de la clase; al
+    // ampliar el piso de la clase para admitir al bot, heredarla la
+    // habría abierto también a él sin que nadie lo decidiera.
     [Authorize(Policy = "AdminOrOperadorOrTecnico")]
     public async Task<IActionResult> GetBotConfig()
         => OkResult(await _config.GetAsync());
@@ -221,7 +222,42 @@ public class ConversationsController : BaseController
     [Authorize(Policy = "AdminOnly")]
     public async Task<IActionResult> DeleteRagDocument(string id)
     {
-        var ok = await _rag.RagDeleteDocumentAsync(id);
-        return ok ? NoContent() : StatusCode(502, new { error = "Error al eliminar documento.", code = "RAG_DELETE_ERROR" });
+        var r = await _rag.RagDeleteDocumentAsync(id);
+        return r.EsExito
+            ? NoContent()
+            : SegunElBot(r, "El chatbot no pudo eliminar el documento. Puede que ya no exista.",
+                         "RAG_DELETE_ERROR");
+    }
+
+    /// <summary>
+    /// Traduce un fallo del chatbot a algo que le sirva a quien está delante.
+    /// </summary>
+    /// <remarks>
+    /// OBS-02 — Antes las dos salidas eran el mismo 502 con el mismo texto, así
+    /// que el operador no sabía si insistir. Ahora:
+    ///
+    /// <list type="bullet">
+    /// <item><b>502</b> — el chatbot contestó y rechazó la operación. Insistir no
+    /// cambia nada; el mensaje dice el motivo probable.</item>
+    /// <item><b>503</b> — no se pudo hablar con el chatbot. La operación NO llegó
+    /// a intentarse y en un minuto puede funcionar. Lleva <c>Retry-After</c>
+    /// para que el navegador y el operador sepan a qué atenerse.</item>
+    /// </list>
+    ///
+    /// La forma del cuerpo no cambia —<c>{ error, code }</c>— para que el panel
+    /// siga mostrando el texto sin tocar nada.
+    /// </remarks>
+    private IActionResult SegunElBot(BotResult r, string siLoRechazo, string code)
+    {
+        if (!r.NoRespondio)
+            return StatusCode(502, new { error = siLoRechazo, code });
+
+        Response.Headers.RetryAfter = "30";
+        return StatusCode(503, new
+        {
+            error = "El chatbot no está respondiendo, así que la operación no llegó a intentarse. "
+                  + "Vuelve a intentarlo en un momento.",
+            code  = "BOT_NO_DISPONIBLE",
+        });
     }
 }

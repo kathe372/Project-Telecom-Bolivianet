@@ -43,9 +43,9 @@ public class ClientsController : BaseController
 
 
     [HttpGet("next-tbn")]
-        // F8.1 — Fijada explícitamente. Antes heredaba la de la clase; al
-        // ampliar el piso de la clase para admitir al bot, heredarla la
-        // habría abierto también a él sin que nadie lo decidiera.
+    // F8.1 — Fijada explícitamente. Antes heredaba la de la clase; al
+    // ampliar el piso de la clase para admitir al bot, heredarla la
+    // habría abierto también a él sin que nadie lo decidiera.
     [Authorize(Policy = "AdminOrTecnico")]
     public async Task<IActionResult> PeekTbn()
     {
@@ -89,9 +89,9 @@ public class ClientsController : BaseController
 
 
     [HttpGet]
-        // F8.1 — Fijada explícitamente. Antes heredaba la de la clase; al
-        // ampliar el piso de la clase para admitir al bot, heredarla la
-        // habría abierto también a él sin que nadie lo decidiera.
+    // F8.1 — Fijada explícitamente. Antes heredaba la de la clase; al
+    // ampliar el piso de la clase para admitir al bot, heredarla la
+    // habría abierto también a él sin que nadie lo decidiera.
     [Authorize(Policy = "AdminOrTecnico")]
     public async Task<IActionResult> GetAll([FromQuery] ClientFilterDto filter)
     {
@@ -101,9 +101,9 @@ public class ClientsController : BaseController
 
 
     [HttpGet("{id:guid}")]
-        // F8.1 — Fijada explícitamente. Antes heredaba la de la clase; al
-        // ampliar el piso de la clase para admitir al bot, heredarla la
-        // habría abierto también a él sin que nadie lo decidiera.
+    // F8.1 — Fijada explícitamente. Antes heredaba la de la clase; al
+    // ampliar el piso de la clase para admitir al bot, heredarla la
+    // habría abierto también a él sin que nadie lo decidiera.
     [Authorize(Policy = "AdminOrTecnico")]
     public async Task<IActionResult> GetById(Guid id)
     {
@@ -114,9 +114,9 @@ public class ClientsController : BaseController
 
 
     [HttpGet("{id:guid}/invoices")]
-        // F8.1 — Fijada explícitamente. Antes heredaba la de la clase; al
-        // ampliar el piso de la clase para admitir al bot, heredarla la
-        // habría abierto también a él sin que nadie lo decidiera.
+    // F8.1 — Fijada explícitamente. Antes heredaba la de la clase; al
+    // ampliar el piso de la clase para admitir al bot, heredarla la
+    // habría abierto también a él sin que nadie lo decidiera.
     [Authorize(Policy = "AdminOrTecnico")]
     public async Task<IActionResult> GetInvoices(Guid id, [FromQuery] int year = 0)
     {
@@ -173,9 +173,9 @@ public class ClientsController : BaseController
 
 
     [HttpPost]
-        // F8.1 — Fijada explícitamente. Antes heredaba la de la clase; al
-        // ampliar el piso de la clase para admitir al bot, heredarla la
-        // habría abierto también a él sin que nadie lo decidiera.
+    // F8.1 — Fijada explícitamente. Antes heredaba la de la clase; al
+    // ampliar el piso de la clase para admitir al bot, heredarla la
+    // habría abierto también a él sin que nadie lo decidiera.
     [Authorize(Policy = "AdminOrTecnico")]
     public async Task<IActionResult> Register([FromBody] RegisterClientDto dto)
     {
@@ -249,9 +249,9 @@ public class ClientsController : BaseController
 
 
     [HttpPost("{id:guid}/payments")]
-        // F8.1 — Fijada explícitamente. Antes heredaba la de la clase; al
-        // ampliar el piso de la clase para admitir al bot, heredarla la
-        // habría abierto también a él sin que nadie lo decidiera.
+    // F8.1 — Fijada explícitamente. Antes heredaba la de la clase; al
+    // ampliar el piso de la clase para admitir al bot, heredarla la
+    // habría abierto también a él sin que nadie lo decidiera.
     [Authorize(Policy = "AdminOrTecnico")]
     public async Task<IActionResult> RegisterPayment(Guid id, [FromBody] RegisterPaymentDto dto)
     {

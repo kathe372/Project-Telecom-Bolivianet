@@ -35,9 +35,9 @@ public class CoverageCheckController : BaseController
     // PR-4a: consulta por DIRECCIÓN de texto (geocodifica y delega en el check por GPS).
     // Útil para el chatbot cuando el cliente escribe su dirección en vez de mandar GPS.
     [HttpGet("check-address")]
-        // F8.1 — Fijada explícitamente. Antes heredaba la de la clase; al
-        // ampliar el piso de la clase para admitir al bot, heredarla la
-        // habría abierto también a él sin que nadie lo decidiera.
+    // F8.1 — Fijada explícitamente. Antes heredaba la de la clase; al
+    // ampliar el piso de la clase para admitir al bot, heredarla la
+    // habría abierto también a él sin que nadie lo decidiera.
     [Authorize(Policy = "AllRoles")]
     public async Task<IActionResult> CheckByAddress(
         [FromQuery] string address,

@@ -26,9 +26,31 @@ public class InstallationsController : BaseController
     }
 
     [HttpGet]
-    [Authorize(Policy = "AdminOrTecnicoOrBot")]
+    // OBS-04 — El bot YA NO entra aquí. Pedía este listado con PageSize=100 para
+    // encontrar una sola instalación por teléfono, es decir, leía los datos de
+    // las últimas cien personas que pasaron por la agenda. Ahora usa
+    // GET /api/instalaciones/vigente, que le devuelve la suya y nada más.
+    [Authorize(Policy = "AdminOrTecnico")]
     public async Task<IActionResult> GetAll([FromQuery] InstallationFilterDto filter)
         => OkResult(await _mediator.Send(new GetInstallationsListQuery(filter)));
+
+    /// <summary>
+    /// La instalación vigente de una persona, por cliente o por teléfono. El
+    /// teléfono cubre también a los prospectos, que todavía no son clientes.
+    /// </summary>
+    [HttpGet("vigente")]
+    [Authorize(Policy = "AllRolesOrBot")]
+    public async Task<IActionResult> GetVigente(
+        [FromQuery] Guid? clienteId, [FromQuery] string? telefono)
+    {
+        if (clienteId is null && string.IsNullOrWhiteSpace(telefono))
+            return BadRequestResult("Indica clienteId o telefono.");
+
+        var inst = await _mediator.Send(new GetInstalacionVigenteQuery(clienteId, telefono));
+        return inst is null
+            ? NotFoundResult("No hay ninguna instalación vigente para esa persona.")
+            : OkResult(inst);
+    }
 
     [HttpGet("{id:guid}")]
     [Authorize(Policy = "AdminOrTecnicoOrBot")]
@@ -59,9 +81,9 @@ public class InstallationsController : BaseController
     }
 
     [HttpPost("admin")]
-        // F8.1 — Fijada explícitamente. Antes heredaba la de la clase; al
-        // ampliar el piso de la clase para admitir al bot, heredarla la
-        // habría abierto también a él sin que nadie lo decidiera.
+    // F8.1 — Fijada explícitamente. Antes heredaba la de la clase; al
+    // ampliar el piso de la clase para admitir al bot, heredarla la
+    // habría abierto también a él sin que nadie lo decidiera.
     [Authorize(Policy = "AdminOrTecnico")]
     public async Task<IActionResult> CreateAdmin([FromBody] CreateInstallationAdminDto dto)
     {
@@ -99,9 +121,9 @@ public class InstallationsController : BaseController
 
     // La visita ocurrió pero no se pudo instalar (cliente ausente, etc.).
     [HttpPatch("{id:guid}/no-realizada")]
-        // F8.1 — Fijada explícitamente. Antes heredaba la de la clase; al
-        // ampliar el piso de la clase para admitir al bot, heredarla la
-        // habría abierto también a él sin que nadie lo decidiera.
+    // F8.1 — Fijada explícitamente. Antes heredaba la de la clase; al
+    // ampliar el piso de la clase para admitir al bot, heredarla la
+    // habría abierto también a él sin que nadie lo decidiera.
     [Authorize(Policy = "AdminOrTecnico")]
     public async Task<IActionResult> MarkNoShow(Guid id, [FromBody] NoShowDto dto)
     {
@@ -115,9 +137,9 @@ public class InstallationsController : BaseController
     // Regulariza clientes existentes: asigna o reasigna la caja NAP de una
     // instalación ya completada (libera el puerto de la caja anterior).
     [HttpPatch("{id:guid}/caja")]
-        // F8.1 — Fijada explícitamente. Antes heredaba la de la clase; al
-        // ampliar el piso de la clase para admitir al bot, heredarla la
-        // habría abierto también a él sin que nadie lo decidiera.
+    // F8.1 — Fijada explícitamente. Antes heredaba la de la clase; al
+    // ampliar el piso de la clase para admitir al bot, heredarla la
+    // habría abierto también a él sin que nadie lo decidiera.
     [Authorize(Policy = "AdminOrTecnico")]
     public async Task<IActionResult> AssignBox(Guid id, [FromBody] AssignBoxDto dto)
     {
@@ -131,9 +153,9 @@ public class InstallationsController : BaseController
     // Sube una foto de evidencia de la instalación (F5). Devuelve la URL
     // pública; el frontend acumula las URLs y las envía al completar.
     [HttpPost("{id:guid}/fotos")]
-        // F8.1 — Fijada explícitamente. Antes heredaba la de la clase; al
-        // ampliar el piso de la clase para admitir al bot, heredarla la
-        // habría abierto también a él sin que nadie lo decidiera.
+    // F8.1 — Fijada explícitamente. Antes heredaba la de la clase; al
+    // ampliar el piso de la clase para admitir al bot, heredarla la
+    // habría abierto también a él sin que nadie lo decidiera.
     [Authorize(Policy = "AdminOrTecnico")]
     public async Task<IActionResult> UploadPhoto(Guid id, IFormFile file)
     {
@@ -159,9 +181,9 @@ public class InstallationsController : BaseController
     }
 
     [HttpPatch("{id:guid}/completar")]
-        // F8.1 — Fijada explícitamente. Antes heredaba la de la clase; al
-        // ampliar el piso de la clase para admitir al bot, heredarla la
-        // habría abierto también a él sin que nadie lo decidiera.
+    // F8.1 — Fijada explícitamente. Antes heredaba la de la clase; al
+    // ampliar el piso de la clase para admitir al bot, heredarla la
+    // habría abierto también a él sin que nadie lo decidiera.
     [Authorize(Policy = "AdminOrTecnico")]
     public async Task<IActionResult> Complete(Guid id, [FromBody] CompleteInstallationDto dto)
     {

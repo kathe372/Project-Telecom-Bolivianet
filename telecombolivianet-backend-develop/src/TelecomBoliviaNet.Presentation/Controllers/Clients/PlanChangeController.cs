@@ -25,9 +25,9 @@ public class PlanChangeController : BaseController
     }
 
     [HttpGet("pending")]
-        // F8.1 — Fijada explícitamente. Antes heredaba la de la clase; al
-        // ampliar el piso de la clase para admitir al bot, heredarla la
-        // habría abierto también a él sin que nadie lo decidiera.
+    // F8.1 — Fijada explícitamente. Antes heredaba la de la clase; al
+    // ampliar el piso de la clase para admitir al bot, heredarla la
+    // habría abierto también a él sin que nadie lo decidiera.
     [Authorize(Policy = "AdminOrTecnico")]
     public async Task<IActionResult> GetPending([FromQuery] Guid? clientId = null)
         => OkResult(await _querySvc.GetPendingAsync(clientId));

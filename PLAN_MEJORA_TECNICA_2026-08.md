@@ -184,8 +184,31 @@ Build limpio (0 warnings), `SystemConfigKeys.TokenCleanupLastRunDay` existe, `Di
 | **F8** Endurecer seguridad | ✅ código · ⛔ un UPDATE en producción | Rol Bot creado y probado; falta mover la fila del bot tras verificar por WhatsApp |
 | **F9** Convención y documentación | ✅ | CONVENCIONES.md, ADR-003, 5 puertas de calidad en el CI |
 
-**Nada de esto está desplegado.** Se acumulan ~39 commits desde el último
+**Nada de esto está desplegado.** Se acumulan ~41 commits desde el último
 despliegue a producción (build del 2026-08-07).
+
+**Las tres observaciones abiertas, cerradas (2026-08-29).**
+
+Llevaban varias fases esperando criterio porque las tres eran decisiones de
+producto, no limpiezas de refactor.
+
+- **OBS-02** — "El bot dijo que no" y "el bot no responde" eran el mismo `false`,
+  y el operador veía el mismo 502 en ambos casos. Ahora un rechazo sigue siendo
+  502 con el motivo probable, y una caída del chatbot es **503 con
+  `Retry-After`**: insistir tiene sentido en un caso y no en el otro. El frontend
+  no hizo falta tocarlo — el cuerpo mantiene la forma `{ error, code }`.
+- **OBS-03** — Una regla de segmento mal escrita se guardaba sin protestar y el
+  envío masivo salía a cero personas. Ahora se avisa **al guardar**, con el
+  motivo: campo inexistente, operador que ese campo no entiende, o valor no
+  numérico donde se comparan números.
+- **OBS-04** — El chatbot leía las últimas cien instalaciones de toda la empresa
+  para encontrar una por teléfono. Con `GET /api/instalaciones/vigente` se
+  **retiró** la concesión más ancha del rol Bot: el listado general vuelve a ser
+  `AdminOrTecnico`.
+
+Por el camino, dos reglas más dejaron de estar duplicadas: la búsqueda de
+teléfono con y sin prefijo (`PhoneLookup`) y el catálogo de campos de segmento,
+que va atado a su evaluador por un test.
 
 **F9 — hecha. Las puertas del CI son lo que impide que esto se deshaga solo.**
 

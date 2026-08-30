@@ -1,4 +1,4 @@
-using System.Net;
+﻿using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using Microsoft.Extensions.DependencyInjection;
@@ -61,7 +61,7 @@ public class BotEndpointsIntegrationTests : IClassFixture<CustomWebApplicationFa
         { "GET",   "/api/bot-config/company-qr" },
         { "GET",   "/api/plans" },
         { "GET",   "/api/coverage/check?lat=-17.78&lng=-63.18" },
-        { "GET",   "/api/instalaciones?PageSize=20" },
+        { "GET",   "/api/instalaciones/vigente?telefono=71435981" },
         { "GET",   $"/api/instalaciones/{AlgunId}" },
         { "GET",   "/api/instalaciones/slots-disponibles?dias=7" },
         { "POST",  "/api/instalaciones" },
@@ -86,6 +86,11 @@ public class BotEndpointsIntegrationTests : IClassFixture<CustomWebApplicationFa
     /// </summary>
     public static TheoryData<string, string> NoPuedeLlegar() => new()
     {
+        // OBS-04 — El listado general de instalaciones. Era la concesión más
+        // ancha de F8.1, y estaba solo porque el bot resolvía "¿tiene una
+        // instalación agendada?" trayéndose las últimas cien de toda la empresa
+        // y filtrando en memoria. Con /vigente ya no le hace falta.
+        { "GET",  "/api/instalaciones?PageSize=20" },
         { "GET",  "/api/clients" },                       // toda la cartera
         { "POST", "/api/clients" },                       // dar de alta clientes
         { "GET",  $"/api/clients/{AlgunId}" },

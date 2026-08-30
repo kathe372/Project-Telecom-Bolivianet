@@ -10,6 +10,7 @@ using TelecomBoliviaNet.Domain.Entities.Clients;
 using TelecomBoliviaNet.Domain.Entities.Plans;
 using TelecomBoliviaNet.Tests.Helpers;
 using Xunit;
+using TelecomBoliviaNet.Application.Services.Bot;
 
 namespace TelecomBoliviaNet.Tests.Services;
 
@@ -50,7 +51,7 @@ public class UpdateClientHandlerTests
     private static (UpdateClientHandler Handler, Mock<IBotOutboundProxy> BotProxy) MakeHandler(Client client, Plan plan)
     {
         var botProxy = new Mock<IBotOutboundProxy>();
-        botProxy.Setup(b => b.InvalidateIdentityAsync(It.IsAny<string>())).ReturnsAsync(true);
+        botProxy.Setup(b => b.InvalidateIdentityAsync(It.IsAny<string>())).ReturnsAsync(BotResult.Hecho);
 
         var handler = new UpdateClientHandler(
             SpecificRepoMock.Clients(client).Object,
@@ -133,7 +134,11 @@ public class UpdateClientHandlerTests
         var client = TestEntityFactory.MakeClient(phoneMain: "70000001");
         var plan   = MakePlan(client.PlanId);
         var botProxy = new Mock<IBotOutboundProxy>();
-        botProxy.Setup(b => b.InvalidateIdentityAsync(It.IsAny<string>())).ReturnsAsync(false);
+        // OBS-02 — Ahora se puede decir CUÁL de los dos fallos se está
+        // simulando. Aquí: el chatbot no responde, que es el caso que este
+        // test siempre quiso — que la actualización del cliente salga
+        // adelante aunque el bot esté caído.
+        botProxy.Setup(b => b.InvalidateIdentityAsync(It.IsAny<string>())).ReturnsAsync(BotResult.NoResponde);
         var handler = new UpdateClientHandler(
             SpecificRepoMock.Clients(client).Object, RepoMock.Of(plan).Object, MakeAudit(), botProxy.Object);
 

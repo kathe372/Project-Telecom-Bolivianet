@@ -1,4 +1,4 @@
-using TelecomBoliviaNet.Application.Interfaces;
+﻿using TelecomBoliviaNet.Application.Interfaces;
 using System.Net.Http.Json;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
@@ -18,10 +18,9 @@ public class BotOutboundProxy : BotProxyBase, IBotOutboundProxy
         ILogger<BotOutboundProxy>  log)
         : base(httpFactory, cfg, log) { }
 
-    public Task<bool> SendInstallationConfirmationAsync(
+    public Task<BotResult> SendInstallationConfirmationAsync(
         string phone, string nombre, string fecha, string hora, string direccion)
-        => SinRomperElPanelAsync(
-            false,
+        => IntentarAsync(
             async () =>
             {
                 var req = Auth(HttpMethod.Post, "bot/notify-client");
@@ -52,9 +51,8 @@ public class BotOutboundProxy : BotProxyBase, IBotOutboundProxy
     /// invalidación pero no la pierde. Y no debe bloquear el guardado del
     /// cliente, que es lo que el operador estaba haciendo.</para>
     /// </summary>
-    public Task<bool> InvalidateIdentityAsync(string phone)
-        => SinRomperElPanelAsync(
-            false,
+    public Task<BotResult> InvalidateIdentityAsync(string phone)
+        => IntentarAsync(
             async () =>
             {
                 var req = Auth(HttpMethod.Post, "bot/invalidate-identity");

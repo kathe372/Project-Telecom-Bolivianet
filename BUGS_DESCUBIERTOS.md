@@ -182,7 +182,7 @@ requiere partir el método en dos —el outbox dentro, el intento por HTTP fuera
 best-effort—, que es un cambio mayor y con su propio riesgo. Queda documentado en
 el `<summary>` de `PlanChangeNotifier`.
 
-### 🟡 OBS-02 · El proxy del chatbot no distingue "el bot dijo que no" de "el bot no responde"
+### 🟡 OBS-02 · El proxy del chatbot no distingue "el bot dijo que no" de "el bot no responde" — **CORREGIDO**
 
 Los once `catch (Exception)` de `BotProxyService` se revisaron al partir la clase
 (F5). Todos hacen lo mismo y por una razón buena: el chatbot es un servicio
@@ -202,13 +202,36 @@ con el bot"*. El operador ve el mismo mensaje en los dos casos y no sabe si tien
 sentido reintentar. En las lecturas pasa lo análogo: una lista vacía es
 indistinguible de "no hay conversaciones".
 
-**No se cambió.** Arreglarlo bien significa devolver un `Result` en vez de `bool`
-y tocar el controlador y el frontend, que es una decisión de producto sobre qué
-ve el operador, no una limpieza de refactor.
+**Corregido (2026-08-29).** Fue **una** edición, como estaba previsto, porque la
+política ya vivía en un solo sitio.
 
-**Lo que sí mejoró:** la política estaba copiada once veces y su motivo escrito
-una sola. Ahora vive en `BotProxyBase.SinRomperElPanelAsync`, así que el día que
-se decida distinguir los dos casos es **una** edición y no once.
+Las seis operaciones que **cambian algo** —tomar y devolver una conversación,
+mandar un mensaje, borrar un documento del RAG, confirmar una instalación,
+invalidar una identidad— devuelven ahora `BotResult` con tres salidas: `Hecho`,
+`Rechazado` y `NoResponde`. Las **lecturas** siguen igual: una lista vacía se
+dibuja igual de bien que una llena, y ése era el motivo bueno de tragar.
+
+Lo que ve el operador:
+
+| Antes | Ahora |
+|---|---|
+| 502 "Error al tomar la conversación." | **502** "No se pudo tomar la conversación. Puede que ya la tenga otro agente." |
+| 502 "Error al tomar la conversación." | **503** "El chatbot no está respondiendo, así que la operación no llegó a intentarse. Vuelve a intentarlo en un momento." + `Retry-After: 30` |
+
+Las dos líneas de arriba eran **la misma respuesta**. Ahora la primera dice que
+insistir no sirve y la segunda que sí.
+
+**El frontend no hace falta tocarlo:** la forma del cuerpo sigue siendo
+`{ error, code }`, así que el panel muestra el texto nuevo sin cambiar nada. Si
+algún día quiere tratar el 503 distinto —un botón de reintentar—, ya tiene con
+qué distinguirlo.
+
+`BotResult` conserva una conversión implícita a `bool` para los avisos accesorios
+dentro de un comando (invalidar la identidad al cambiar un teléfono), que solo
+quieren saber si salió y no deben complicarse.
+
+Fijado en `BotOutcomeTests`, incluido que una caída del chatbot **sigue sin
+tumbar el panel**, que es la propiedad que no se podía perder.
 
 ### 🟠 D-22 · El botón "Anular" aparecía en casos distintos según la pantalla — **CORREGIDO**
 
@@ -376,7 +399,7 @@ huecos; el dato se guarda normalizado; un horario normal no abre el domingo;
 desmarcar 24x7 no mata el calendario) y 4 del generador en el borde de la
 medianoche.
 
-### 🟡 OBS-03 · Un segmento con el operador equivocado no alcanza a nadie y no lo dice
+### 🟡 OBS-03 · Un segmento con el operador equivocado no alcanza a nadie y no lo dice — **CORREGIDO**
 
 Los operadores de las condiciones de segmento son **asimétricos**: sobre números
 valen seis (`=`, `!=`, `>`, `<`, `>=`, `<=`); sobre texto solo dos (`=`, `!=`).
@@ -391,14 +414,26 @@ El comportamiento es **seguro**: mejor no escribirle a nadie que a todos. El
 problema es que es **silencioso**, y quien armó el segmento no tiene forma de
 distinguir "mi regla está mal escrita" de "no hay clientes que cumplan".
 
-**No se cambió.** Avisar al guardar el segmento es una decisión de producto sobre
-la pantalla, no una limpieza de refactor. Lo que sí se hizo (F5):
+**Corregido (2026-08-29): se avisa al guardar**, que es cuando se puede
+corregir. `SegmentRules.Problemas(campo, operador, valor)` cubre las tres formas
+de equivocarse, y `NotifSegmentService` lo llama al crear y al actualizar:
 
-- los operadores viven en `Domain/Services/SegmentOperators`, con 20 tests que
-  fijan el comportamiento, incluida la asimetría;
-- se expone `SegmentOperators.IsSupported(op, numericField)`, que es exactamente
-  lo que haría falta para validar al guardar — un `if` en el servicio de
-  segmentos, cuando se decida.
+- **campo que no existe** — y se dice cuáles sí: `zona, plan, estado, deuda, dias_mora`;
+- **operador que ese campo no entiende** — `zona > "Norte"` responde que *zona es
+  texto y solo admite = y !=; compararlo con mayor o menor no alcanzaría a
+  nadie*, y el `=>` tecleado al revés también cae aquí;
+- **valor no numérico en un campo numérico** — `deuda > "mucho"`.
+
+El comportamiento en tiempo de evaluación **no cambia**: sigue siendo `false`
+silencioso, que es lo seguro para un bucle caliente que decide a quién se le
+manda un WhatsApp. Lo que cambia es que ahora una regla mal escrita no llega a
+guardarse.
+
+**Un detalle que apareció al hacerlo:** el catálogo de campos y el `switch` de
+`NotifShared.EvaluaCondicion` son dos sitios que no se pueden unificar —uno es
+una lista, el otro un `switch` sobre entidades cargadas—. Van atados por un test
+que compara ambos, escrito a mano a propósito para que no se valide a sí mismo.
+Si alguien añade un campo a uno y no al otro, se pone rojo.
 
 ---
 
@@ -1075,7 +1110,7 @@ haya pedido. Queda anotado.
 
 ---
 
-## OBS-04 — El chatbot se trae 100 instalaciones de toda la empresa para buscar una
+## OBS-04 — El chatbot se trae 100 instalaciones de toda la empresa para buscar una — **CORREGIDO**
 
 **Dónde:** `SistemaApiService.findScheduledInstallationByPhone` (chatbot).
 
@@ -1088,7 +1123,18 @@ que pasaron por la agenda.
 Es también lo que obliga a que el rol `Bot` tenga acceso al listado completo de
 instalaciones, que es la concesión más ancha de las 22 de F8.1.
 
-**Arreglo que lo cierra:** un `GET /api/instalaciones/by-phone`. Con él, la
-concesión al listado general se puede retirar y el bot deja de ver lo que no es
-suyo. No se hace aquí porque toca el chatbot y su despliegue, y esta fase se
-está haciendo sin desplegar.
+**Corregido (2026-08-29).** Existe `GET /api/instalaciones/vigente`, que acepta
+`clienteId` o `telefono` y devuelve **una** instalación: la más próxima que aún
+no se cerró. El teléfono cubre también a los prospectos, que todavía no son
+clientes y por eso no tienen id que pasar.
+
+Sustituye a los **dos** sitios donde el chatbot leía el listado general
+(`findScheduledInstallationId` y `findScheduledInstallationByPhone`), así que la
+concesión se pudo **retirar**: `GET /api/instalaciones` vuelve a ser
+`AdminOrTecnico`. Era la más ancha de las 22 de F8.1, y ahora está en la lista de
+lo que el bot **no** puede alcanzar, con su test.
+
+**Y una regla menos duplicada:** buscar por teléfono con y sin el prefijo `591`
+estaba escrito dentro de `GetClientByPhoneQuery`, y el chatbot tenía la suya en
+TypeScript. Ésta habría sido la tercera copia, así que vive en
+`Domain/Services/PhoneLookup`.

@@ -1,4 +1,4 @@
-using TelecomBoliviaNet.Application.Interfaces;
+﻿using TelecomBoliviaNet.Application.Interfaces;
 using System.Net.Http.Json;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Configuration;
@@ -51,9 +51,8 @@ public class BotRagProxy : BotProxyBase, IBotRagProxy
             },
             "BotProxy: error al subir documento RAG");
 
-    public Task<bool> RagDeleteDocumentAsync(string id)
-        => SinRomperElPanelAsync(
-            false,
+    public Task<BotResult> RagDeleteDocumentAsync(string id)
+        => IntentarAsync(
             async () =>
             {
                 var res = await _http.SendAsync(Auth(HttpMethod.Delete, $"rag/documents/{id}"));

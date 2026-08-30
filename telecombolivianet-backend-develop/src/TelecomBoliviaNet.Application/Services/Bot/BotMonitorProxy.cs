@@ -1,4 +1,4 @@
-using TelecomBoliviaNet.Application.Interfaces;
+﻿using TelecomBoliviaNet.Application.Interfaces;
 using System.Net.Http.Json;
 using System.Text.Json;
 using Microsoft.Extensions.Configuration;
@@ -109,9 +109,8 @@ public class BotMonitorProxy : BotProxyBase, IBotMonitorProxy
             },
             "BotProxy: error al obtener stats del chatbot");
 
-    public Task<bool> TakeoverConversationAsync(string phone, string agentName)
-        => SinRomperElPanelAsync(
-            false,
+    public Task<BotResult> TakeoverConversationAsync(string phone, string agentName)
+        => IntentarAsync(
             async () =>
             {
                 var req = Auth(HttpMethod.Post,
@@ -122,9 +121,8 @@ public class BotMonitorProxy : BotProxyBase, IBotMonitorProxy
             },
             "BotProxy: error al tomar conversación {Phone}", phone);
 
-    public Task<bool> ReleaseConversationAsync(string phone)
-        => SinRomperElPanelAsync(
-            false,
+    public Task<BotResult> ReleaseConversationAsync(string phone)
+        => IntentarAsync(
             async () =>
             {
                 var req = Auth(HttpMethod.Post,
@@ -134,9 +132,8 @@ public class BotMonitorProxy : BotProxyBase, IBotMonitorProxy
             },
             "BotProxy: error al devolver conversación {Phone}", phone);
 
-    public Task<bool> SendAdminMessageAsync(string phone, string text)
-        => SinRomperElPanelAsync(
-            false,
+    public Task<BotResult> SendAdminMessageAsync(string phone, string text)
+        => IntentarAsync(
             async () =>
             {
                 var req = Auth(HttpMethod.Post,

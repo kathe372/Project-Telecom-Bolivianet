@@ -144,4 +144,28 @@ public class InstallationRepository : GenericRepository<Installation>, IInstalla
                      && i.Status != InstallationStatus.Cancelada)
             .OrderBy(i => i.HoraInicio)
             .ToListAsync(ct);
+
+    private static readonly InstallationStatus[] Cerradas =
+    [
+        InstallationStatus.Completada,
+        InstallationStatus.Cancelada,
+        InstallationStatus.NoRealizada,
+    ];
+
+    public Task<Installation?> GetVigenteAsync(
+        Guid? clienteId, IReadOnlyCollection<string> telefonos, CancellationToken ct = default)
+    {
+        if (clienteId is null && telefonos.Count == 0) return Task.FromResult<Installation?>(null);
+
+        return _db.Installations
+            .AsNoTracking()
+            .Include(i => i.Client)
+            .Include(i => i.Plan)
+            .Where(i => !Cerradas.Contains(i.Status))
+            .Where(i => (clienteId != null && i.ClientId == clienteId)
+                     || (i.ProspectPhone != null && telefonos.Contains(i.ProspectPhone))
+                     || (i.Client != null        && telefonos.Contains(i.Client.PhoneMain)))
+            .OrderBy(i => i.Fecha).ThenBy(i => i.HoraInicio)
+            .FirstOrDefaultAsync(ct);
+    }
 }

@@ -3,6 +3,7 @@ using TelecomBoliviaNet.Application.DTOs.Clients;
 using TelecomBoliviaNet.Domain.Entities.Clients;
 using TelecomBoliviaNet.Domain.Interfaces;
 using TelecomBoliviaNet.Application.Constants;
+using TelecomBoliviaNet.Domain.Services;
 
 namespace TelecomBoliviaNet.Application.Clients.Queries;
 
@@ -38,14 +39,11 @@ public class GetClientByPhoneHandler :
 
     private async Task<List<ClientBotDto>> FindByPhoneAsync(string rawPhoneInput, CancellationToken ct)
     {
-        var rawPhone = rawPhoneInput;
-        var phone    = rawPhone.Trim();
-        if (phone.StartsWith("591") && phone.Length > 3)
-            phone = phone[3..];
-
-        // Se buscan ambas formas: como llegó y sin el prefijo de país. Un mismo
-        // cliente puede estar registrado de cualquiera de las dos maneras.
-        var candidatos = phone == rawPhone ? new[] { phone } : new[] { phone, rawPhone };
+        // Ambas formas —con prefijo de país y sin él—: un mismo cliente puede
+        // estar registrado de cualquiera de las dos maneras. La regla vive en
+        // PhoneLookup porque la búsqueda de instalaciones por teléfono la
+        // necesita igual (OBS-04).
+        var candidatos = PhoneLookup.Candidatos(rawPhoneInput);
 
         var clients = await _clientRepo.GetByAnyPhoneAsync(candidatos, ct);
 

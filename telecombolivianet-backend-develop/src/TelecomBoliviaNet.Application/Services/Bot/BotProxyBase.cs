@@ -1,4 +1,4 @@
-using Microsoft.Extensions.Configuration;
+﻿using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 
 namespace TelecomBoliviaNet.Application.Services.Bot;
@@ -37,11 +37,10 @@ public abstract class BotProxyBase
     /// sigue funcionando. Ese es el motivo de tragar aquí, y estaba escrito en
     /// uno solo de los once bloques que hacían esto mismo (F5).</para>
     ///
-    /// <para><b>Lo que esta política no distingue</b> —anotado como OBS-02—: en
-    /// las operaciones que devuelven <c>bool</c>, un <c>false</c> significa a la
-    /// vez "el bot rechazó la operación" y "no se pudo hablar con el bot". El
-    /// operador ve lo mismo en los dos casos y no sabe si reintentar. Cambiarlo
-    /// exige devolver un <c>Result</c> y tocar controlador y frontend.</para>
+    /// <para>Para las LECTURAS sigue valiendo: una lista vacía se dibuja igual
+    /// de bien que una llena. Para las operaciones que cambian algo, usa
+    /// <see cref="IntentarAsync"/>, que sí distingue "el bot dijo que no" de "el
+    /// bot no responde" (OBS-02).</para>
     /// </summary>
     /// <param name="siElBotNoResponde">Qué devolver cuando la llamada falla.</param>
     /// <param name="llamada">La llamada HTTP.</param>
@@ -61,6 +60,37 @@ public abstract class BotProxyBase
         {
             _log.LogWarning(ex, plantilla, datos);
             return siElBotNoResponde;
+        }
+    }
+
+    /// <summary>
+    /// Igual que <see cref="SinRomperElPanelAsync"/> pero para operaciones que
+    /// CAMBIAN algo: distingue las tres salidas en vez de colapsarlas en un
+    /// <c>false</c>.
+    /// </summary>
+    /// <remarks>
+    /// OBS-02 — La diferencia le importa a quien está delante de la pantalla. Si
+    /// el chatbot rechazó la operación —la conversación ya la tiene otro agente—
+    /// insistir no sirve de nada. Si el chatbot no respondió, insistir en un
+    /// minuto probablemente sí. Con un solo <c>false</c>, el operador no podía
+    /// saber cuál de las dos cosas le había pasado.
+    /// </remarks>
+    /// <param name="llamada">Devuelve true si el chatbot ACEPTÓ la operación.</param>
+    protected async Task<BotResult> IntentarAsync(
+        Func<Task<bool>> llamada,
+        string           plantilla,
+        params object?[] datos)
+    {
+        try
+        {
+            return BotResult.De(await llamada());
+        }
+        catch (Exception ex)
+        {
+            // Sigue sin propagar —el panel no se cae porque el chatbot esté
+            // desplegándose— pero ahora se sabe que fue esto y no un rechazo.
+            _log.LogWarning(ex, plantilla, datos);
+            return BotResult.NoResponde;
         }
     }
 }
