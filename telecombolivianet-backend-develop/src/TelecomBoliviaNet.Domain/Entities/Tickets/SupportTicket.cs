@@ -1,4 +1,4 @@
-using TelecomBoliviaNet.Domain.Entities.Auth;
+﻿using TelecomBoliviaNet.Domain.Entities.Auth;
 using TelecomBoliviaNet.Domain.Entities.Clients;
 using TelecomBoliviaNet.Domain.Primitives;
 
@@ -49,6 +49,22 @@ public class SupportTicket : Entity
     public string?        RootCause         { get; set; }
 
     public DateTime?      SlaAlertSentAt        { get; set; }
+    /// <summary>
+    /// Cuánto valoró el cliente la atención, de 1 a 5. Lo manda por WhatsApp.
+    /// </summary>
+    /// <remarks>
+    /// D-26 — La columna existe en la base desde 2026-05 y el modelo no la mapeaba,
+    /// así que figuraba como huérfana (D-04). Mientras tanto el chatbot SÍ recogía
+    /// la calificación, pero la escribía como texto en <see cref="RootCause"/>
+    /// —"CSAT: 4/5 — Buena"—, que es el campo del análisis del técnico y se
+    /// sobrescribe entero. Cada calificación borraba ese análisis, y el número
+    /// quedaba en prosa, imposible de sumar.
+    /// </remarks>
+    public int?           CsatScore             { get; set; }
+
+    /// <summary>Cuándo llegó la calificación. Ver <see cref="CsatScore"/>.</summary>
+    public DateTime?      CsatRespondedAt       { get; set; }
+
     public bool?          SlaCompliant          { get; set; }
 
     public DateTime?      SlaPausedAt           { get; set; }

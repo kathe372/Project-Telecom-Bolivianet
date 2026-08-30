@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using TelecomBoliviaNet.Domain.Entities.Tickets;
 using TelecomBoliviaNet.Domain.Entities.Clients;
@@ -29,6 +29,10 @@ public class SupportTicketConfig : IEntityTypeConfiguration<SupportTicket>
             e.Property(t => t.SupportGroup).HasMaxLength(100).IsRequired(false);
             e.Property(t => t.ResolutionMessage).IsRequired(false);
             e.Property(t => t.RootCause).IsRequired(false);
+            // D-26 — Ya existían en PostgreSQL (20260508000001_Phase2Improvements);
+            // solo faltaba mapearlas. Por eso NO hay migración nueva.
+            e.Property(t => t.CsatScore).IsRequired(false);
+            e.Property(t => t.CsatRespondedAt).IsRequired(false);
             e.Property(t => t.SlaAlertSentAt).IsRequired(false);
             e.Property(t => t.SlaCompliant).IsRequired(false);
             e.Property(t => t.ProspectName).HasMaxLength(200).IsRequired(false);

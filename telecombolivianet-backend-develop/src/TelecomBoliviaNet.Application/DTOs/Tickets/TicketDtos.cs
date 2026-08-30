@@ -238,3 +238,6 @@ public record TicketSlotDto(
     string Fecha, string HoraInicio, string HoraFin,
     int Disponibles, bool Disponible, bool WithinSla
 );
+
+/// <summary>La calificación del cliente sobre la atención recibida (D-26).</summary>
+public record RecordCsatDto(int Score);

@@ -51,9 +51,9 @@ export class CsatRecorderService {
     }
 
     try {
-      await this.ticketRepo.updateTicket(
-        ticketId, '', `CSAT: ${score}/5 — ${ETIQUETA[score] ?? ''}`.trim(),
-      );
+      // D-26: a su columna. Antes iba a RootCause, que es el analisis del
+      // tecnico y el backend lo sobrescribe: cada calificacion lo borraba.
+      await this.ticketRepo.recordCsat(ticketId, score);
     } catch (err: any) {
       // Nunca agradecer un registro que falló: el cliente creería que su
       // opinión quedó guardada.

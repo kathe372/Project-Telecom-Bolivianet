@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata;
 
 namespace TelecomBoliviaNet.IntegrationTests.Schema;
@@ -41,21 +41,24 @@ public class SchemaParityTests : IClassFixture<MigratedDatabaseFixture>
 
             // Columna tsvector de búsqueda de texto completo creada por
             // 20260409000001_AddPerformanceIndexesAndPhase1Fixes. EF no la mapea
-            // porque la búsqueda se hace con LIKE, no con to_tsquery. La Fase 7
-            // (índices trigram) decide si se aprovecha o se elimina.
+            // porque la búsqueda se hace con LIKE, no con to_tsquery. Nadie la
+            // escribe, así que está vacía. La decide F7.2 —índices trigram— que
+            // sigue pendiente porque hay que medir en producción primero.
             "Clients.search_vector",
 
             // Tabla NotifJobLog: la crea 20260427000001_AddNotifJobLogAndFixOutboxId
-            // pero no existe entidad ni DbSet. Se escribe por SQL desde el notifier.
-            // Candidata a entidad propia o a borrado; pendiente de decidir.
+            // y no tiene entidad ni DbSet. NO es candidata a borrado: el notifier
+            // Python la lee y la escribe por SQL directo (app/db/queries.py) para
+            // saber cuándo corrió cada job por última vez. Borrarla rompería su
+            // planificación. "Huérfana" aquí significa "no la mapea EF", no "no la
+            // usa nadie" — que es distinto en un sistema de cuatro servicios.
             "NotifJobLog.JobName",
             "NotifJobLog.LastRun",
 
-            // Encuesta de satisfacción: columnas creadas por 20260508000001_Phase2Improvements
-            // para una funcionalidad que nunca se implementó en el modelo.
-            // Borrarlas requiere confirmar que no hay datos que conservar.
-            "SupportTickets.CsatRespondedAt",
-            "SupportTickets.CsatScore",
+            // D-26 — Las dos de la encuesta de satisfacción ya NO son huérfanas:
+            // se mapearon, y el chatbot escribe ahí la calificación en vez de
+            // pisar el análisis del técnico. Las columnas ya existían en la base,
+            // así que no hizo falta migración.
         };
 
     [Fact]

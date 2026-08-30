@@ -46,6 +46,8 @@ export interface ITicketRepository {
   buildTicketSubject(params: { type: string; tbnCode: string; clientName: string; priority: string }): string;
   rescheduleTicket(ticketId: string, fecha: string, hora: string): Promise<TicketMutationResult>;
   closeTicket(ticketId: string, resolutionNote?: string): Promise<TicketMutationResult>;
+  /** D-26: la calificacion del cliente, en su propia columna. */
+  recordCsat(ticketId: string, score: number): Promise<void>;
   updateTicket(ticketId: string, description: string, rootCause?: string): Promise<TicketMutationResult>;
   getClientActiveTickets(clientId: string): Promise<TicketSummaryDto[]>;
   reopenTicket(ticketId: string, reason: string): Promise<TicketMutationResult>;

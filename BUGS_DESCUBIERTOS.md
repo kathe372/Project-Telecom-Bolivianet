@@ -941,7 +941,7 @@ contención parecía sólida (la Fase 0 subió de 9 a 15 contenedores) y era fal
 
 </details>
 
-### 🟡 D-10 · Cada clase de test levanta su propio contenedor PostGIS
+### 🟡 D-10 · Cada clase de test levanta su propio contenedor PostGIS — **CORREGIDO**
 
 Descubierto mientras se investigaba D-03. `IClassFixture<T>` crea una instancia
 **por clase**, así que una ejecución de la suite de integración levanta **15
@@ -956,11 +956,27 @@ compartir una base entre clases expone a `ScheduleRepositoryTests` (1 `DELETE`),
 `RescheduleTicketVisitTests` (3) y `SecurityHeadersTests` (0) a restos de otras
 clases. Sería cambiar un flaky resuelto por uno nuevo.
 
-**Si algún día molesta:** `[CollectionDefinition]` + `ICollectionFixture`, pero
-antes hay que darles a esas tres clases una limpieza tan completa como la de las
-demás.
+**Corregido (2026-08-29), y no por donde decía esta entrada.** Ya eran 26 clases,
+o sea 26 contenedores.
 
-### 🟡 D-04 · Columnas huérfanas en la base
+La propuesta era compartir la **base** con `ICollectionFixture`, y la objeción de
+arriba seguía siendo válida: expondría a las clases que no limpian del todo a los
+restos de las demás. Cambiar un flaky resuelto por uno nuevo.
+
+No hace falta llegar ahí, porque **lo caro es levantar el contenedor, no crear
+una base**: lo primero son segundos, lo segundo milisegundos. Así que ahora hay
+**un contenedor para toda la suite** y cada clase sigue recibiendo **su propia
+base**, vacía y suya. El aislamiento entre clases no cambia en absoluto, así que
+la objeción desaparece sin tener que resolverla.
+
+**4 m 23 s → 2 m 13 s.** Tres corridas seguidas en verde para descartar el flaky
+que esta entrada temía.
+
+La base de cada clase se queda y muere con el contenedor al terminar el proceso
+—de eso se encarga el recolector de Testcontainers—. Borrarla al vuelo obligaría
+a cerrar antes todas las conexiones del pool, que es más frágil.
+
+### 🟡 D-04 · Columnas huérfanas en la base — **RESUELTO (2 de 3 grupos; el tercero espera a F7.2)**
 
 Existen en PostgreSQL pero el modelo de EF ya no las mapea. Registradas en
 `SchemaParityTests.ColumnasHuerfanasConocidas` para que la lista solo pueda encoger:
@@ -969,7 +985,63 @@ Existen en PostgreSQL pero el modelo de EF ya no las mapea. Registradas en
 |---|---|---|
 | `Clients.search_vector` | `20260409000001_AddPerformanceIndexesAndPhase1Fixes` | Columna `tsvector` para búsqueda full-text que nadie usa (la búsqueda va con `LIKE`). **F7** decide si se aprovecha o se borra. |
 | `NotifJobLog.JobName`, `NotifJobLog.LastRun` | `20260427000001` | Tabla sin entidad ni `DbSet`; la escribe el notifier por SQL. ¿Entidad propia o borrado? |
-| `SupportTickets.CsatScore`, `CsatRespondedAt` | `20260508000001_Phase2Improvements` | Encuesta de satisfacción nunca implementada en el modelo. Confirmar que no hay datos antes de borrar. |
+| `SupportTickets.CsatScore`, `CsatRespondedAt` | `20260508000001_Phase2Improvements` | **Mapeadas.** La encuesta SÍ estaba implementada — en el chatbot. Ver D-26. |
+
+**Lo que apareció al revisarlas: "huérfana" no significa "sin usar".** En un
+sistema de cuatro servicios, que EF no mapee una columna no dice nada sobre si
+alguien la escribe.
+
+- **`NotifJobLog.JobName` / `LastRun`** — la entrada las daba por candidatas a
+  borrado. **No lo son**: el notifier Python las lee y las escribe por SQL directo
+  (`app/db/queries.py`) para saber cuándo corrió cada job por última vez.
+  Borrarlas rompería su planificación. Se quedan, y ahora está escrito por qué.
+- **`SupportTickets.CsatScore` / `CsatRespondedAt`** — decía "nunca implementada".
+  La encuesta **funciona en producción desde 2026-08**: la recoge el chatbot. Lo
+  que pasaba es que escribía el resultado en otro sitio, y mal. Ver **D-26**.
+- **`Clients.search_vector`** — la única que sí está vacía y sin usar. Sigue
+  pendiente de **F7.2** (índices trigram), que exige medir en producción.
+
+---
+
+## D-26 — Cada calificación del cliente borraba el diagnóstico del técnico
+
+**Encontrado** revisando D-04, al preguntarse si las columnas de la encuesta
+tenían datos.
+
+`CsatRecorderService` (chatbot) registraba la calificación así:
+
+```typescript
+await this.ticketRepo.updateTicket(
+  ticketId, '', `CSAT: ${score}/5 — ${ETIQUETA[score]}`,
+);
+```
+
+El tercer argumento es `RootCause`, y `UpdateTicketCommand` hace
+`ticket.RootCause = dto.RootCause.Trim()` — **lo sobrescribe entero**. Así que
+cada vez que un cliente pulsaba una estrella por WhatsApp, el análisis de causa
+raíz que había escrito el técnico (*"Fibra cortada en el poste 14; se
+reempalmó"*) se sustituía por `"CSAT: 4/5 — Buena"`.
+
+Dos pérdidas a la vez:
+
+1. **El diagnóstico técnico desaparece**, y es lo que se consulta cuando el mismo
+   problema vuelve.
+2. **La calificación queda en prosa.** No hay forma de sacar un promedio ni de
+   ver la tendencia — que es para lo único que sirve una encuesta de satisfacción.
+
+Y mientras tanto, `CsatScore` (columna `integer`) y `CsatRespondedAt` llevaban
+desde 2026-05 **vacías, al lado, hechas justo para esto**.
+
+**Corregido.** Se mapearon las dos columnas —ya existían en la base, así que **no
+hizo falta migración**— y se añadió `PATCH /api/tickets/{id}/csat`. El chatbot
+escribe ahí. `RootCause` no se toca.
+
+Decisiones que el código deja escritas: se admite **recalificar** (vale la última,
+porque rechazar una respuesta que la persona acaba de dar obligaría al chatbot a
+explicar algo absurdo) y se rechaza cualquier nota fuera de 1–5.
+
+Fijado en `CsatIntegrationTests`, incluido el caso que le da nombre a esto: tras
+calificar, el `RootCause` del técnico sigue intacto.
 
 ### 🟠 D-11 · Tres entidades no tenían repositorio registrado — **CORREGIDO en F1.1**
 

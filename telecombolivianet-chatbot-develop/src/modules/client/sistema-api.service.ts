@@ -430,6 +430,18 @@ export class SistemaApiService implements OnModuleInit,
     return { ticketNumber: res.data?.data?.TicketNumber ?? null };
   }
 
+  /**
+   * D-26: la calificacion va a su propia columna.
+   *
+   * Antes se mandaba por updateTicket como RootCause = "CSAT: 4/5 — Buena".
+   * RootCause es el analisis de causa raiz del TECNICO y el backend lo
+   * sobrescribe entero, asi que cada calificacion borraba ese analisis. Y el
+   * numero quedaba escrito en prosa: no habia forma de sacar un promedio.
+   */
+  async recordCsat(ticketId: string, score: number): Promise<void> {
+    await this.http.patch(`/api/tickets/${ticketId}/csat`, { Score: score });
+  }
+
   async updateTicket(
     ticketId: string, description: string, rootCause?: string,
   ): Promise<import('./sistema-api.interfaces').TicketMutationResult> {

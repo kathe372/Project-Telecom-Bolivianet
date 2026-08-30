@@ -158,6 +158,31 @@ public class TicketsController : BaseController
         return r.IsSuccess ? OkResult(r.Value) : BadRequestResult(r.ErrorMessage);
     }
 
+    /// <summary>La calificación del cliente sobre la atención, de 1 a 5.</summary>
+
+    /// <remarks>
+
+    /// D-26 — El chatbot la mandaba antes por PUT /api/tickets/{id} dentro de
+
+    /// RootCause, que es el análisis del técnico y se sobrescribe entero.
+
+    /// </remarks>
+
+    [HttpPatch("{id:guid}/csat")]
+
+    [Authorize(Policy = "AllRolesOrBot")]
+
+    public async Task<IActionResult> RecordCsat(Guid id, [FromBody] RecordCsatDto dto)
+
+    {
+
+        var r = await _mediator.Send(new RecordCsatCommand(id, dto.Score));
+
+        return r.IsSuccess ? OkMessage("Calificación registrada.") : BadRequestResult(r.ErrorMessage);
+
+    }
+
+
     [HttpPut("{id:guid}")]
     [Authorize(Policy = "AdminOrTecnicoOrBot")]
     public async Task<IActionResult> Update(Guid id, [FromBody] UpdateTicketDto dto)

@@ -73,6 +73,7 @@ public class BotEndpointsIntegrationTests : IClassFixture<CustomWebApplicationFa
         { "PUT",   $"/api/tickets/{AlgunId}" },
         { "PATCH", $"/api/tickets/{AlgunId}/status" },
         { "PATCH", $"/api/tickets/{AlgunId}/reschedule" },
+        { "PATCH", $"/api/tickets/{AlgunId}/csat" },        // D-26
         { "GET",   $"/api/tickets/{AlgunId}/visit-slots" },
         { "POST",  $"/api/tickets/{AlgunId}/visits" },
         { "POST",  "/api/notifications/delivery-status" },

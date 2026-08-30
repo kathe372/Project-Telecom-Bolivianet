@@ -32,6 +32,10 @@ export class TicketRepositoryService extends BaseApiService implements ITicketRe
     return { ticketNumber: res?.TicketNumber ?? null };
   }
 
+  async recordCsat(ticketId: string, score: number): Promise<void> {
+    await this.patch(`/api/tickets/${ticketId}/csat`, { Score: score });
+  }
+
   async closeTicket(ticketId: string, resolutionNote?: string): Promise<TicketMutationResult> {
     const res = await this.patch<{ TicketNumber?: string | null }>(
       `/api/tickets/${ticketId}/close`, { ResolutionNote: resolutionNote },
