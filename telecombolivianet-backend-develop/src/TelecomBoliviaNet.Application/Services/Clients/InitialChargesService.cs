@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using TelecomBoliviaNet.Application.Constants;
 using TelecomBoliviaNet.Application.DTOs.Clients;
 using TelecomBoliviaNet.Application.Interfaces;
@@ -48,6 +48,11 @@ public class InitialChargesService : IInitialChargesService
         Guid              actorId,
         CancellationToken ct = default)
     {
+        // D-13 — Los cuatro guardados corren DENTRO de la transacción que abre
+        // RegisterClientCommand, así que son atómicos entre sí. Y el intermedio
+        // hace falta de verdad: las facturas retroactivas se releen después de
+        // crearlas, y sin persistirlas la consulta no las encuentra. Es el único
+        // sitio de Application con una consulta entre dos escrituras.
         var now        = DateTime.UtcNow;
         var invoiceIds = new List<Guid>();
 

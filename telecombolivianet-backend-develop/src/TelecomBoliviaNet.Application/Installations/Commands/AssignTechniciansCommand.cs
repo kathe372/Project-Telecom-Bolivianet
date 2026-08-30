@@ -48,7 +48,9 @@ public class AssignTechniciansHandler : IRequestHandler<AssignTechniciansCommand
         inst.Status        = InstallationStatus.EnProceso;
         inst.ActualizadoAt = DateTime.UtcNow;
         _instRepo.Update(inst);
-        await _instRepo.SaveChangesAsync();
+        // D-13 — Había DOS SaveChangesAsync idénticos seguidos. El segundo no
+        // guardaba nada (no queda nada pendiente tras el primero) pero daba a
+        // entender que eran dos escrituras que podían quedar a medias.
         await _instRepo.SaveChangesAsync();
 
         await _audit.LogAsync(

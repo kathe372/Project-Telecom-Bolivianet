@@ -77,6 +77,9 @@ public class CompanyProfileService : ICompanyProfileService
     public async Task<CompanyProfileDto> UpdateAsync(
         CompanyProfileDto dto, Guid actorId, string actorName, string ip)
     {
+        // D-13 — Los dos SaveChangesAsync de abajo están en ramas EXCLUYENTES
+        // (crear o actualizar): solo corre uno de los dos. Ya es atómico, y una
+        // transacción aquí sería ceremonia sobre algo que no puede quedar a medias.
         var cfg = await _sysRepo.GetAll()
             .FirstOrDefaultAsync(c => c.Key == SystemConfigKeys.CompanyProfile);
 

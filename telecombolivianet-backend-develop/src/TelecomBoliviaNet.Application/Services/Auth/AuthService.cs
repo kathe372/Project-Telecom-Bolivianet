@@ -131,6 +131,8 @@ public class AuthService : IAuthService
             user.FailedLoginAttempts = 0;
         }
 
+        // D-13 — Esta rama termina en `return`, así que su guardado nunca convive
+        // con el del inicio de sesión correcto. Ya es atómico.
         if (!_hasher.Verify(dto.Password, user.PasswordHash))
         {
             var maxAttempts = int.Parse(_config["Security:MaxFailedLoginAttempts"] ?? "5");

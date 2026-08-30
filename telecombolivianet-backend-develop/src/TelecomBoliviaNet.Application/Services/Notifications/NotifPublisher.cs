@@ -1,4 +1,4 @@
-using System.Text.Json;
+﻿using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using TelecomBoliviaNet.Application.Interfaces;
@@ -45,6 +45,8 @@ public class NotifPublisher : INotifPublisher
             return;
         }
 
+        // D-13 — El guardado de esta rama termina en `return`: nunca convive con
+        // el del final del método. Ya es atómico.
         if (string.IsNullOrWhiteSpace(phoneNumber))
         {
             _logger.LogWarning("NotifPublisher: cliente {Id} sin teléfono para tipo {Tipo}. OMITIDO.", clienteId, tipo);

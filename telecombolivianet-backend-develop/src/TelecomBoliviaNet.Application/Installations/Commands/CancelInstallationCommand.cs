@@ -87,8 +87,18 @@ public class CancelInstallationHandler : IRequestHandler<CancelInstallationComma
         inst.CanceladoPor      = cmd.Dto.CanceladoPor;
         inst.CanceladoAt       = DateTime.UtcNow;
         inst.ActualizadoAt     = DateTime.UtcNow;
+        // D-13 — La cancelación y el cierre de su ticket son UNA operación.
+        //
+        // Es el mismo modo de fallo que ya se corrigió en
+        // CompleteInstallationCommand: si el segundo guardado fallaba, la
+        // instalación quedaba cancelada y su ticket ABIERTO PARA SIEMPRE. Nadie
+        // volvería a mirarlo, porque la instalación ya figura cerrada.
+        //
+        // Aquí basta con un guardado —los dos repositorios comparten DbContext y
+        // no hay ninguna consulta entre medias—, así que no hace falta abrir una
+        // transacción explícita.
         _instRepo.Update(inst);
-        await _instRepo.SaveChangesAsync();
+
         if (inst.Ticket is not null &&
             inst.Ticket.Status is TicketStatus.Abierto or TicketStatus.EnProceso)
         {
@@ -96,8 +106,9 @@ public class CancelInstallationHandler : IRequestHandler<CancelInstallationComma
             inst.Ticket.ResolutionMessage = $"Instalación cancelada. Motivo: {cmd.Dto.MotivoCancelacion}";
             inst.Ticket.ClosedAt          = DateTime.UtcNow;
             _ticketRepo.Update(inst.Ticket);
-            await _ticketRepo.SaveChangesAsync();
         }
+
+        await _instRepo.SaveChangesAsync();
 
         // F6 nivel comercial: si cancela la empresa, se avisa al cliente/prospecto
         // por WhatsApp (best-effort — no bloquea la cancelación).

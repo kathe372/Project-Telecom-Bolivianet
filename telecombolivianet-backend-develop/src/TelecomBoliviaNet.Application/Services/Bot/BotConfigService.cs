@@ -90,6 +90,8 @@ public class BotConfigService : IBotConfigService
     public async Task<BotConfigDto> UpdateAsync(
         BotConfigDto dto, Guid actorId, string actorName, string ip)
     {
+        // D-13 — Igual que CompanyProfileService: los dos guardados están en ramas
+        // EXCLUYENTES (crear o actualizar). Ya es atómico a propósito.
         var cfg = await _sysRepo.GetAll()
             .FirstOrDefaultAsync(c => c.Key == CONFIG_KEY);
 

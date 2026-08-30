@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using TelecomBoliviaNet.Application.Interfaces;
 using TelecomBoliviaNet.Application.Services.Auth;
 using TelecomBoliviaNet.Domain.Entities.Clients;
@@ -64,11 +64,17 @@ public class InvoiceCreditService : IInvoiceCreditService
             invoiceId: invoice.Id, createdByUserId: actorId,
             notes: $"Crédito aplicado a la factura {invoice.InvoiceNumber ?? invoice.Id.ToString()}");
 
+        // D-13 — La factura y el saldo del cliente se confirman JUNTOS.
+        //
+        // Se guardaba primero la factura y después el cliente: si el segundo
+        // guardado fallaba, la factura quedaba saldada y el crédito del cliente
+        // SIN descontar. Es decir, dinero regalado, y en silencio.
+        //
+        // Comparten DbContext: un solo guardado los persiste a los dos o a
+        // ninguno.
         _invoiceRepo.Update(invoice);
-
-        await _invoiceRepo.SaveChangesAsync();
         _clientRepo.Update(invoice.Client);
-        await _clientRepo.SaveChangesAsync();
+        await _invoiceRepo.SaveChangesAsync();
         await _audit.LogAsync("Facturación", "CREDIT_APPLIED_TO_INVOICE",
             $"Crédito aplicado: factura {invoice.InvoiceNumber} Bs.{aplicar:F2}",
             userId: actorId, userName: actorName, ip: ip,

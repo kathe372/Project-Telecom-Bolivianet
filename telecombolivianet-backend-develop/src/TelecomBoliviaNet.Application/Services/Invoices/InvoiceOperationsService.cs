@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using TelecomBoliviaNet.Application.Interfaces;
 using TelecomBoliviaNet.Application.Services.Auth;
@@ -120,6 +120,10 @@ public class InvoiceOperationsService : IInvoiceOperationsService
         }
         catch (DbUpdateConcurrencyException ex)
         {
+            // D-13: el segundo SaveChangesAsync del método vive AQUÍ, en el catch.
+            // Solo corre si el primero lanzó, así que nunca conviven: la operación
+            // ya es atómica y una transacción sería ceremonia.
+            //
             // D-14: una factura que cambió mientras se marcaban es, casi siempre,
             // una que acaban de cobrar — y una factura cobrada ya no es "Emitida",
             // así que no corresponde marcarla como enviada ni avisar de ella.

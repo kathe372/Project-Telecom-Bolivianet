@@ -116,17 +116,15 @@ public class NotifSendService
             });
         }
 
-        if (outboxBatch.Count > 0)
-        {
-            await _outboxRepo.AddRangeAsync(outboxBatch);
-            await _outboxRepo.SaveChangesAsync();
-        }
+        // D-13 — Los envíos y el registro de los omitidos se confirman JUNTOS.
+        // Se guardaban por separado: si fallaba el segundo, los mensajes salían
+        // pero no quedaba constancia de a quién no se le mandó ni por qué, que es
+        // justo lo que alguien va a buscar cuando pregunte por los que faltan.
+        if (outboxBatch.Count > 0)  await _outboxRepo.AddRangeAsync(outboxBatch);
+        if (omitidoLogs.Count > 0)  await _logRepo.AddRangeAsync(omitidoLogs);
 
-        if (omitidoLogs.Count > 0)
-        {
-            await _logRepo.AddRangeAsync(omitidoLogs);
-            await _logRepo.SaveChangesAsync();
-        }
+        if (outboxBatch.Count > 0 || omitidoLogs.Count > 0)
+            await _outboxRepo.SaveChangesAsync();
 
         await _audit.LogAsync("Notificaciones", "NOTIF_ENVIO_MASIVO",
             $"Envío masivo tipo={dto.Tipo} programados={outboxBatch.Count} omitidos={omitidoLogs.Count} sinTelefono={sinTelefono}",
@@ -200,11 +198,12 @@ public class NotifSendService
             });
         }
 
+        // D-13 — La cancelación y su registro, en un solo guardado. Antes, si
+        // fallaba el segundo, los envíos quedaban cancelados sin ninguna anotación
+        // del motivo.
         _outboxRepo.UpdateRange(pendientes);
-
-        await _outboxRepo.SaveChangesAsync();
         await _logRepo.AddRangeAsync(logBatch);
-        await _logRepo.SaveChangesAsync();
+        await _outboxRepo.SaveChangesAsync();
 
         await _audit.LogAsync("Notificaciones", "NOTIF_MASIVA_CANCELADA",
             $"Cancelación masiva tipo={tipo} cantidad={pendientes.Count}",

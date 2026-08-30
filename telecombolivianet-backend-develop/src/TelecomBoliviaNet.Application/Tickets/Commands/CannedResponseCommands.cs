@@ -65,7 +65,7 @@ public class UpdateCannedResponseHandler
 
         _repo.Update(entity);
 
-        await _repo.SaveChangesAsync();
+        // D-13 — El segundo SaveChangesAsync que había aquí no guardaba nada.
         await _repo.SaveChangesAsync();
         return Result<CannedResponseDto>.Success(new CannedResponseDto(
             entity.Id, entity.Title, entity.Body, entity.Category, entity.IsActive, entity.CreatedAt));

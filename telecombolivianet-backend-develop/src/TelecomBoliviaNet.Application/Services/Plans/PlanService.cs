@@ -110,8 +110,15 @@ public class PlanService : IPlanService
             ChangedByName = adminName,
             ChangeReason  = dto.ChangeReason?.Trim(),
         };
+        // D-13 — El snapshot NO se confirma por su cuenta.
+        //
+        // Se guardaba aquí y el plan más abajo: si el segundo guardado fallaba,
+        // quedaba en el historial una entrada diciendo que el plan cambió, con
+        // el plan sin cambiar. Un registro de auditoría que miente es peor que
+        // no tenerlo.
+        //
+        // Comparten DbContext, así que basta con dejar el guardado de abajo.
         await _histRepo.AddAsync(snapshot);
-        await _histRepo.SaveChangesAsync();
 
         plan.Name         = dto.Name.Trim();
         plan.SpeedMb      = dto.SpeedMb;

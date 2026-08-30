@@ -645,11 +645,49 @@ anteriores — uno por token. Si fallaba al crear el nuevo, el usuario se quedab
 con todos sus enlaces anulados y ninguno válido, sin poder recuperar la cuenta
 hasta volver a pedirlo.
 
-### 🟠 D-13 · Métodos con varias escrituras y sin transacción — **PRIORIDAD ALTA CERRADA (5/5)**
+### 🟠 D-13 · Métodos con varias escrituras y sin transacción — **CERRADO (27 → 7, todos justificados)**
 
-**Estado 2026-08-27:** medido por MÉTODO, no por archivo —dos guardados en
-métodos distintos no comparten riesgo—, quedan **18**. El recuento se reproduce
-con `python scripts/escrituras-sin-transaccion.py`.
+**Estado 2026-08-29: cerrado.** De los 27 originales quedan **7**, y los siete
+llevan escrito al lado por qué son seguros. `python scripts/escrituras-sin-transaccion.py`
+reproduce el recuento y los cuenta como justificados.
+
+**Los cinco que resultaron ser fallos de verdad**, todos arreglados por la misma
+vía —dejar **un solo guardado**, sin transacción ni dependencia nueva—:
+
+| Método | Qué pasaba si fallaba el segundo guardado |
+|---|---|
+| `InvoiceCreditService.ApplyCreditAsync` | Factura saldada y crédito del cliente **sin descontar**: dinero regalado, en silencio |
+| `ClientQrService.UploadQrAsync` | QR anterior desactivado y ninguno nuevo — el cliente **sin forma de pagar**. Entre los dos guardados hay una subida de archivo, que es lo que falla |
+| `CancelInstallationCommand` | Instalación cancelada y su ticket **abierto para siempre**: nadie vuelve a mirarlo porque la instalación ya figura cerrada. Mismo modo de fallo que el original |
+| `AdminSettingsService.SaveAsync` | El guardado estaba **dentro del bucle** de diez ajustes: fallar en el sexto dejaba cinco aplicados y cinco no, y la pantalla reportaba error |
+| `PlanService.UpdateAsync` | Una entrada en el historial diciendo que el plan cambió, **con el plan sin cambiar**. Un registro de auditoría que miente |
+
+**Cuatro más eran guardados redundantes**, que no rompían nada pero daban a
+entender que había escrituras separadas capaces de quedar a medias:
+`AssignTechniciansCommand` y `CannedResponseCommands` tenían **dos
+`SaveChangesAsync` idénticos seguidos**; `NotifSendService` guardaba por separado
+los envíos y el registro de los omitidos (y la cancelación y su motivo).
+
+**Los siete que quedan, y por qué se quedan:**
+
+- `CompanyProfileService`, `BotConfigService` — los dos guardados están en ramas
+  **excluyentes** (crear o actualizar): solo corre uno.
+- `AuthService.LoginAsync`, `NotifPublisher.PublishAsync` — el primer guardado
+  está en una rama que termina en `return`.
+- `InvoiceOperationsService.MarkInvoicesSentAsync` — el segundo vive en el
+  `catch` de concurrencia: solo corre si el primero lanzó.
+- `InitialChargesService.ApplyAsync` — corre dentro de la transacción que abre
+  `RegisterClientCommand`. Es además **el único sitio de Application con una
+  consulta entre dos escrituras**: las facturas retroactivas se releen después de
+  crearlas, así que ahí el guardado intermedio hace falta de verdad.
+- `ScheduleVisitCommand` — ya lo tenía justificado.
+
+**Lo que costó llegar aquí, anotado para el próximo recuento:** el contador mide
+texto, no caminos de ejecución. De los 16 que señalaba, **once eran falsos
+positivos** —ramas excluyentes, `return` de por medio, o el `catch`—. La
+clasificación automática por "¿hay mutaciones después del primer guardado?"
+tampoco bastó: cruzaba métodos distintos del mismo archivo. Hubo que leerlos uno
+a uno.
 
 **El triaje que cambió el enfoque.** Todos los repositorios comparten el mismo
 `DbContext`, así que un `SaveChangesAsync` persiste todo lo pendiente. El riesgo

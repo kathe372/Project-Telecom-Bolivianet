@@ -97,6 +97,17 @@ public class AdminSettingsService : IAdminSettingsService
 
         var existing = await _configRepo.GetAll().ToListAsync();
 
+        // D-13 — Se guarda UNA vez, no una por ajuste.
+        //
+        // El SaveChangesAsync estaba dentro del bucle, así que un fallo al
+        // guardar el sexto de los diez ajustes dejaba cinco aplicados y cinco
+        // no: la pantalla reportaba error y la configuración quedaba a medias.
+        // Y son ajustes que se leen juntos —el horario laboral del SLA son tres
+        // valores que solo tienen sentido entre sí—.
+        //
+        // No hace falta una transacción: todos los repositorios comparten el
+        // mismo DbContext, así que un único guardado los persiste todos o
+        // ninguno.
         foreach (var (key, value) in updates)
         {
             var record = existing.FirstOrDefault(c => c.Key == key);
@@ -106,7 +117,6 @@ public class AdminSettingsService : IAdminSettingsService
                 record.UpdatedAt   = DateTime.UtcNow;
                 record.UpdatedById = actorId;
                 _configRepo.Update(record);
-                await _configRepo.SaveChangesAsync();
             }
             else
             {
@@ -118,9 +128,10 @@ public class AdminSettingsService : IAdminSettingsService
                     UpdatedAt   = DateTime.UtcNow,
                     UpdatedById = actorId,
                 });
-                await _configRepo.SaveChangesAsync();
             }
         }
+
+        await _configRepo.SaveChangesAsync();
 
         await _audit.LogAsync("Sistema", "SETTINGS_UPDATED",
             "Configuracion del sistema actualizada via BD",

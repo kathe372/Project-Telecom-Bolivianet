@@ -60,12 +60,20 @@ public class ClientQrService : IClientQrService
 
         var anterior = await _qrRepo.GetActiveAsync(clientId);
 
+        // D-13 — Desactivar el anterior NO se confirma por su cuenta.
+        //
+        // Se guardaba aquí, y entre este punto y el alta del nuevo QR hay una
+        // subida de archivo a almacenamiento externo, que puede fallar. Cuando
+        // fallaba, el cliente se quedaba con el QR viejo desactivado y ninguno
+        // nuevo: sin forma de pagar, y sin que nadie se enterara.
+        //
+        // Ahora se marca en memoria y se confirma abajo, con el alta. Si la
+        // subida falla, no se persiste nada y el QR anterior sigue vigente.
         if (anterior is not null)
         {
             anterior.IsActive           = false;
             anterior.DeactivatedReason  = "Reemplazado por nuevo QR";
             _qrRepo.Update(anterior);
-            await _qrRepo.SaveChangesAsync();
         }
 
         using var stream = file.OpenReadStream();
