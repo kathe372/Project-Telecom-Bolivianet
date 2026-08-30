@@ -81,6 +81,58 @@ jobs:
           --no-build --configuration Release
           --logger "trx;LogFileName=integration.trx"
 
+      # ── Puertas de calidad (F9) ──────────────────────────────────────────
+      # Un umbral en el CI es lo que impide que la mejora se deshaga sola en tres
+      # meses. Los números son los MEDIDOS hoy, no objetivos: existen para que no
+      # se pueda empeorar sin que alguien lo decida a propósito.
+
+      - name: Paridad de esquema (las migraciones se escriben a mano — ADR-004)
+        run: >
+          dotnet test ${{ env.TESTS_DIR }}/TelecomBoliviaNet.IntegrationTests
+          --no-build --configuration Release
+          --filter "FullyQualifiedName~SchemaParity"
+
+      - name: El contrato del chatbot no se rompe en silencio (F8.1)
+        run: >
+          dotnet test ${{ env.TESTS_DIR }}/TelecomBoliviaNet.IntegrationTests
+          --no-build --configuration Release
+          --filter "FullyQualifiedName~BotEndpoints"
+
+      - name: Ninguna acción hereda su política de autorización (D-25)
+        run: python3 scripts/politicas-explicitas.py
+
+      - name: Application no vuelve a depender más de EF Core
+        run: |
+          cd telecombolivianet-backend-develop
+          N=$(grep -rl "using Microsoft.EntityFrameworkCore"               src/TelecomBoliviaNet.Application --include=*.cs | wc -l)
+          echo "Archivos de Application con EF Core: $N (techo: 40)"
+          # Cuidado con esta cifra: cuenta ARCHIVOS, así que partir una clase
+          # grande en tres la empeora sin añadir una sola dependencia nueva. Pasó
+          # en F5: 34 -> 38 sin tocar una línea de acceso a datos. De ahí que el
+          # techo sea 40. Lo que de verdad importa es cuántos casos de uso
+          # componen su propia consulta, no en cuántos ficheros están repartidos.
+          if [ "$N" -gt 40 ]; then
+            echo "::error::Regresión de inversión de dependencias: $N > 40"
+            exit 1
+          fi
+
+      - name: Ninguna clase de Application pasa de 250 líneas
+        run: |
+          cd telecombolivianet-backend-develop
+          # Dos siguen por encima, argumentadas en el plan (F5). El techo está en
+          # 2 para que no aparezca una tercera sin que nadie se entere.
+          GRANDES=$(find src/TelecomBoliviaNet.Application -name "*.cs" -not -path "*/obj/*"                     | xargs wc -l | awk '$1 > 250 && $2 != "total"')
+          N=$(echo "$GRANDES" | grep -c . || true)
+          echo "Clases de Application > 250 líneas: $N (techo: 2)"
+          if [ "$N" -gt 2 ]; then
+            echo "$GRANDES" | sort -rn
+            echo "::error::Hay $N clases por encima de 250 líneas"
+            exit 1
+          fi
+
+      - name: Las funciones largas no crecen (trinquete)
+        run: python3 scripts/funciones-largas.py
+
       - name: Publicar resultados
         uses: actions/upload-artifact@v4
         if: always()

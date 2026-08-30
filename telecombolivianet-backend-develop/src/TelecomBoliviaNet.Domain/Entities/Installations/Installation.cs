@@ -1,4 +1,4 @@
-using TelecomBoliviaNet.Domain.Entities.Auth;
+﻿using TelecomBoliviaNet.Domain.Entities.Auth;
 using TelecomBoliviaNet.Domain.Entities.Clients;
 using TelecomBoliviaNet.Domain.Entities.Coverage;
 using TelecomBoliviaNet.Domain.Entities.Plans;
@@ -27,7 +27,7 @@ public class Installation : Entity
     /// <summary>Identidad del prospecto cuando ClientId es null (capturada por el bot de WhatsApp).</summary>
     public string?  ProspectName  { get; set; }
     public string?  ProspectPhone { get; set; }
-    /// <summary>PASO 10: cédula de identidad del prospecto — obligatoria al agendar (ver CreateInstallationValidator).</summary>
+    /// <summary>Cédula de identidad del prospecto — obligatoria al agendar (ver CreateInstallationValidator).</summary>
     public string?  ProspectIdentityCard { get; set; }
     /// <summary>Contacto alterno del prospecto (no el WhatsApp desde el que escribe) para que el
     /// técnico pueda ubicarlo el día de la instalación si el WhatsApp principal no responde.</summary>

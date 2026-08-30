@@ -1,6 +1,7 @@
-using TelecomBoliviaNet.Application.DTOs.Installations;
+﻿using TelecomBoliviaNet.Application.DTOs.Installations;
 using TelecomBoliviaNet.Application.Services;
 using TelecomBoliviaNet.Domain.Entities.Installations;
+using TelecomBoliviaNet.Application.Constants;
 
 namespace TelecomBoliviaNet.Application.Installations;
 
@@ -12,17 +13,17 @@ internal static class InstallationMapper
             : null;
 
     internal static string DisplayName(Installation i)
-        => i.Client?.FullName ?? i.ProspectName ?? "—";
+        => i.Client?.FullName ?? i.ProspectName ?? AppConstants.Display.SinDato;
 
     internal static string DisplayPhone(Installation i)
-        => i.Client?.PhoneMain ?? i.ProspectPhone ?? "—";
+        => i.Client?.PhoneMain ?? i.ProspectPhone ?? AppConstants.Display.SinDato;
 
     internal static InstallationDetailDto ToDetail(Installation i) => new(
         Id:                i.Id,
-        ClienteTbn:        i.Client?.TbnCode ?? (i.ProspectName is not null ? "PROSPECTO" : "—"),
+        ClienteTbn:        i.Client?.TbnCode ?? (i.ProspectName is not null ? "PROSPECTO" : AppConstants.Display.SinDato),
         ClienteNombre:     DisplayName(i),
         ClientePhone:      DisplayPhone(i),
-        PlanNombre:        i.Plan?.Name        ?? "—",
+        PlanNombre:        i.Plan?.Name        ?? AppConstants.Display.SinDato,
         Fecha:             i.Fecha.ToString("yyyy-MM-dd"),
         HoraInicio:        i.HoraInicio.ToString("HH:mm"),
         HoraFin:           i.HoraInicio.AddMinutes(i.DuracionMin).ToString("HH:mm"),
@@ -44,7 +45,7 @@ internal static class InstallationMapper
         Tecnicos:          i.Technicians
                                .Select(t => new AssignedTechnicianDto(
                                    t.TechnicianId,
-                                   t.Technician?.FullName ?? "—",
+                                   t.Technician?.FullName ?? AppConstants.Display.SinDato,
                                    t.Technician?.Phone,
                                    t.IsLead,
                                    t.AssignedAt))
@@ -56,9 +57,9 @@ internal static class InstallationMapper
 
     internal static InstallationListItemDto ToListItem(Installation i) => new(
         Id:            i.Id,
-        ClienteTbn:    i.Client?.TbnCode ?? (i.ProspectName is not null ? "PROSPECTO" : "—"),
+        ClienteTbn:    i.Client?.TbnCode ?? (i.ProspectName is not null ? "PROSPECTO" : AppConstants.Display.SinDato),
         ClienteNombre: DisplayName(i),
-        PlanNombre:    i.Plan?.Name       ?? "—",
+        PlanNombre:    i.Plan?.Name       ?? AppConstants.Display.SinDato,
         Fecha:         i.Fecha.ToString("yyyy-MM-dd"),
         HoraInicio:    i.HoraInicio.ToString("HH:mm"),
         Status:        i.Status.ToString(),

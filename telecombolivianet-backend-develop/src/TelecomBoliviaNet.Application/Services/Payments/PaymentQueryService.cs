@@ -99,9 +99,9 @@ public class PaymentQueryService : IPaymentQueryService
 
         return new PaymentDetailDto(
             p.Id, p.ClientId,
-            p.Client?.TbnCode   ?? "—",
-            p.Client?.FullName  ?? "—",
-            p.Client?.PhoneMain ?? "—",
+            p.Client?.TbnCode   ?? AppConstants.Display.SinDato,
+            p.Client?.FullName  ?? AppConstants.Display.SinDato,
+            p.Client?.PhoneMain ?? AppConstants.Display.SinDato,
             p.Amount, p.Method.ToString(), p.Bank, p.BankReference,
             p.PaidAt, p.RegisteredAt,
             p.RegisteredBy?.FullName ?? "Sistema",

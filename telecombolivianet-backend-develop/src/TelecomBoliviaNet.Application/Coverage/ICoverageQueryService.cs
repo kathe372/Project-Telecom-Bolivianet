@@ -1,4 +1,4 @@
-namespace TelecomBoliviaNet.Application.Coverage;
+﻿namespace TelecomBoliviaNet.Application.Coverage;
 
 public enum CoverageOutcome { Confirmed, Escalate, NoCoverage }
 
@@ -21,7 +21,7 @@ public interface ICoverageQueryService
 {
     // Mejora 2 (sinuosidad): sinuosityFactor ajusta la distancia recta al largo real
     // del cable por calles/postes (efectivo = alcance / factor). 1.0 = sin ajuste.
-    // PASO 11: nearZoneBoundaryMeters — cuando el punto no cae dentro de ninguna
+    // nearZoneBoundaryMeters — cuando el punto no cae dentro de ninguna
     // zona, distancia máxima a la zona activa más cercana para escalar en vez de
     // responder NoCoverage directo. <= 0 desactiva esta búsqueda por completo
     // (usado por BoxReservationService, que solo le importa Confirmed/no-Confirmed

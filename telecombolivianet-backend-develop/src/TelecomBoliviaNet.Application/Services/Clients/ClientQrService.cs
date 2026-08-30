@@ -7,6 +7,7 @@ using TelecomBoliviaNet.Domain.Entities.Auth;
 using TelecomBoliviaNet.Domain.Entities.Clients;
 using TelecomBoliviaNet.Domain.Interfaces;
 using TelecomBoliviaNet.Domain.Primitives;
+using TelecomBoliviaNet.Application.Constants;
 
 namespace TelecomBoliviaNet.Application.Services.Clients;
 
@@ -162,8 +163,8 @@ public class ClientQrService : IClientQrService
 
         return qrs.Select(q => (
             q.ClientId,
-            q.Client?.FullName ?? "—",
-            q.Client?.TbnCode  ?? "—",
+            q.Client?.FullName ?? AppConstants.Display.SinDato,
+            q.Client?.TbnCode  ?? AppConstants.Display.SinDato,
             q.ExpiresAt!.Value
         )).ToList();
     }

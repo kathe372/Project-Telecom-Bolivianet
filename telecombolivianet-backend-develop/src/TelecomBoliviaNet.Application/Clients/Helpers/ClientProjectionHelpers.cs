@@ -2,6 +2,7 @@
 using TelecomBoliviaNet.Application.DTOs.Clients;
 using TelecomBoliviaNet.Domain.Entities.Clients;
 using TelecomBoliviaNet.Domain.Services;
+using TelecomBoliviaNet.Application.Constants;
 
 namespace TelecomBoliviaNet.Application.Clients.Helpers;
 
@@ -36,7 +37,7 @@ internal static class ClientProjectionHelpers
         p.PaymentInvoices.Select(pi =>
         {
             if (pi.Invoice?.Type == InvoiceType.Instalacion) return "Instalación";
-            if (pi.Invoice is null) return "—";
+            if (pi.Invoice is null) return AppConstants.Display.SinDato;
             var s = new DateTime(pi.Invoice.Year, pi.Invoice.Month, 1).ToString("MMMM yyyy", _es);
             return char.ToUpper(s[0]) + s[1..];
         }));

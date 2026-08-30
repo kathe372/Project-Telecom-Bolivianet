@@ -1,4 +1,4 @@
-using FluentValidation;
+﻿using FluentValidation;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -28,6 +28,10 @@ public class UserSystemController : BaseController
     }
 
     [HttpGet]
+        // F9 — Fijada explícitamente. Antes heredaba la de la clase; el
+        // [Authorize] del método no la reemplaza, se exigen los dos (D-25),
+        // así que ampliar el piso del controlador la abriría sin decidirlo.
+    [Authorize(Policy = "AdminOnly")]
     public async Task<IActionResult> GetAll(
         [FromQuery] int     page       = 1,
         [FromQuery] int     pageSize   = 20,
@@ -36,6 +40,10 @@ public class UserSystemController : BaseController
         => OkResult(await _mediator.Send(new GetUsersListQuery(page, pageSize, roleFilter, search)));
 
     [HttpGet("{id:guid}")]
+        // F9 — Fijada explícitamente. Antes heredaba la de la clase; el
+        // [Authorize] del método no la reemplaza, se exigen los dos (D-25),
+        // así que ampliar el piso del controlador la abriría sin decidirlo.
+    [Authorize(Policy = "AdminOnly")]
     public async Task<IActionResult> GetById(Guid id)
     {
         var dto = await _mediator.Send(new GetUserByIdQuery(id));
@@ -43,6 +51,10 @@ public class UserSystemController : BaseController
     }
 
     [HttpPost]
+        // F9 — Fijada explícitamente. Antes heredaba la de la clase; el
+        // [Authorize] del método no la reemplaza, se exigen los dos (D-25),
+        // así que ampliar el piso del controlador la abriría sin decidirlo.
+    [Authorize(Policy = "AdminOnly")]
     public async Task<IActionResult> Create([FromBody] CreateUserDto dto)
     {
         var validation = await _createValidator.ValidateAsync(dto);
@@ -57,6 +69,10 @@ public class UserSystemController : BaseController
     }
 
     [HttpPut("{id:guid}")]
+        // F9 — Fijada explícitamente. Antes heredaba la de la clase; el
+        // [Authorize] del método no la reemplaza, se exigen los dos (D-25),
+        // así que ampliar el piso del controlador la abriría sin decidirlo.
+    [Authorize(Policy = "AdminOnly")]
     public async Task<IActionResult> Update(Guid id, [FromBody] UpdateUserDto dto)
     {
         var validation = await _updateValidator.ValidateAsync(dto);
@@ -71,6 +87,10 @@ public class UserSystemController : BaseController
     }
 
     [HttpPut("{id:guid}/deactivate")]
+        // F9 — Fijada explícitamente. Antes heredaba la de la clase; el
+        // [Authorize] del método no la reemplaza, se exigen los dos (D-25),
+        // así que ampliar el piso del controlador la abriría sin decidirlo.
+    [Authorize(Policy = "AdminOnly")]
     public async Task<IActionResult> Deactivate(Guid id)
     {
         var result = await _mediator.Send(
@@ -81,6 +101,10 @@ public class UserSystemController : BaseController
     }
 
     [HttpPut("{id:guid}/reactivate")]
+        // F9 — Fijada explícitamente. Antes heredaba la de la clase; el
+        // [Authorize] del método no la reemplaza, se exigen los dos (D-25),
+        // así que ampliar el piso del controlador la abriría sin decidirlo.
+    [Authorize(Policy = "AdminOnly")]
     public async Task<IActionResult> Reactivate(Guid id)
     {
         var result = await _mediator.Send(
@@ -91,6 +115,10 @@ public class UserSystemController : BaseController
     }
 
     [HttpPut("{id:guid}/unlock")]
+        // F9 — Fijada explícitamente. Antes heredaba la de la clase; el
+        // [Authorize] del método no la reemplaza, se exigen los dos (D-25),
+        // así que ampliar el piso del controlador la abriría sin decidirlo.
+    [Authorize(Policy = "AdminOnly")]
     public async Task<IActionResult> Unlock(Guid id)
     {
         var result = await _mediator.Send(
@@ -101,10 +129,18 @@ public class UserSystemController : BaseController
     }
 
     [HttpGet("permissions")]
+        // F9 — Fijada explícitamente. Antes heredaba la de la clase; el
+        // [Authorize] del método no la reemplaza, se exigen los dos (D-25),
+        // así que ampliar el piso del controlador la abriría sin decidirlo.
+    [Authorize(Policy = "AdminOnly")]
     public async Task<IActionResult> GetPermissions()
         => OkResult(await _mediator.Send(new GetPermissionMatrixQuery()));
 
     [HttpGet("{id:guid}/detail")]
+        // F9 — Fijada explícitamente. Antes heredaba la de la clase; el
+        // [Authorize] del método no la reemplaza, se exigen los dos (D-25),
+        // así que ampliar el piso del controlador la abriría sin decidirlo.
+    [Authorize(Policy = "AdminOnly")]
     public async Task<IActionResult> GetDetail(Guid id)
     {
         var dto = await _mediator.Send(new GetUserDetailQuery(id));
@@ -112,6 +148,10 @@ public class UserSystemController : BaseController
     }
 
     [HttpDelete("{id:guid}")]
+        // F9 — Fijada explícitamente. Antes heredaba la de la clase; el
+        // [Authorize] del método no la reemplaza, se exigen los dos (D-25),
+        // así que ampliar el piso del controlador la abriría sin decidirlo.
+    [Authorize(Policy = "AdminOnly")]
     public async Task<IActionResult> SoftDelete(Guid id, [FromBody] DeleteUserDto dto)
     {
         if (id == CurrentUserId)
@@ -123,6 +163,10 @@ public class UserSystemController : BaseController
     }
 
     [HttpPost("{id:guid}/force-reset-password")]
+        // F9 — Fijada explícitamente. Antes heredaba la de la clase; el
+        // [Authorize] del método no la reemplaza, se exigen los dos (D-25),
+        // así que ampliar el piso del controlador la abriría sin decidirlo.
+    [Authorize(Policy = "AdminOnly")]
     public async Task<IActionResult> ForceResetPassword(Guid id, [FromBody] ForceResetPasswordDto dto)
     {
         if (string.IsNullOrWhiteSpace(dto.NewTemporaryPassword) || dto.NewTemporaryPassword.Length < 8)
@@ -149,6 +193,10 @@ public class UserSystemController : BaseController
     }
 
     [HttpPost("{id:guid}/resend-activation")]
+        // F9 — Fijada explícitamente. Antes heredaba la de la clase; el
+        // [Authorize] del método no la reemplaza, se exigen los dos (D-25),
+        // así que ampliar el piso del controlador la abriría sin decidirlo.
+    [Authorize(Policy = "AdminOnly")]
     public async Task<IActionResult> ResendActivation(Guid id)
     {
         var result = await _mediator.Send(

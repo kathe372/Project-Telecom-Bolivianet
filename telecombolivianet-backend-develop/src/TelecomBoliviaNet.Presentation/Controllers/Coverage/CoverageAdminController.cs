@@ -1,4 +1,4 @@
-using MediatR;
+﻿using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using TelecomBoliviaNet.Application.Coverage.Commands;
@@ -29,11 +29,19 @@ public class CoverageAdminController : BaseController
     // PR-2: reporte de demanda (log de consultas). Filtro opcional por resultado
     // (p.ej. ?result=NO_COVERAGE para ver dónde hay clientes y no llegamos).
     [HttpGet("queries")]
+        // F9 — Fijada explícitamente. Antes heredaba la de la clase; el
+        // [Authorize] del método no la reemplaza, se exigen los dos (D-25),
+        // así que ampliar el piso del controlador la abriría sin decidirlo.
+    [Authorize(Policy = "AdminOnly")]
     public async Task<IActionResult> GetQueries(
         [FromQuery] string? result = null, [FromQuery] int limit = 200)
         => OkResult(await _mediator.Send(new GetCoverageQueriesQuery(result, limit)));
 
     [HttpPost("zones")]
+        // F9 — Fijada explícitamente. Antes heredaba la de la clase; el
+        // [Authorize] del método no la reemplaza, se exigen los dos (D-25),
+        // así que ampliar el piso del controlador la abriría sin decidirlo.
+    [Authorize(Policy = "AdminOnly")]
     public async Task<IActionResult> CreateZone([FromBody] CreateCoverageZoneRequest dto)
     {
         var result = await _mediator.Send(new CreateCoverageZoneCommand(dto, CurrentUserId));
@@ -43,6 +51,10 @@ public class CoverageAdminController : BaseController
     }
 
     [HttpPut("zones/{id:guid}")]
+        // F9 — Fijada explícitamente. Antes heredaba la de la clase; el
+        // [Authorize] del método no la reemplaza, se exigen los dos (D-25),
+        // así que ampliar el piso del controlador la abriría sin decidirlo.
+    [Authorize(Policy = "AdminOnly")]
     public async Task<IActionResult> UpdateZone(Guid id, [FromBody] UpdateCoverageZoneRequest dto)
     {
         var result = await _mediator.Send(new UpdateCoverageZoneCommand(id, dto));
@@ -50,6 +62,10 @@ public class CoverageAdminController : BaseController
     }
 
     [HttpDelete("zones/{id:guid}")]
+        // F9 — Fijada explícitamente. Antes heredaba la de la clase; el
+        // [Authorize] del método no la reemplaza, se exigen los dos (D-25),
+        // así que ampliar el piso del controlador la abriría sin decidirlo.
+    [Authorize(Policy = "AdminOnly")]
     public async Task<IActionResult> DeleteZone(Guid id)
     {
         var result = await _mediator.Send(new DeleteCoverageZoneCommand(id));
@@ -58,6 +74,10 @@ public class CoverageAdminController : BaseController
 
 
     [HttpGet("zones/{zoneId:guid}/boxes")]
+        // F9 — Fijada explícitamente. Antes heredaba la de la clase; el
+        // [Authorize] del método no la reemplaza, se exigen los dos (D-25),
+        // así que ampliar el piso del controlador la abriría sin decidirlo.
+    [Authorize(Policy = "AdminOnly")]
     public async Task<IActionResult> GetBoxesByZone(Guid zoneId)
         => OkResult(await _mediator.Send(new GetDistributionBoxesQuery(zoneId, null)));
 
@@ -76,6 +96,10 @@ public class CoverageAdminController : BaseController
         => OkResult(await _mediator.Send(new GetDistributionBoxesQuery(zoneId, status)));
 
     [HttpPost("boxes")]
+        // F9 — Fijada explícitamente. Antes heredaba la de la clase; el
+        // [Authorize] del método no la reemplaza, se exigen los dos (D-25),
+        // así que ampliar el piso del controlador la abriría sin decidirlo.
+    [Authorize(Policy = "AdminOnly")]
     public async Task<IActionResult> CreateBox([FromBody] CreateDistributionBoxRequest dto)
     {
         var result = await _mediator.Send(new CreateDistributionBoxCommand(dto));
@@ -85,6 +109,10 @@ public class CoverageAdminController : BaseController
     }
 
     [HttpPut("boxes/{id:guid}")]
+        // F9 — Fijada explícitamente. Antes heredaba la de la clase; el
+        // [Authorize] del método no la reemplaza, se exigen los dos (D-25),
+        // así que ampliar el piso del controlador la abriría sin decidirlo.
+    [Authorize(Policy = "AdminOnly")]
     public async Task<IActionResult> UpdateBox(Guid id, [FromBody] UpdateDistributionBoxRequest dto)
     {
         var result = await _mediator.Send(new UpdateDistributionBoxCommand(id, dto));
@@ -92,6 +120,10 @@ public class CoverageAdminController : BaseController
     }
 
     [HttpDelete("boxes/{id:guid}")]
+        // F9 — Fijada explícitamente. Antes heredaba la de la clase; el
+        // [Authorize] del método no la reemplaza, se exigen los dos (D-25),
+        // así que ampliar el piso del controlador la abriría sin decidirlo.
+    [Authorize(Policy = "AdminOnly")]
     public async Task<IActionResult> DeleteBox(Guid id)
     {
         var result = await _mediator.Send(new DeleteDistributionBoxCommand(id));
@@ -106,6 +138,10 @@ public class CoverageAdminController : BaseController
         => OkResult(await _mediator.Send(new GetBoxPortsQuery(boxId)));
 
     [HttpPost("boxes/{boxId:guid}/ports/{numero:int}/damage")]
+        // F9 — Fijada explícitamente. Antes heredaba la de la clase; el
+        // [Authorize] del método no la reemplaza, se exigen los dos (D-25),
+        // así que ampliar el piso del controlador la abriría sin decidirlo.
+    [Authorize(Policy = "AdminOnly")]
     public async Task<IActionResult> DamagePort(Guid boxId, int numero)
     {
         var result = await _mediator.Send(new MarkNapPortDamagedCommand(boxId, numero));
@@ -115,6 +151,10 @@ public class CoverageAdminController : BaseController
     }
 
     [HttpPost("boxes/{boxId:guid}/ports/{numero:int}/repair")]
+        // F9 — Fijada explícitamente. Antes heredaba la de la clase; el
+        // [Authorize] del método no la reemplaza, se exigen los dos (D-25),
+        // así que ampliar el piso del controlador la abriría sin decidirlo.
+    [Authorize(Policy = "AdminOnly")]
     public async Task<IActionResult> RepairPort(Guid boxId, int numero)
     {
         var result = await _mediator.Send(new RepairNapPortCommand(boxId, numero));

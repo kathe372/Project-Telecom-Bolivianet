@@ -17,10 +17,18 @@ public class BusinessScheduleController : BaseController
         => _svc = svc;
 
     [HttpGet]
+        // F9 — Fijada explícitamente. Antes heredaba la de la clase; el
+        // [Authorize] del método no la reemplaza, se exigen los dos (D-25),
+        // así que ampliar el piso del controlador la abriría sin decidirlo.
+    [Authorize(Policy = "AdminOnly")]
     public async Task<IActionResult> GetAll()
         => OkResult(await _svc.GetAllAsync());
 
     [HttpGet("{id:guid}")]
+        // F9 — Fijada explícitamente. Antes heredaba la de la clase; el
+        // [Authorize] del método no la reemplaza, se exigen los dos (D-25),
+        // así que ampliar el piso del controlador la abriría sin decidirlo.
+    [Authorize(Policy = "AdminOnly")]
     public async Task<IActionResult> GetById(Guid id)
     {
         var dto = await _svc.GetByIdAsync(id);
@@ -28,6 +36,10 @@ public class BusinessScheduleController : BaseController
     }
 
     [HttpPost]
+        // F9 — Fijada explícitamente. Antes heredaba la de la clase; el
+        // [Authorize] del método no la reemplaza, se exigen los dos (D-25),
+        // así que ampliar el piso del controlador la abriría sin decidirlo.
+    [Authorize(Policy = "AdminOnly")]
     public async Task<IActionResult> Create([FromBody] CreateBusinessScheduleDto dto)
     {
         var result = await _svc.CreateAsync(dto);
@@ -37,6 +49,10 @@ public class BusinessScheduleController : BaseController
     }
 
     [HttpPut("{id:guid}")]
+        // F9 — Fijada explícitamente. Antes heredaba la de la clase; el
+        // [Authorize] del método no la reemplaza, se exigen los dos (D-25),
+        // así que ampliar el piso del controlador la abriría sin decidirlo.
+    [Authorize(Policy = "AdminOnly")]
     public async Task<IActionResult> Update(Guid id, [FromBody] UpdateBusinessScheduleDto dto)
     {
         var result = await _svc.UpdateAsync(id, dto);
@@ -46,6 +62,10 @@ public class BusinessScheduleController : BaseController
     }
 
     [HttpPost("{scheduleId:guid}/holidays")]
+        // F9 — Fijada explícitamente. Antes heredaba la de la clase; el
+        // [Authorize] del método no la reemplaza, se exigen los dos (D-25),
+        // así que ampliar el piso del controlador la abriría sin decidirlo.
+    [Authorize(Policy = "AdminOnly")]
     public async Task<IActionResult> AddHoliday(Guid scheduleId, [FromBody] CreateHolidayDto dto)
     {
         var result = await _svc.AddHolidayAsync(scheduleId, dto);
@@ -55,6 +75,10 @@ public class BusinessScheduleController : BaseController
     }
 
     [HttpDelete("{scheduleId:guid}/holidays/{holidayId:guid}")]
+        // F9 — Fijada explícitamente. Antes heredaba la de la clase; el
+        // [Authorize] del método no la reemplaza, se exigen los dos (D-25),
+        // así que ampliar el piso del controlador la abriría sin decidirlo.
+    [Authorize(Policy = "AdminOnly")]
     public async Task<IActionResult> DeleteHoliday(Guid scheduleId, Guid holidayId)
     {
         var result = await _svc.DeleteHolidayAsync(scheduleId, holidayId);

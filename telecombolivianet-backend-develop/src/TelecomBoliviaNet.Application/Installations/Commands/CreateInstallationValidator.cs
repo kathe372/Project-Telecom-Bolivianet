@@ -49,7 +49,7 @@ public class CreateInstallationValidator
         string? prospectPhone,
         CancellationToken ct)
     {
-        // PASO 10 (2026-08): antes solo el prompt del chatbot "pedía" nombre y CI
+        // Antes solo el prompt del chatbot "pedía" nombre y CI
         // al prospecto — el backend nunca lo exigía, así que un cliente sin
         // registrar podía agendar sin ningún dato de identidad verificable.
         // Bloqueante, mismo criterio para los tres campos (nombre, CI y

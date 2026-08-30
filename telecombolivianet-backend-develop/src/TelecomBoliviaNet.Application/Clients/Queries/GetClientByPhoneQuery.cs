@@ -1,7 +1,8 @@
-using MediatR;
+﻿using MediatR;
 using TelecomBoliviaNet.Application.DTOs.Clients;
 using TelecomBoliviaNet.Domain.Entities.Clients;
 using TelecomBoliviaNet.Domain.Interfaces;
+using TelecomBoliviaNet.Application.Constants;
 
 namespace TelecomBoliviaNet.Application.Clients.Queries;
 
@@ -62,7 +63,7 @@ public class GetClientByPhoneHandler :
                 PhoneMain:     client.PhoneMain,
                 Status:        client.Status.ToString(),
                 PlanId:        client.PlanId.ToString(),
-                PlanName:      client.Plan?.Name ?? "—",
+                PlanName:      client.Plan?.Name ?? AppConstants.Display.SinDato,
                 PlanSpeedMbps: client.Plan?.SpeedMb ?? 0,
                 TotalDebt:     pendingInvoices.Sum(i => i.Outstanding),
                 PendingMonths: pendingInvoices.Count(i => i.Type == InvoiceType.Mensualidad),

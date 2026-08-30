@@ -1,3 +1,4 @@
+﻿using TelecomBoliviaNet.Application.Constants;
 namespace TelecomBoliviaNet.Application.Utils;
 
 /// <summary>
@@ -25,7 +26,7 @@ public static class BoliviaTime
         utc.HasValue ? ToLocal(utc.Value) : null;
 
     /// <summary>Fecha local formateada, o <paramref name="fallback"/> si no hay valor.</summary>
-    public static string Date(DateTime? utc, string fallback = "—") =>
+    public static string Date(DateTime? utc, string fallback = AppConstants.Display.SinDato) =>
         utc.HasValue ? ToLocal(utc.Value).ToString("dd/MM/yyyy") : fallback;
 
     public static string DateTimeText(DateTime utc) =>

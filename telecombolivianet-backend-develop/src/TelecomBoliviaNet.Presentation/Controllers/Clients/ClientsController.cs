@@ -139,7 +139,7 @@ public class ClientsController : BaseController
             .GroupBy(x => x.Month)
             .ToDictionary(g => g.Key, g => (DateTime?)g.First().PaidAt);
 
-        // PASO 5: snapshot de plan por factura, para que el bot pueda explicar
+        // Snapshot de plan por factura, para que el bot pueda explicar
         // diferencias de monto por cambio de plan sin inventar una causa.
         // Consulta aparte (no toca GetClientInvoicesQuery, uso del panel admin).
         var planSnapshots = await _mediator.Send(

@@ -1,4 +1,4 @@
-namespace TelecomBoliviaNet.Application.DTOs.Installations;
+﻿namespace TelecomBoliviaNet.Application.DTOs.Installations;
 
 
 public record SlotDisponibleDto(
@@ -24,7 +24,7 @@ public class CreateInstallationDto
     /// <summary>Identidad del prospecto; solo aplica cuando ClienteId es null.</summary>
     public string?  ProspectName   { get; set; }
     public string?  ProspectPhone  { get; set; }
-    /// <summary>PASO 10: obligatoria cuando ClienteId es null (ver CreateInstallationValidator).</summary>
+    /// <summary>Obligatoria cuando ClienteId es null (ver CreateInstallationValidator).</summary>
     public string?  ProspectIdentityCard { get; set; }
     /// <summary>Contacto alterno del prospecto; solo aplica cuando ClienteId es null.
     /// Obligatorio cuando ClienteId es null (ver CreateInstallationValidator).</summary>

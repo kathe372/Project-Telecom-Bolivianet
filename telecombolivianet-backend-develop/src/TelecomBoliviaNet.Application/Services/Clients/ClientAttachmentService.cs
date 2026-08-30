@@ -5,6 +5,7 @@ using TelecomBoliviaNet.Application.Services.Auth;
 using TelecomBoliviaNet.Domain.Entities.Clients;
 using TelecomBoliviaNet.Domain.Interfaces;
 using TelecomBoliviaNet.Domain.Primitives;
+using TelecomBoliviaNet.Application.Constants;
 #pragma warning disable CS8981
 using r = TelecomBoliviaNet.Domain.Primitives.Result;
 #pragma warning restore CS8981
@@ -141,6 +142,6 @@ public class ClientAttachmentService : IClientAttachmentService
     private static ClientAttachmentDto ToDto(ClientAttachment a, string? overrideName = null) =>
         new(a.Id, a.FileName, a.TipoDoc, a.ContentType, a.FileSizeBytes,
             a.Descripcion, a.StoragePath,
-            overrideName ?? a.SubidoPor?.FullName ?? "—",
+            overrideName ?? a.SubidoPor?.FullName ?? AppConstants.Display.SinDato,
             a.SubidoAt);
 }

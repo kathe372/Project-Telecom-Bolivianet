@@ -1,6 +1,7 @@
-using System.Globalization;
+﻿using System.Globalization;
 using TelecomBoliviaNet.Application.DTOs.Payments;
 using TelecomBoliviaNet.Domain.Entities.Clients;
+using TelecomBoliviaNet.Application.Constants;
 
 namespace TelecomBoliviaNet.Application.Services.Payments;
 
@@ -19,14 +20,14 @@ internal static class PaymentMapper
 
     internal static PaymentListItemDto ToListItem(Payment p) =>
         new(p.Id, p.ClientId,
-            p.Client?.TbnCode       ?? "—",
-            p.Client?.FullName      ?? "—",
+            p.Client?.TbnCode       ?? AppConstants.Display.SinDato,
+            p.Client?.FullName      ?? AppConstants.Display.SinDato,
             p.Amount, p.Method.ToString(), p.Bank, p.BankReference,
             p.PaidAt, p.RegisteredAt,
             p.RegisteredBy?.FullName ?? "Sistema",
             p.FromWhatsApp, p.ReceiptImageUrl, p.PhysicalReceiptNumber,
             CoveredMonths(p),
-            p.Client?.Plan?.Name    ?? "—",
+            p.Client?.Plan?.Name    ?? AppConstants.Display.SinDato,
             p.IsVoided);
 
     /// <summary>
@@ -37,7 +38,7 @@ internal static class PaymentMapper
         p.PaymentInvoices.Select(pi =>
         {
             if (pi.Invoice?.Type == InvoiceType.Instalacion) return "Instalación";
-            if (pi.Invoice is null) return "—";
+            if (pi.Invoice is null) return AppConstants.Display.SinDato;
             var s = new DateTime(pi.Invoice.Year, pi.Invoice.Month, 1)
                         .ToString("MMMM yyyy", EsBo);
             return char.ToUpper(s[0]) + s[1..];

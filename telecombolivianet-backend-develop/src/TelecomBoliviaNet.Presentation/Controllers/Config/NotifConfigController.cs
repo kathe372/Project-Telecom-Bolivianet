@@ -1,4 +1,4 @@
-using Microsoft.AspNetCore.Authorization;
+﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using TelecomBoliviaNet.Application.DTOs.Notifications;
 using TelecomBoliviaNet.Application.Services.Notifications;
@@ -21,10 +21,18 @@ public class NotifConfigController : BaseController
 
 
     [HttpGet]
+        // F9 — Fijada explícitamente. Antes heredaba la de la clase; el
+        // [Authorize] del método no la reemplaza, se exigen los dos (D-25),
+        // así que ampliar el piso del controlador la abriría sin decidirlo.
+    [Authorize(Policy = "AdminOnly")]
     public async Task<IActionResult> GetConfigs()
         => OkResult(await _svc.GetConfigsAsync());
 
     [HttpPut]
+        // F9 — Fijada explícitamente. Antes heredaba la de la clase; el
+        // [Authorize] del método no la reemplaza, se exigen los dos (D-25),
+        // así que ampliar el piso del controlador la abriría sin decidirlo.
+    [Authorize(Policy = "AdminOnly")]
     public async Task<IActionResult> UpdateConfigs([FromBody] UpdateNotifConfigsDto dto)
     {
         var suspConfig = dto.Configs.FirstOrDefault(c => c.Tipo == NotifType.SUSPENSION);
@@ -47,12 +55,20 @@ public class NotifConfigController : BaseController
 
 
     [HttpGet("templates")]
+        // F9 — Fijada explícitamente. Antes heredaba la de la clase; el
+        // [Authorize] del método no la reemplaza, se exigen los dos (D-25),
+        // así que ampliar el piso del controlador la abriría sin decidirlo.
+    [Authorize(Policy = "AdminOnly")]
     public async Task<IActionResult> GetPlantillas(
         [FromQuery] TemplateCategory? categoria = null,
         [FromQuery] HsmStatus? hsmStatus = null)
         => OkResult(await _svc.GetPlantillasAsync(categoria, hsmStatus));
 
     [HttpPut("templates/{tipo}")]
+        // F9 — Fijada explícitamente. Antes heredaba la de la clase; el
+        // [Authorize] del método no la reemplaza, se exigen los dos (D-25),
+        // así que ampliar el piso del controlador la abriría sin decidirlo.
+    [Authorize(Policy = "AdminOnly")]
     public async Task<IActionResult> UpdatePlantilla(
         string tipo, [FromBody] UpdateNotifTemplateDto dto)
     {
@@ -71,6 +87,10 @@ public class NotifConfigController : BaseController
     }
 
     [HttpPatch("templates/{tipo}/hsm")]
+        // F9 — Fijada explícitamente. Antes heredaba la de la clase; el
+        // [Authorize] del método no la reemplaza, se exigen los dos (D-25),
+        // así que ampliar el piso del controlador la abriría sin decidirlo.
+    [Authorize(Policy = "AdminOnly")]
     public async Task<IActionResult> UpdateHsmStatus(string tipo, [FromBody] UpdateHsmStatusDto dto)
     {
         if (!Enum.TryParse<NotifType>(tipo, out var notifTipo))
@@ -84,6 +104,10 @@ public class NotifConfigController : BaseController
     }
 
     [HttpPost("templates/{tipo}/restore")]
+        // F9 — Fijada explícitamente. Antes heredaba la de la clase; el
+        // [Authorize] del método no la reemplaza, se exigen los dos (D-25),
+        // así que ampliar el piso del controlador la abriría sin decidirlo.
+    [Authorize(Policy = "AdminOnly")]
     public async Task<IActionResult> RestoreDefault(string tipo)
     {
         if (!Enum.TryParse<NotifType>(tipo, out var notifTipo))
@@ -98,6 +122,10 @@ public class NotifConfigController : BaseController
 
 
     [HttpGet("variables")]
+        // F9 — Fijada explícitamente. Antes heredaba la de la clase; el
+        // [Authorize] del método no la reemplaza, se exigen los dos (D-25),
+        // así que ampliar el piso del controlador la abriría sin decidirlo.
+    [Authorize(Policy = "AdminOnly")]
     public IActionResult GetVariables()
         => OkResult(_svc.GetVariablesDisponibles()
             .Select(kv => new { Variable = kv.Key, Descripcion = kv.Value })
@@ -105,15 +133,27 @@ public class NotifConfigController : BaseController
 
 
     [HttpPost("templates/preview")]
+        // F9 — Fijada explícitamente. Antes heredaba la de la clase; el
+        // [Authorize] del método no la reemplaza, se exigen los dos (D-25),
+        // así que ampliar el piso del controlador la abriría sin decidirlo.
+    [Authorize(Policy = "AdminOnly")]
     public async Task<IActionResult> PreviewPlantilla([FromBody] PreviewRequestDto dto)
         => OkResult(await _svc.PreviewPlantillaAsync(dto.Texto, dto.ClienteId));
 
 
     [HttpGet("segments")]
+        // F9 — Fijada explícitamente. Antes heredaba la de la clase; el
+        // [Authorize] del método no la reemplaza, se exigen los dos (D-25),
+        // así que ampliar el piso del controlador la abriría sin decidirlo.
+    [Authorize(Policy = "AdminOnly")]
     public async Task<IActionResult> GetSegments()
         => OkResult(await _svc.GetSegmentsAsync());
 
     [HttpGet("segments/{id:guid}")]
+        // F9 — Fijada explícitamente. Antes heredaba la de la clase; el
+        // [Authorize] del método no la reemplaza, se exigen los dos (D-25),
+        // así que ampliar el piso del controlador la abriría sin decidirlo.
+    [Authorize(Policy = "AdminOnly")]
     public async Task<IActionResult> GetSegmentById(Guid id)
     {
         var result = await _svc.GetSegmentByIdAsync(id);
@@ -121,6 +161,10 @@ public class NotifConfigController : BaseController
     }
 
     [HttpPost("segments")]
+        // F9 — Fijada explícitamente. Antes heredaba la de la clase; el
+        // [Authorize] del método no la reemplaza, se exigen los dos (D-25),
+        // así que ampliar el piso del controlador la abriría sin decidirlo.
+    [Authorize(Policy = "AdminOnly")]
     public async Task<IActionResult> CreateSegment([FromBody] CreateOrUpdateSegmentDto dto)
     {
         var result = await _svc.CreateSegmentAsync(dto, CurrentUserId, CurrentUserName, ClientIp);
@@ -128,6 +172,10 @@ public class NotifConfigController : BaseController
     }
 
     [HttpPut("segments/{id:guid}")]
+        // F9 — Fijada explícitamente. Antes heredaba la de la clase; el
+        // [Authorize] del método no la reemplaza, se exigen los dos (D-25),
+        // así que ampliar el piso del controlador la abriría sin decidirlo.
+    [Authorize(Policy = "AdminOnly")]
     public async Task<IActionResult> UpdateSegment(Guid id, [FromBody] CreateOrUpdateSegmentDto dto)
     {
         var result = await _svc.UpdateSegmentAsync(id, dto, CurrentUserId, CurrentUserName, ClientIp);
@@ -135,6 +183,10 @@ public class NotifConfigController : BaseController
     }
 
     [HttpDelete("segments/{id:guid}")]
+        // F9 — Fijada explícitamente. Antes heredaba la de la clase; el
+        // [Authorize] del método no la reemplaza, se exigen los dos (D-25),
+        // así que ampliar el piso del controlador la abriría sin decidirlo.
+    [Authorize(Policy = "AdminOnly")]
     public async Task<IActionResult> DeleteSegment(Guid id)
     {
         var result = await _svc.DeleteSegmentAsync(id, CurrentUserId, CurrentUserName, ClientIp);
@@ -142,11 +194,19 @@ public class NotifConfigController : BaseController
     }
 
     [HttpPost("segments/preview")]
+        // F9 — Fijada explícitamente. Antes heredaba la de la clase; el
+        // [Authorize] del método no la reemplaza, se exigen los dos (D-25),
+        // así que ampliar el piso del controlador la abriría sin decidirlo.
+    [Authorize(Policy = "AdminOnly")]
     public async Task<IActionResult> PreviewSegment([FromBody] CreateOrUpdateSegmentDto dto)
         => OkResult(await _svc.PreviewSegmentAsync(dto));
 
 
     [HttpPost("send-masivo")]
+        // F9 — Fijada explícitamente. Antes heredaba la de la clase; el
+        // [Authorize] del método no la reemplaza, se exigen los dos (D-25),
+        // así que ampliar el piso del controlador la abriría sin decidirlo.
+    [Authorize(Policy = "AdminOnly")]
     public async Task<IActionResult> BulkSend([FromBody] BulkSendDto dto)
     {
         var result = await _envioSvc.BulkSendAsync(dto, CurrentUserId, CurrentUserName, ClientIp);

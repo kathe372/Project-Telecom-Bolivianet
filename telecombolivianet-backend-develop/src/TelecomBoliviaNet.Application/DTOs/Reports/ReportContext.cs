@@ -1,5 +1,6 @@
-using TelecomBoliviaNet.Application.DTOs.Admin;
+﻿using TelecomBoliviaNet.Application.DTOs.Admin;
 using TelecomBoliviaNet.Application.Utils;
+using TelecomBoliviaNet.Application.Constants;
 
 namespace TelecomBoliviaNet.Application.DTOs.Reports;
 
@@ -34,7 +35,7 @@ public record ReportContext(
         string?           subtitle    = null,
         string?           periodLabel = null,
         IReadOnlyList<ReportFilter>? filters = null,
-        string            generatedBy = "—",
+        string            generatedBy = AppConstants.Display.SinDato,
         int               recordCount = 0)
         => new(company, title, subtitle, periodLabel,
                filters ?? Array.Empty<ReportFilter>(),

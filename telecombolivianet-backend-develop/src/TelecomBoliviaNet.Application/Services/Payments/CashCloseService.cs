@@ -9,6 +9,7 @@ using TelecomBoliviaNet.Domain.Entities.Clients;
 using TelecomBoliviaNet.Domain.Entities.Payments;
 using TelecomBoliviaNet.Domain.Interfaces;
 using TelecomBoliviaNet.Domain.Primitives;
+using TelecomBoliviaNet.Application.Constants;
 
 namespace TelecomBoliviaNet.Application.Services.Payments;
 
@@ -138,7 +139,7 @@ public class CashCloseService : ICashCloseService
             .ToList();
 
         return new CashCloseDto(
-            cc.Id, cc.UserId, cc.User?.FullName ?? "—",
+            cc.Id, cc.UserId, cc.User?.FullName ?? AppConstants.Display.SinDato,
             cc.StartedAt, cc.ClosedAt,
             resumen.Sum(r => r.Total), resumen.Sum(r => r.Count), cc.PagosRechazados,
             detalle, IsClosed: false, cc.PdfPath);
@@ -146,7 +147,7 @@ public class CashCloseService : ICashCloseService
 
     private static CashCloseDto MapClosedDto(
         CashClose cc, decimal total, int pagos, List<CashCloseChannelDetail> detalle) =>
-        new(cc.Id, cc.UserId, cc.User?.FullName ?? "—",
+        new(cc.Id, cc.UserId, cc.User?.FullName ?? AppConstants.Display.SinDato,
             cc.StartedAt, cc.ClosedAt,
             total, pagos, cc.PagosRechazados,
             detalle, IsClosed: true, cc.PdfPath);

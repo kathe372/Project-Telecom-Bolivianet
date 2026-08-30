@@ -1,4 +1,4 @@
-using MediatR;
+﻿using MediatR;
 using NetTopologySuite.Geometries;
 using TelecomBoliviaNet.Application.DTOs.Coverage;
 using TelecomBoliviaNet.Domain.Entities.Admin;
@@ -18,7 +18,7 @@ public record CheckCoverageQuery(
 public class CheckCoverageQueryHandler
     : IRequestHandler<CheckCoverageQuery, Result<CheckCoverageResponseDto>>
 {
-    // BUG-05: techo global por defecto cuando falta el SystemConfig. 50 m era
+    // Techo global por defecto cuando falta el SystemConfig. 50 m era
     // demasiado restrictivo (recortaba cajas viables); 250 es un techo comercial
     // realista. El alcance real de cada caja lo aporta DistanciaMaxCableMetros.
     private const int DefaultMaxCableMeters = 250;
@@ -26,7 +26,7 @@ public class CheckCoverageQueryHandler
     // Mejora 2: factor de sinuosidad por defecto (cable ~40% más largo que la recta).
     private const double DefaultSinuosityFactor = 1.4;
 
-    // PASO 11: umbral por defecto de "cerca del borde" — decisión de negocio (2026-08-02).
+    // Umbral por defecto de "cerca del borde" — decisión de negocio (2026-08-02).
     private const int DefaultNearZoneBoundaryMeters = 200;
 
     private readonly ICoverageQueryService                _coverage;

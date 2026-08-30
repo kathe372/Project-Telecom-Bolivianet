@@ -1,4 +1,4 @@
-using MediatR;
+﻿using MediatR;
 using TelecomBoliviaNet.Domain.Entities.Admin;
 using TelecomBoliviaNet.Domain.Entities.Tickets;
 using TelecomBoliviaNet.Domain.Interfaces;
@@ -6,7 +6,7 @@ using TelecomBoliviaNet.Domain.Interfaces;
 namespace TelecomBoliviaNet.Application.Tickets.Queries;
 
 /// <summary>
-/// PASO 16 Fase A: cuenta tickets PREVIOS de un cliente, de un tipo específico,
+/// cuenta tickets PREVIOS de un cliente, de un tipo específico,
 /// dentro de una ventana de días — usado por el chatbot para decidir si un
 /// reclamo es "recurrente" (mismo tipo de problema, ya reportado antes) y debe
 /// saltar el autodiagnóstico. El filtro va en la consulta, no se trae la lista

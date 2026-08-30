@@ -1,4 +1,4 @@
-using System.Linq;
+﻿using System.Linq;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Npgsql;
@@ -11,7 +11,7 @@ internal static class EscalationReasons
     public const string ZoneInExpansion    = "ZONE_IN_EXPANSION";
     public const string NoCapacity         = "NO_CAPACITY";
     public const string NoBoxesRegistered  = "NO_BOXES_REGISTERED";
-    // PASO 11: punto fuera de cualquier zona, pero a <= nearZoneBoundaryMeters
+    // Punto fuera de cualquier zona, pero a <= nearZoneBoundaryMeters
     // de la más cercana — antes cualquier punto fuera de zona (5m o 50km) caía
     // igual en NoCoverage.
     public const string NearZoneBoundary   = "NEAR_ZONE_BOUNDARY";
@@ -39,7 +39,7 @@ public class CoverageQueryService : ICoverageQueryService
         var zone = await QueryZoneAsync(conn, lat, lng, ct);
         if (zone is null)
         {
-            // PASO 11: el punto no cae dentro de ninguna zona — antes de rendirse
+            // El punto no cae dentro de ninguna zona — antes de rendirse
             // con NoCoverage, ver si hay una zona activa cerca del borde.
             if (nearZoneBoundaryMeters > 0)
             {
@@ -100,7 +100,7 @@ public class CoverageQueryService : ICoverageQueryService
             reader.GetString(3));
     }
 
-    // PASO 11: distancia a la zona ACTIVA/EN EXPANSIÓN más cercana, para el
+    // Distancia a la zona ACTIVA/EN EXPANSIÓN más cercana, para el
     // punto que no cayó dentro de ninguna (ST_Contains ya descartó ese caso).
     // Mismo casteo ::geography que ya usa QueryAvailableBoxesAsync para que
     // ST_Distance devuelva metros reales, no grados.
@@ -130,7 +130,7 @@ public class CoverageQueryService : ICoverageQueryService
         NpgsqlConnection conn, double lat, double lng, Guid zoneId,
         int maxMeters, double sinuosityFactor, CancellationToken ct)
     {
-        // BUG-05: el alcance de cable se toma de la propia caja (DistanciaMaxCableMetros),
+        // El alcance de cable se toma de la propia caja (DistanciaMaxCableMetros),
         // con @maxMetros (config global) como TECHO. LEAST ignora NULL en PostgreSQL.
         // Mejora 2 (sinuosidad): la distancia RECTA disponible = alcance / @sinuosity,
         // porque el cable va por calles/postes (más largo que la línea recta).

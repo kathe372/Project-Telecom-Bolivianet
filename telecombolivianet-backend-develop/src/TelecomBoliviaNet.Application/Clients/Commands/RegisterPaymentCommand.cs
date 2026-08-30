@@ -1,4 +1,4 @@
-using MediatR;
+﻿using MediatR;
 using TelecomBoliviaNet.Application.DTOs.Clients;
 using TelecomBoliviaNet.Application.Interfaces;
 using TelecomBoliviaNet.Domain.Primitives;
@@ -16,7 +16,7 @@ public record RegisterPaymentCommand(
 /// <summary>
 /// Registra un pago desde el módulo de Clientes (<c>POST /api/clients/{id}/payments</c>).
 ///
-/// BUG-08 (auditoría 2026-08-06): este handler tenía su PROPIA implementación del cobro, con
+/// Este handler tenía su PROPIA implementación del cobro, con
 /// reglas incompatibles con las del módulo de Pagos:
 ///   • marcaba TODA factura seleccionada como <c>Pagada</c> sin comparar el importe — registrar
 ///     Bs. 10 sobre una factura de Bs. 200 la dejaba saldada;

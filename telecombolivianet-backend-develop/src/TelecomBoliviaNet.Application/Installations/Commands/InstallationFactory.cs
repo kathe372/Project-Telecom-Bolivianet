@@ -1,4 +1,4 @@
-using TelecomBoliviaNet.Application.DTOs.Installations;
+﻿using TelecomBoliviaNet.Application.DTOs.Installations;
 using TelecomBoliviaNet.Domain.Entities.Installations;
 using TelecomBoliviaNet.Domain.Entities.Tickets;
 
@@ -11,7 +11,7 @@ public static class InstallationFactory
         CreateInstallationValidated  data)
         => new()
         {
-            // BUG-14: prospecto sin registrar -> ClientId null (Guid.Empty violaba el FK)
+            // Prospecto sin registrar -> ClientId null (Guid.Empty violaba el FK)
             ClientId       = cmd.Dto.ClienteId,
             // Identidad del prospecto solo cuando no hay cliente registrado
             ProspectName   = cmd.Dto.ClienteId.HasValue ? null : cmd.Dto.ProspectName?.Trim(),

@@ -74,7 +74,7 @@ public class SendInstallationRemindersJob : BackgroundService
 
                 if (!sent)
                 {
-                    // BUG-14: NotifOutbox exige ClientId (FK NOT NULL) — para
+                    // NotifOutbox exige ClientId (FK NOT NULL) — para
                     // prospectos no hay fallback; se reintenta la próxima hora.
                     if (inst.Client is null) continue;
 

@@ -140,7 +140,7 @@ public class TicketsController : BaseController
     public async Task<IActionResult> GetByClient(Guid clientId)
         => OkResult(await _mediator.Send(new GetTicketsByClientQuery(clientId)));
 
-    // PASO 16 Fase A: conteo de tickets previos del mismo tipo, dentro de una
+    // Conteo de tickets previos del mismo tipo, dentro de una
     // ventana de días — usado por el chatbot para detectar reclamos recurrentes.
     [HttpGet("by-client/{clientId:guid}/recent-count")]
     [Authorize(Policy = "AdminOrTecnicoOrBot")]
@@ -226,7 +226,7 @@ public class TicketsController : BaseController
         return r.IsSuccess ? OkResult(r.Value) : BadRequestResult(r.ErrorMessage);
     }
 
-    // PASO 16 Fase C: slots disponibles para agendar una visita técnica sobre
+    // Slots disponibles para agendar una visita técnica sobre
     // este ticket — usado por el chatbot antes de llamar POST {id}/visits.
     // Sin override: hereda AdminOrTecnico del controller, misma política que
     // ya usa la cuenta de servicio del chatbot para crear tickets (Create) y

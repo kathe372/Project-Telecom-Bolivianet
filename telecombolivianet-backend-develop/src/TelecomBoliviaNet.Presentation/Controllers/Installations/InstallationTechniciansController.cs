@@ -1,4 +1,4 @@
-using MediatR;
+﻿using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using TelecomBoliviaNet.Application.DTOs.Installations;
@@ -16,6 +16,10 @@ public class InstallationTechniciansController : BaseController
     public InstallationTechniciansController(IMediator mediator) => _mediator = mediator;
 
     [HttpPost]
+        // F9 — Fijada explícitamente. Antes heredaba la de la clase; el
+        // [Authorize] del método no la reemplaza, se exigen los dos (D-25),
+        // así que ampliar el piso del controlador la abriría sin decidirlo.
+    [Authorize(Policy = "AdminOrTecnico")]
     public async Task<IActionResult> AssignTechnicians(
         Guid              instalacionId,
         [FromBody] AssignTechniciansDto dto)

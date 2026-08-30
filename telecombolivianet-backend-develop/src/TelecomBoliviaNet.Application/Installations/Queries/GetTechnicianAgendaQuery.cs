@@ -4,6 +4,7 @@ using TelecomBoliviaNet.Domain.Entities.Auth;
 using TelecomBoliviaNet.Domain.Entities.Installations;
 using TelecomBoliviaNet.Domain.Entities.Tickets;
 using TelecomBoliviaNet.Domain.Interfaces;
+using TelecomBoliviaNet.Application.Constants;
 
 namespace TelecomBoliviaNet.Application.Installations.Queries;
 
@@ -67,7 +68,7 @@ public class GetTechnicianAgendaHandler
             return new AgendaItemDto(
                 Id:            v.Id,
                 Type:          t.Type.ToString(),
-                ClienteNombre: t.Client?.FullName ?? t.ProspectName ?? "—",
+                ClienteNombre: t.Client?.FullName ?? t.ProspectName ?? AppConstants.Display.SinDato,
                 Fecha:         v.ScheduledAt.ToString("yyyy-MM-dd"),
                 HoraInicio:    v.ScheduledAt.ToString("HH:mm"),
                 HoraFin:       v.ScheduledAt.AddMinutes(v.DuracionMin).ToString("HH:mm"),

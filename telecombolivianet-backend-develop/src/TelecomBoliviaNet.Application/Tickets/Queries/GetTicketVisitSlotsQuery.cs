@@ -12,7 +12,7 @@ using TelecomBoliviaNet.Domain.Services;
 namespace TelecomBoliviaNet.Application.Tickets.Queries;
 
 /// <summary>
-/// PASO 16 Fase C: slots disponibles para agendar una visita técnica sobre un
+/// slots disponibles para agendar una visita técnica sobre un
 /// ticket ya abierto. Réplica de GetInstallationSlotsHandler — mismo cálculo de
 /// capacidad (ISlotCalculatorService ya suma instalaciones Y visitas de soporte
 /// en la misma franja, así que no hay riesgo de doble reserva), pero la duración

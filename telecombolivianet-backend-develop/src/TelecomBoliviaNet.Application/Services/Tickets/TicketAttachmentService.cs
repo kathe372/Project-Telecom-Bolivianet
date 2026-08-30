@@ -4,6 +4,7 @@ using TelecomBoliviaNet.Application.Services.Auth;
 using TelecomBoliviaNet.Domain.Entities.Tickets;
 using TelecomBoliviaNet.Domain.Interfaces;
 using TelecomBoliviaNet.Domain.Primitives;
+using TelecomBoliviaNet.Application.Constants;
 #pragma warning disable CS8981
 using r = TelecomBoliviaNet.Domain.Primitives.Result;
 #pragma warning restore CS8981
@@ -112,7 +113,7 @@ public class TicketAttachmentService
 
     private static TicketAttachmentDto ToDto(TicketAttachment a, string? overrideName = null) =>
         new(a.Id, a.FileName, a.ContentType, a.FileSizeBytes, a.Descripcion,
-            a.StoragePath, overrideName ?? a.SubidoPor?.FullName ?? "—", a.SubidoAt);
+            a.StoragePath, overrideName ?? a.SubidoPor?.FullName ?? AppConstants.Display.SinDato, a.SubidoAt);
 }
 
 public record TicketAttachmentDto(

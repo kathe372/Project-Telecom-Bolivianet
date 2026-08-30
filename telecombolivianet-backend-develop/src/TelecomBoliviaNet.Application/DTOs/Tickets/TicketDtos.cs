@@ -1,4 +1,4 @@
-namespace TelecomBoliviaNet.Application.DTOs.Tickets;
+﻿namespace TelecomBoliviaNet.Application.DTOs.Tickets;
 
 public class TicketFilterDto
 {
@@ -230,7 +230,7 @@ public record SlaPlanDto(
     int FirstResponseMinutes, int ResolutionMinutes, string Schedule, bool IsActive
 );
 
-// PASO 16 Fase C: slot disponible para agendar una visita técnica de soporte.
+// Slot disponible para agendar una visita técnica de soporte.
 // Mismo shape que SlotDisponibleDto (instalaciones) más WithinSla, que no aplica
 // a instalaciones pero sí importa acá: el chatbot debe poder avisar si el slot
 // elegido cae antes o después del vencimiento del SLA del ticket.

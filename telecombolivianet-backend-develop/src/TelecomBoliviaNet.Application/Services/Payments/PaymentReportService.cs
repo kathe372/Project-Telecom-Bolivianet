@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using TelecomBoliviaNet.Application.DTOs.Payments;
 using TelecomBoliviaNet.Application.Interfaces;
@@ -6,6 +6,7 @@ using TelecomBoliviaNet.Domain.Entities.Auth;
 using TelecomBoliviaNet.Domain.Entities.Clients;
 using TelecomBoliviaNet.Domain.Interfaces;
 using TelecomBoliviaNet.Domain.Primitives;
+using TelecomBoliviaNet.Application.Constants;
 
 namespace TelecomBoliviaNet.Application.Services.Payments;
 
@@ -136,8 +137,8 @@ public class PaymentReportService : IPaymentReportService
                 : null,
             payments.Select(p => new PaymentReportRowDto(
                 p.Id,
-                p.Client?.TbnCode   ?? "—",
-                p.Client?.FullName  ?? "—",
+                p.Client?.TbnCode   ?? AppConstants.Display.SinDato,
+                p.Client?.FullName  ?? AppConstants.Display.SinDato,
                 p.Amount,
                 p.Method.ToString(),
                 p.Bank,

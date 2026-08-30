@@ -1,6 +1,7 @@
-using TelecomBoliviaNet.Application.DTOs.Invoices;
+﻿using TelecomBoliviaNet.Application.DTOs.Invoices;
 using TelecomBoliviaNet.Domain.Entities.Clients;
 using TelecomBoliviaNet.Domain.Services;
+using TelecomBoliviaNet.Application.Constants;
 
 namespace TelecomBoliviaNet.Application.Services.Invoices;
 
@@ -42,9 +43,9 @@ internal static class InvoiceProjections
         return new InvoiceDetailDto(
             i.Id,
             i.ClientId,
-            i.Client?.TbnCode    ?? "—",
-            i.Client?.FullName   ?? "—",
-            i.Client?.Plan?.Name ?? "—",
+            i.Client?.TbnCode    ?? AppConstants.Display.SinDato,
+            i.Client?.FullName   ?? AppConstants.Display.SinDato,
+            i.Client?.Plan?.Name ?? AppConstants.Display.SinDato,
             i.Type.ToString(),
             i.Status.ToString(),
             i.Year, i.Month, i.Amount,

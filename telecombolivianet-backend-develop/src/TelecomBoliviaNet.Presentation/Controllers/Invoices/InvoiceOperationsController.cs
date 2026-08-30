@@ -27,6 +27,10 @@ public class InvoiceOperationsController : BaseController
     }
 
     [HttpPost("extraordinary")]
+        // F9 — Fijada explícitamente. Antes heredaba la de la clase; el
+        // [Authorize] del método no la reemplaza, se exigen los dos (D-25),
+        // así que ampliar el piso del controlador la abriría sin decidirlo.
+    [Authorize(Policy = "AdminOnly")]
     public async Task<IActionResult> CreateExtraordinary([FromBody] CreateExtraordinaryInvoiceDto dto)
     {
         var result = await _extraordinary.CreateExtraordinaryAsync(dto, CurrentUserId, CurrentUserName, ClientIp);
@@ -36,6 +40,10 @@ public class InvoiceOperationsController : BaseController
     }
 
     [HttpPatch("{id:guid}/estado")]
+        // F9 — Fijada explícitamente. Antes heredaba la de la clase; el
+        // [Authorize] del método no la reemplaza, se exigen los dos (D-25),
+        // así que ampliar el piso del controlador la abriría sin decidirlo.
+    [Authorize(Policy = "AdminOnly")]
     public async Task<IActionResult> TransicionarEstado(Guid id, [FromBody] TransicionEstadoDto dto)
     {
         if (!Enum.TryParse<InvoiceStatus>(dto.NuevoEstado, out var estado))
@@ -48,6 +56,10 @@ public class InvoiceOperationsController : BaseController
     }
 
     [HttpPost("marcar-enviadas")]
+        // F9 — Fijada explícitamente. Antes heredaba la de la clase; el
+        // [Authorize] del método no la reemplaza, se exigen los dos (D-25),
+        // así que ampliar el piso del controlador la abriría sin decidirlo.
+    [Authorize(Policy = "AdminOnly")]
     public async Task<IActionResult> MarkSent([FromBody] MarkSentDto dto)
     {
         var count = await _operations.MarkInvoicesSentAsync(dto.Year, dto.Month, CurrentUserId, CurrentUserName, ClientIp);
@@ -55,6 +67,10 @@ public class InvoiceOperationsController : BaseController
     }
 
     [HttpPost("{id:guid}/aplicar-credito")]
+        // F9 — Fijada explícitamente. Antes heredaba la de la clase; el
+        // [Authorize] del método no la reemplaza, se exigen los dos (D-25),
+        // así que ampliar el piso del controlador la abriría sin decidirlo.
+    [Authorize(Policy = "AdminOnly")]
     public async Task<IActionResult> ApplyCredit(Guid id)
     {
         var result = await _credit.ApplyCreditAsync(id, CurrentUserId, CurrentUserName, ClientIp);

@@ -1,9 +1,10 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using TelecomBoliviaNet.Application.DTOs.Invoices;
 using TelecomBoliviaNet.Application.Interfaces;
 using TelecomBoliviaNet.Domain.Entities.Clients;
 using TelecomBoliviaNet.Domain.Interfaces;
 using TelecomBoliviaNet.Domain.Services;
+using TelecomBoliviaNet.Application.Constants;
 
 namespace TelecomBoliviaNet.Application.Services.Invoices;
 
@@ -105,7 +106,7 @@ public class InvoiceReportService : IInvoiceReportService
 
             rows.Add(new AnnualReportRowDto(
                 client.Id, client.TbnCode, client.FullName,
-                client.Zone, client.Plan?.Name ?? "—", cells));
+                client.Zone, client.Plan?.Name ?? AppConstants.Display.SinDato, cells));
         }
 
         return rows;
@@ -156,13 +157,13 @@ public class InvoiceReportService : IInvoiceReportService
                     client.TbnCode,
                     client.FullName,
                     client.Zone,
-                    client.Plan?.Name ?? "—",
+                    client.Plan?.Name ?? AppConstants.Display.SinDato,
                     facturas.Count,
                     facturas.Sum(i => i.Outstanding),
                     facturas.Max(i => i.DueDate),
                     facturas.Select(i => new InvoicePendienteDto(
                         i.Id,
-                        i.InvoiceNumber ?? "—",
+                        i.InvoiceNumber ?? AppConstants.Display.SinDato,
                         InvoiceStatusResolver.EffectiveName(i, DateTime.UtcNow),
                         i.Year, i.Month,
                         i.Amount, i.DueDate, i.Notes)));
@@ -216,9 +217,9 @@ public class InvoiceReportService : IInvoiceReportService
                 : 0;
             return new InvoiceLegacyListItemDto(
                 i.Id,
-                i.Client?.TbnCode    ?? "—",
-                i.Client?.FullName   ?? "—",
-                i.Client?.Plan?.Name ?? i.PlanName ?? "—",
+                i.Client?.TbnCode    ?? AppConstants.Display.SinDato,
+                i.Client?.FullName   ?? AppConstants.Display.SinDato,
+                i.Client?.Plan?.Name ?? i.PlanName ?? AppConstants.Display.SinDato,
                 i.Amount,
                 i.Type.ToString(),
                 i.Status.ToString(),
@@ -227,7 +228,7 @@ public class InvoiceReportService : IInvoiceReportService
                 i.Notes,
                 payment?.Id,   // el mismo pago vigente, no el primer enlace sin filtrar
                 i.InvoiceNumber,
-                i.Client?.Zone ?? "—",
+                i.Client?.Zone ?? AppConstants.Display.SinDato,
                 i.AmountPaid,
                 payment?.PaidAt,
                 daysOverdue);

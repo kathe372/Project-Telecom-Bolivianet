@@ -1,10 +1,10 @@
-using MediatR;
+﻿using MediatR;
 using TelecomBoliviaNet.Domain.Interfaces;
 
 namespace TelecomBoliviaNet.Application.Clients.Queries;
 
 /// <summary>
-/// PASO 5 (2026-08): el chatbot necesita explicar por qué el monto de una
+/// El chatbot necesita explicar por qué el monto de una
 /// factura cambió respecto a otra — la causa más común en la práctica es un
 /// cambio de plan entre un mes y otro. `Plan.Name`/`Amount` NO sirve para
 /// esto porque reflejan el plan ACTUAL del cliente, no el que tenía vigente

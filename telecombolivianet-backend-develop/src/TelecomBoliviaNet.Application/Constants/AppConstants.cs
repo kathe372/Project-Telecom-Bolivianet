@@ -2,6 +2,21 @@
 
 public static class AppConstants
 {
+    public static class Display
+    {
+        /// <summary>
+        /// Lo que se muestra donde no hay dato: sin plan, sin técnico asignado,
+        /// sin factura enlazada. Vale igual para la grilla, el CSV y el PDF.
+        /// </summary>
+        /// <remarks>
+        /// Existía como <c>Billing.FallbackPlanName</c> y no la usaba nadie: con
+        /// ese nombre, y dentro de Billing, no parecía aplicable al nombre de un
+        /// técnico o de un cliente. Así que el guión se escribió a mano 50 veces
+        /// en 23 archivos. Una constante que nadie encuentra no es una constante.
+        /// </remarks>
+        public const string SinDato = "—";
+    }
+
     public static class Cache
     {
         public const string TokenBlacklistPrefix    = "tbl:";
@@ -12,9 +27,6 @@ public static class AppConstants
     public static class Billing
     {
         public const int    DecimalPlaces    = 2;
-
-        /// <summary>Texto que se muestra cuando un dato no está disponible.</summary>
-        public const string FallbackPlanName = "—";
 
         /// <summary>
         /// Día del mes en que vence la mensualidad.

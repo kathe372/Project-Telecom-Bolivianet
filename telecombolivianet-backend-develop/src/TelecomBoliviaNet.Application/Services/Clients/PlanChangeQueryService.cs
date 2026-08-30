@@ -1,6 +1,7 @@
-using TelecomBoliviaNet.Application.DTOs.Clients;
+﻿using TelecomBoliviaNet.Application.DTOs.Clients;
 using TelecomBoliviaNet.Application.Interfaces;
 using TelecomBoliviaNet.Domain.Interfaces;
+using TelecomBoliviaNet.Application.Constants;
 
 namespace TelecomBoliviaNet.Application.Services.Clients;
 
@@ -22,10 +23,10 @@ public class PlanChangeQueryService : IPlanChangeQueryService
 
         return items.Select(r => new PlanChangeItemDto(
             r.Id,
-            ClienteTbn:    r.Client?.TbnCode  ?? "—",
-            ClienteNombre: r.Client?.FullName  ?? "—",
-            PlanAnterior:  r.OldPlan?.Name     ?? "—",
-            PlanNuevo:     r.NewPlan?.Name      ?? "—",
+            ClienteTbn:    r.Client?.TbnCode  ?? AppConstants.Display.SinDato,
+            ClienteNombre: r.Client?.FullName  ?? AppConstants.Display.SinDato,
+            PlanAnterior:  r.OldPlan?.Name     ?? AppConstants.Display.SinDato,
+            PlanNuevo:     r.NewPlan?.Name      ?? AppConstants.Display.SinDato,
             FechaEfectiva: r.EffectiveDate.ToString("yyyy-MM-dd"),
             Notes:         r.Notes,
             SolicitadoAt:  r.RequestedAt.ToString("O")
@@ -38,8 +39,8 @@ public class PlanChangeQueryService : IPlanChangeQueryService
 
         return items.Select(r => new PlanChangeHistoryDto(
             r.Id,
-            PlanAnterior:   r.OldPlan?.Name ?? "—",
-            PlanNuevo:      r.NewPlan?.Name  ?? "—",
+            PlanAnterior:   r.OldPlan?.Name ?? AppConstants.Display.SinDato,
+            PlanNuevo:      r.NewPlan?.Name  ?? AppConstants.Display.SinDato,
             Status:         r.Status.ToString(),
             FechaEfectiva:  r.EffectiveDate.ToString("yyyy-MM-dd"),
             MidMonthChange: r.MidMonthChange,

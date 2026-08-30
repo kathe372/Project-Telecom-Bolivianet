@@ -1,8 +1,9 @@
-using Microsoft.Extensions.Logging;
+﻿using Microsoft.Extensions.Logging;
 using TelecomBoliviaNet.Application.Interfaces;
 using TelecomBoliviaNet.Domain.Entities.Clients;
 using TelecomBoliviaNet.Domain.Entities.Notifications;
 using TelecomBoliviaNet.Domain.Entities.Plans;
+using TelecomBoliviaNet.Application.Constants;
 
 namespace TelecomBoliviaNet.Application.Services.Clients;
 
@@ -100,7 +101,7 @@ public class PlanChangeNotifier
             new Dictionary<string, string>
             {
                 ["nombre"]  = client.FullName,
-                ["plan"]    = newPlanName ?? "—",
+                ["plan"]    = newPlanName ?? AppConstants.Display.SinDato,
                 ["motivo"]  = motivo,
                 ["empresa"] = "TelecomBoliviaNet",
             });

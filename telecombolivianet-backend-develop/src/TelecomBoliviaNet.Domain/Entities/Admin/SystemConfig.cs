@@ -1,4 +1,4 @@
-using TelecomBoliviaNet.Domain.Primitives;
+﻿using TelecomBoliviaNet.Domain.Primitives;
 
 namespace TelecomBoliviaNet.Domain.Entities.Admin;
 
@@ -53,7 +53,7 @@ public static class SystemConfigKeys
     public const string CoveragePortReservationTtlHours = "Coverage:PortReservationTtlHours";
     public const string CoverageGeocodeMinConfidence     = "Coverage:GeocodeMinConfidence";
 
-    /// <summary>PASO 11: umbral de "cerca del borde" — un punto fuera de cualquier
+    /// <summary>Umbral de "cerca del borde" — un punto fuera de cualquier
     /// zona pero a esta distancia o menos de la más cercana escala a un agente
     /// (NEAR_ZONE_BOUNDARY) en vez de responder NO_COVERAGE directo.</summary>
     public const string CoverageNearZoneBoundaryMeters = "Coverage:NearZoneBoundaryMeters";
@@ -64,12 +64,12 @@ public static class SystemConfigKeys
     public const string InstallationSlotBufferMinutes = "Installations:SlotBufferMinutes";
     public const string InstallationCancelMinHours    = "Installations:CancelMinHours";
 
-    /// <summary>PASO 16 Fase A: ventana de días para considerar un reclamo técnico
+    /// <summary>Ventana de días para considerar un reclamo técnico
     /// "recurrente" (mismo Type, mismo cliente) — dispara saltar el autodiagnóstico
     /// y ofrecer visita directo.</summary>
     public const string SupportRecurrentWindowDays = "Support:RecurrentWindowDays";
 
-    /// <summary>PASO 16 Fase C: duración (minutos) de una visita técnica de soporte
+    /// <summary>Duración (minutos) de una visita técnica de soporte
     /// para el cálculo de slots — los tickets no tienen Plan.DuracionInstalacionMin
     /// como las instalaciones, así que necesitan su propio default configurable.</summary>
     public const string TicketVisitDurationMinutes = "Support:VisitDurationMinutes";

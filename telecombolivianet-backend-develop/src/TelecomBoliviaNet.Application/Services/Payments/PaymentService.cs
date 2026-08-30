@@ -193,7 +193,7 @@ public class PaymentService : IPaymentService
                 "Error al anular el pago. Los datos no fueron modificados.");
         }
 
-        var tbn = payment.Client?.TbnCode ?? "—";
+        var tbn = payment.Client?.TbnCode ?? AppConstants.Display.SinDato;
 
         await _audit.LogAsync("Pagos", "PAYMENT_VOIDED",
             $"Pago anulado: {tbn} — {justification}",

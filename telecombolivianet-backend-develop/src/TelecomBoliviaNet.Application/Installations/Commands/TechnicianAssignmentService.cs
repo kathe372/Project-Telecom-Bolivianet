@@ -1,4 +1,4 @@
-using TelecomBoliviaNet.Application.DTOs.Installations;
+﻿using TelecomBoliviaNet.Application.DTOs.Installations;
 using TelecomBoliviaNet.Application.Interfaces;
 using TelecomBoliviaNet.Domain.Entities.Auth;
 using TelecomBoliviaNet.Domain.Entities.Installations;
@@ -53,7 +53,7 @@ public class TechnicianAssignmentService
     {
         if (_notifPublisher is null) return;
 
-        // BUG-14: instalación de PROSPECTO (sin ClientId) — NotifOutbox exige un
+        // Instalación de PROSPECTO (sin ClientId) — NotifOutbox exige un
         // cliente registrado (FK NOT NULL), así que no hay notificación que emitir.
         if (inst.ClientId is not Guid clienteId) return;
 

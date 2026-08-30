@@ -177,15 +177,53 @@ Build limpio (0 warnings), `SystemConfigKeys.TokenCleanupLastRunDay` existe, `Di
 | **F1** Higiene sin riesgo | ✅ código · ⛔ despliegue | Su criterio incluye "desplegado y verificado" |
 | **F2** Coordinación de jobs | ✅ código · ⛔ producción | Falta observar un ciclo diario real |
 | **F3** Contrato de repositorio | ✅ salvo D-13 | Prioridad alta cerrada (5/5); quedan 24 de prioridad media |
-| **F4** Sacar EF de Application | ✅ | 77 → 29 archivos · ADR-001 |
+| **F4** Sacar EF de Application | ✅ | 77 → 34 archivos · ADR-001 (la tabla decía 29; el commit decía 34) |
 | **F5** Partir servicios grandes | ✅ parcial argumentado | 9 → 2 clases > 250 líneas; el límite de 6 deps no se alcanzó |
-| **F6** Idioma inglés | ⬜ | No empezada. La de mayor radio de impacto |
+| **F6** Idioma inglés | ⬜ etapas 1–5 · ✅ 6.5 y 6.6 | El renombrado no empezó; sí la limpieza que no depende de él |
 | **F7** Performance | ✅ lo medible sin producción · ⛔ el resto | 7.4 y 7.5 hechos; 7.1/7.2/7.3 exigen medir en producción |
 | **F8** Endurecer seguridad | ✅ código · ⛔ un UPDATE en producción | Rol Bot creado y probado; falta mover la fila del bot tras verificar por WhatsApp |
-| **F9** Convención y documentación | ⬜ | No empezada |
+| **F9** Convención y documentación | ✅ | CONVENCIONES.md, ADR-003, 5 puertas de calidad en el CI |
 
 **Nada de esto está desplegado.** Se acumulan ~39 commits desde el último
 despliegue a producción (build del 2026-08-07).
+
+**F9 — hecha. Las puertas del CI son lo que impide que esto se deshaga solo.**
+
+Cinco: paridad de esquema, el contrato del chatbot, ninguna acción hereda su
+política (D-25), un techo de dependencia de EF y otro de clases grandes. Los
+números son los **medidos**, no objetivos: existen para que no se pueda empeorar
+sin que alguien lo decida.
+
+Al fijar el techo de EF apareció que la cifra de F4 estaba mal en dos sentidos.
+La tabla decía 29 y el commit decía 34; y hoy son 38 — **sin que nadie haya
+añadido una sola dependencia nueva**: las 9 de diferencia son clases que salieron
+de partir servicios en F5, cada una con su propio `using`. La métrica cuenta
+archivos, así que castiga una mejora. Queda escrito junto al techo.
+
+**F6 — solo lo que no depende del renombrado.**
+
+Las etapas 1 a 5 no se empezaron: son 3–4 semanas, tocan tres repositorios y
+~90 archivos fuera del backend, y las etapas 3 y 4 exigen desplegar frontend y
+chatbot y dejarlos correr una semana en producción. La decisión y el diseño de la
+transición quedan en **ADR-003**, con su estado real: aceptado, no implementado.
+
+Sí se hicieron los dos pasos que no dependen de ella:
+
+- **6.5** — 27 etiquetas colgantes (`PASO 11:`, `BUG-05:`) quitadas de los
+  comentarios, conservando la explicación. Ninguna resolvía a nada: no existe en
+  el repositorio ningún documento donde buscar "PASO 11". Las `D-NN` se quedan,
+  que ésas sí llevan a `BUGS_DESCUBIERTOS.md`. **No se inventó un CHANGELOG.md**:
+  no tengo el historial real, y un changelog reconstruido a partir de fragmentos
+  de comentarios sería un documento en el que no se puede confiar.
+- **6.6** — El guión de "sin dato" estaba escrito a mano 50 veces en 23 archivos
+  mientras existía una constante sin usar. Se llamaba `Billing.FallbackPlanName`,
+  y ése era el motivo: con ese nombre nadie la aplicaba al nombre de un técnico.
+  Ahora es `Display.SinDato`.
+
+**Lo que NO se cumplió de F6:** el criterio "cero funciones > 50 líneas". Hay
+**72**. Refactorizarlas es un trabajo aparte, con su propio riesgo, y no se hace
+de pasada. En su lugar queda `scripts/funciones-largas.py` como trinquete en el
+CI: la cuenta puede bajar, no subir.
 
 **F8 — el paso 8.1 era mucho más grande de lo que decía el plan.**
 

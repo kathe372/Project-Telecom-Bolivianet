@@ -1,4 +1,4 @@
-using TelecomBoliviaNet.Application.Interfaces;
+﻿using TelecomBoliviaNet.Application.Interfaces;
 using TelecomBoliviaNet.Application.Services.Auth;
 using TelecomBoliviaNet.Application.Services.Tickets;
 using TelecomBoliviaNet.Domain.Entities.Clients;
@@ -6,6 +6,7 @@ using TelecomBoliviaNet.Domain.Entities.Plans;
 using TelecomBoliviaNet.Domain.Entities.Tickets;
 using TelecomBoliviaNet.Domain.Interfaces;
 using TelecomBoliviaNet.Domain.Primitives;
+using TelecomBoliviaNet.Application.Constants;
 
 namespace TelecomBoliviaNet.Application.Services.Clients;
 
@@ -82,7 +83,7 @@ public class PlanChangeRequestService : IPlanChangeRequestService
             Status          = TicketStatus.Abierto,
             Origin          = TicketOrigin.Manual,
             Description     = $"Solicitud de cambio de plan:\n" +
-                              $"Plan actual: {client.Plan?.Name ?? "—"}\n" +
+                              $"Plan actual: {client.Plan?.Name ?? AppConstants.Display.SinDato}\n" +
                               $"Plan nuevo:  {newPlan.Name}\n" +
                               $"Fecha efectiva: {effectiveDate:dd/MM/yyyy}\n" +
                               (notes is not null ? $"Notas: {notes}" : ""),

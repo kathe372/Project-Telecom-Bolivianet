@@ -11,7 +11,7 @@ public class ScheduleRepository : GenericRepository<BusinessSchedule>, ISchedule
 
     public ScheduleRepository(AppDbContext db) : base(db) => _db = db;
 
-    // PASO 15 (2026-08): antes solo exigía IsActive — con más de un
+    // Antes solo exigía IsActive — con más de un
     // BusinessSchedule activo, resolvía "el primero por orden de inserción",
     // que podía no coincidir con el que ya usa el cálculo de SLA
     // (TicketHelper.GetDueDateFromSlaAsync, que sí exige IsDefault && IsActive).

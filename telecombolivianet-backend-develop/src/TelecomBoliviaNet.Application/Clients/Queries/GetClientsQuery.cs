@@ -1,8 +1,9 @@
-using MediatR;
+﻿using MediatR;
 using TelecomBoliviaNet.Application.Clients.Helpers;
 using TelecomBoliviaNet.Application.DTOs.Clients;
 using TelecomBoliviaNet.Application.DTOs.Common;
 using TelecomBoliviaNet.Domain.Interfaces;
+using TelecomBoliviaNet.Application.Constants;
 
 namespace TelecomBoliviaNet.Application.Clients.Queries;
 
@@ -36,7 +37,7 @@ public class GetClientsHandler : IRequestHandler<GetClientsQuery, PagedResult<Cl
 
         var items = clients.Select(c => new ClientListItemDto(
             c.Id, c.TbnCode, c.FullName, c.Zone,
-            c.PhoneMain, c.Plan?.Name ?? "—",
+            c.PhoneMain, c.Plan?.Name ?? AppConstants.Display.SinDato,
             c.HasTvCable, c.Status.ToString(),
             ClientProjectionHelpers.CalcDebt(c.Invoices),
             ClientProjectionHelpers.CalcPendingMonths(c.Invoices),

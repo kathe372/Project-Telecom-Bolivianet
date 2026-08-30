@@ -1,9 +1,10 @@
-using MediatR;
+﻿using MediatR;
 using TelecomBoliviaNet.Application.Clients.Helpers;
 using TelecomBoliviaNet.Application.DTOs.Clients;
 using TelecomBoliviaNet.Application.DTOs.Plans;
 using TelecomBoliviaNet.Domain.Entities.Clients;
 using TelecomBoliviaNet.Domain.Interfaces;
+using TelecomBoliviaNet.Application.Constants;
 
 namespace TelecomBoliviaNet.Application.Clients.Queries;
 
@@ -47,7 +48,7 @@ public class GetClientByIdHandler : IRequestHandler<GetClientByIdQuery, ClientDe
             c.PhoneMain, c.PhoneSecondary,
             c.Zone, c.Street, c.LocationRef, c.GpsLatitude, c.GpsLongitude,
             c.WinboxNumber, c.InstallationDate,
-            c.InstalledByUserId, c.InstalledBy?.FullName ?? "—",
+            c.InstalledByUserId, c.InstalledBy?.FullName ?? AppConstants.Display.SinDato,
             c.Plan is null ? null! : new PlanDto(c.Plan.Id, c.Plan.Name, c.Plan.SpeedMb,
                                                   c.Plan.MonthlyPrice, c.Plan.IsActive, c.Plan.DisplayLabel),
             c.HasTvCable, c.OnuSerialNumber,

@@ -1,4 +1,4 @@
-using TelecomBoliviaNet.Domain.Entities.Admin;
+﻿using TelecomBoliviaNet.Domain.Entities.Admin;
 using TelecomBoliviaNet.Domain.Entities.Coverage;
 using TelecomBoliviaNet.Domain.Entities.Installations;
 using TelecomBoliviaNet.Domain.Interfaces;
@@ -7,7 +7,7 @@ namespace TelecomBoliviaNet.Application.Coverage.Services;
 
 public class BoxReservationService : IBoxReservationService
 {
-    // BUG-05: alineado con CheckCoverageQueryHandler (techo global por defecto).
+    // Alineado con CheckCoverageQueryHandler (techo global por defecto).
     private const int DefaultMaxCableMeters = 250;
     // Mejora 2: alineado con CheckCoverageQueryHandler (sinuosidad por defecto).
     private const double DefaultSinuosityFactor = 1.4;
@@ -35,7 +35,7 @@ public class BoxReservationService : IBoxReservationService
             SystemConfigKeys.CoverageMaxCableDropMeters, DefaultMaxCableMeters);
         var sinuosity = await ReadSinuosityAsync();
 
-        // PASO 11: nearZoneBoundaryMeters=0 — esta llamada solo le importa si el
+        // NearZoneBoundaryMeters=0 — esta llamada solo le importa si el
         // punto está Confirmed o no (re-verificación justo antes de reservar un
         // puerto), no necesita distinguir NEAR_ZONE_BOUNDARY de NoCoverage.
         var check = await _coverage.CheckAsync(lat, lng, maxMeters, sinuosity, 0, ct);
