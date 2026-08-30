@@ -1,4 +1,5 @@
 ﻿using FluentAssertions;
+using TelecomBoliviaNet.Application.Tickets.Services;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
 using TelecomBoliviaNet.Application.DTOs.Tickets;
@@ -6,7 +7,6 @@ using TelecomBoliviaNet.Application.Interfaces;
 using TelecomBoliviaNet.Application.Services.Auth;
 using TelecomBoliviaNet.Application.Services.Tickets;
 using TelecomBoliviaNet.Application.Tickets.Commands;
-using TelecomBoliviaNet.Application.Tickets.Helpers;
 using TelecomBoliviaNet.Domain.Entities.Audit;
 using TelecomBoliviaNet.Domain.Entities.Auth;
 using TelecomBoliviaNet.Domain.Entities.Clients;
@@ -89,16 +89,16 @@ public class TicketServiceTests
         var notifRepo   = RepoMock.Empty<TicketNotification>();
         var scheduleRepo = SpecificRepoMock.Schedules();
 
-        var helper = new TicketHelper(
-            ticketRepo.Object, commentRepo.Object, workLogRepo.Object,
-            visitRepo.Object, slaPlanRepo.Object, notifRepo.Object,
-            scheduleRepo.Object, SpecificRepoMock.Installations().Object, MakeNotif().Object);
+        var helperDetalle = new TicketDetailBuilder(
+            ticketRepo.Object, commentRepo.Object, workLogRepo.Object, visitRepo.Object, SpecificRepoMock.Installations().Object);
+        var helperVencimiento = new TicketDueDateService(slaPlanRepo.Object, scheduleRepo.Object);
+        var helperAviso = new TicketAssignmentNotifier(notifRepo.Object, MakeNotif().Object);
 
         var balanceoSvc = new TicketBalancingService(ticketRepo.Object, userRepo.Object);
 
         var handler = new CreateTicketHandler(
             ticketRepo.Object, clientRepo.Object, userRepo.Object,
-            helper, MakeTicketNumSvc(), balanceoSvc, MakeAudit(),
+            helperDetalle, helperVencimiento, helperAviso, MakeTicketNumSvc(), balanceoSvc, MakeAudit(),
             new Mock<IInternalAlertService>().Object, MakeNotif().Object);
 
         return (handler, ticketRepo);
@@ -149,14 +149,14 @@ public class TicketServiceTests
         var notifRepo   = RepoMock.Empty<TicketNotification>();
         var scheduleRepo = SpecificRepoMock.Schedules();
 
-        var helper = new TicketHelper(
-            ticketRepo.Object, commentRepo.Object, workLogRepo.Object,
-            visitRepo.Object, slaPlanRepo.Object, notifRepo.Object,
-            scheduleRepo.Object, SpecificRepoMock.Installations().Object, MakeNotif().Object);
+        var helperDetalle = new TicketDetailBuilder(
+            ticketRepo.Object, commentRepo.Object, workLogRepo.Object, visitRepo.Object, SpecificRepoMock.Installations().Object);
+        var helperVencimiento = new TicketDueDateService(slaPlanRepo.Object, scheduleRepo.Object);
+        var helperAviso = new TicketAssignmentNotifier(notifRepo.Object, MakeNotif().Object);
 
         var handler = new CreateTicketHandler(
             ticketRepo.Object, clientRepo.Object, userRepo.Object,
-            helper, MakeTicketNumSvc(),
+            helperDetalle, helperVencimiento, helperAviso, MakeTicketNumSvc(),
             new TicketBalancingService(ticketRepo.Object, userRepo.Object),
             MakeAudit(), new Mock<IInternalAlertService>().Object, MakeNotif().Object);
 
@@ -274,14 +274,14 @@ public class TicketServiceTests
         var notifRepo   = RepoMock.Empty<TicketNotification>();
         var scheduleRepo = SpecificRepoMock.Schedules();
 
-        var helper = new TicketHelper(
-            ticketRepo.Object, commentRepo.Object, workLogRepo.Object,
-            visitRepo.Object, slaPlanRepo.Object, notifRepo.Object,
-            scheduleRepo.Object, SpecificRepoMock.Installations().Object, MakeNotif().Object);
+        var helperDetalle = new TicketDetailBuilder(
+            ticketRepo.Object, commentRepo.Object, workLogRepo.Object, visitRepo.Object, SpecificRepoMock.Installations().Object);
+        var helperVencimiento = new TicketDueDateService(slaPlanRepo.Object, scheduleRepo.Object);
+        var helperAviso = new TicketAssignmentNotifier(notifRepo.Object, MakeNotif().Object);
 
         var handler = new CreateTicketHandler(
             ticketRepo.Object, clientRepo.Object, userRepo.Object,
-            helper, MakeTicketNumSvc(),
+            helperDetalle, helperVencimiento, helperAviso, MakeTicketNumSvc(),
             new TicketBalancingService(ticketRepo.Object, userRepo.Object),
             MakeAudit(), new Mock<IInternalAlertService>().Object, MakeNotif().Object);
 

@@ -1,8 +1,8 @@
 ﻿using MediatR;
 using TelecomBoliviaNet.Application.DTOs.Tickets;
-using TelecomBoliviaNet.Application.Tickets.Helpers;
 using TelecomBoliviaNet.Domain.Entities.Tickets;
 using TelecomBoliviaNet.Domain.Interfaces;
+using TelecomBoliviaNet.Application.Tickets.Mapping;
 
 namespace TelecomBoliviaNet.Application.Tickets.Queries;
 
@@ -19,5 +19,5 @@ public class GetSlaPlansHandler : IRequestHandler<GetSlaPlansQuery, IEnumerable<
         // cuesta nada y evita arrastrar EF hasta el caso de uso.
         => (await _slaPlanRepo.ListAsync())
            .OrderBy(p => p.Priority)
-           .Select(TicketHelper.MapSlaPlan);
+           .Select(TicketMapper.ToSlaPlan);
 }

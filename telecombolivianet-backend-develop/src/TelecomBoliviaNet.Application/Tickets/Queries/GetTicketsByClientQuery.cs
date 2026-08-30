@@ -1,8 +1,8 @@
 ﻿using MediatR;
 using TelecomBoliviaNet.Application.DTOs.Tickets;
-using TelecomBoliviaNet.Application.Tickets.Helpers;
 using TelecomBoliviaNet.Domain.Entities.Tickets;
 using TelecomBoliviaNet.Domain.Interfaces;
+using TelecomBoliviaNet.Application.Tickets.Mapping;
 
 namespace TelecomBoliviaNet.Application.Tickets.Queries;
 
@@ -17,6 +17,6 @@ public class GetTicketsByClientHandler : IRequestHandler<GetTicketsByClientQuery
     public async Task<IEnumerable<TicketListItemDto>> Handle(GetTicketsByClientQuery q, CancellationToken ct)
     {
         var items = await _ticketRepo.GetForClientAsync(q.ClientId, ct);
-        return items.Select(TicketHelper.MapToListItem);
+        return items.Select(TicketMapper.ToListItem);
     }
 }

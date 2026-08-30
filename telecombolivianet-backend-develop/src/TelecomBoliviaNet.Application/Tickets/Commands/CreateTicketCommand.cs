@@ -1,15 +1,15 @@
-using MediatR;
+﻿using MediatR;
 using TelecomBoliviaNet.Application.DTOs.Tickets;
 using TelecomBoliviaNet.Application.Interfaces;
 using TelecomBoliviaNet.Application.Services.Auth;
 using TelecomBoliviaNet.Application.Services.Tickets;
-using TelecomBoliviaNet.Application.Tickets.Helpers;
 using TelecomBoliviaNet.Domain.Entities.Auth;
 using TelecomBoliviaNet.Domain.Entities.Clients;
 using TelecomBoliviaNet.Domain.Entities.Notifications;
 using TelecomBoliviaNet.Domain.Entities.Tickets;
 using TelecomBoliviaNet.Domain.Interfaces;
 using TelecomBoliviaNet.Domain.Primitives;
+using TelecomBoliviaNet.Application.Tickets.Services;
 
 namespace TelecomBoliviaNet.Application.Tickets.Commands;
 
@@ -25,7 +25,9 @@ public class CreateTicketHandler : IRequestHandler<CreateTicketCommand, Result<T
     private readonly IGenericRepository<SupportTicket> _ticketRepo;
     private readonly IGenericRepository<Client>        _clientRepo;
     private readonly IGenericRepository<UserSystem>    _userRepo;
-    private readonly TicketHelper                      _helper;
+    private readonly TicketDetailBuilder _detalle;
+    private readonly TicketDueDateService _vencimiento;
+    private readonly TicketAssignmentNotifier _avisoAsignacion;
     private readonly TicketNumberService               _ticketNumSvc;
     private readonly TicketBalancingService             _balanceoSvc;
     private readonly AuditService                      _audit;
@@ -36,7 +38,9 @@ public class CreateTicketHandler : IRequestHandler<CreateTicketCommand, Result<T
         IGenericRepository<SupportTicket> ticketRepo,
         IGenericRepository<Client>        clientRepo,
         IGenericRepository<UserSystem>    userRepo,
-        TicketHelper                      helper,
+        TicketDetailBuilder detalle,
+        TicketDueDateService vencimiento,
+        TicketAssignmentNotifier avisoAsignacion,
         TicketNumberService               ticketNumSvc,
         TicketBalancingService             balanceoSvc,
         AuditService                      audit,
@@ -46,7 +50,9 @@ public class CreateTicketHandler : IRequestHandler<CreateTicketCommand, Result<T
         _ticketRepo     = ticketRepo;
         _clientRepo     = clientRepo;
         _userRepo       = userRepo;
-        _helper         = helper;
+        _detalle = detalle;
+        _vencimiento = vencimiento;
+        _avisoAsignacion = avisoAsignacion;
         _ticketNumSvc   = ticketNumSvc;
         _balanceoSvc    = balanceoSvc;
         _audit          = audit;
@@ -81,7 +87,7 @@ public class CreateTicketHandler : IRequestHandler<CreateTicketCommand, Result<T
 
         DateTime? dueDate = dto.SlaDurationHours.HasValue
             ? DateTime.UtcNow.AddHours(dto.SlaDurationHours.Value)
-            : await _helper.GetDueDateFromSlaAsync(priority);
+            : await _vencimiento.CalcularAsync(priority);
 
         var ticketNumber = await _ticketNumSvc.NextAsync();
 
@@ -132,7 +138,7 @@ public class CreateTicketHandler : IRequestHandler<CreateTicketCommand, Result<T
 
         string? waWarning = null;
         if (assignedUser is not null)
-            waWarning = await _helper.SendNotificationAsync(ticket, assignedUser, client);
+            waWarning = await _avisoAsignacion.NotificarAsync(ticket, assignedUser, client);
 
         var clientLabel = client is not null ? $" — {client.TbnCode}" : "";
         await _alertSvc.CreateForRoleAsync(
@@ -159,7 +165,7 @@ public class CreateTicketHandler : IRequestHandler<CreateTicketCommand, Result<T
                 referenciaId: ticket.Id);
         }
 
-        var detail = await _helper.BuildDetailAsync(ticket.Id);
+        var detail = await _detalle.ConstruirAsync(ticket.Id);
         if (detail is null) return Result<TicketDetailDto>.Failure("Ticket no encontrado.");
         return Result<TicketDetailDto>.Success(detail with { WhatsAppWarning = waWarning });
     }

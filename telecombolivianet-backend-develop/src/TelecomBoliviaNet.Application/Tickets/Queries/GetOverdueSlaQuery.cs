@@ -1,8 +1,8 @@
 ﻿using MediatR;
 using TelecomBoliviaNet.Application.DTOs.Tickets;
-using TelecomBoliviaNet.Application.Tickets.Helpers;
 using TelecomBoliviaNet.Domain.Entities.Tickets;
 using TelecomBoliviaNet.Domain.Interfaces;
+using TelecomBoliviaNet.Application.Tickets.Mapping;
 
 namespace TelecomBoliviaNet.Application.Tickets.Queries;
 
@@ -17,7 +17,7 @@ public class GetOverdueSlaHandler : IRequestHandler<GetOverdueSlaQuery, IEnumera
     public async Task<IEnumerable<TicketListItemDto>> Handle(GetOverdueSlaQuery _, CancellationToken ct)
     {
         var items = await _ticketRepo.GetOverdueSlaAsync(DateTime.UtcNow, ct: ct);
-        return items.Select(TicketHelper.MapToListItem);
+        return items.Select(TicketMapper.ToListItem);
     }
 }
 
@@ -34,6 +34,6 @@ public class GetSlaReportHandler : IRequestHandler<GetSlaReportQuery, IEnumerabl
     {
         var items = await _ticketRepo.GetOverdueSlaAsync(
             DateTime.UtcNow, q.Desde, q.Hasta, q.Tecnico, ct);
-        return items.Select(TicketHelper.MapToListItem);
+        return items.Select(TicketMapper.ToListItem);
     }
 }

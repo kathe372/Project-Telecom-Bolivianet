@@ -35,7 +35,7 @@ using TelecomBoliviaNet.Domain.Entities.Plans;
 
 using TelecomBoliviaNet.Application.DTOs.Tickets;
 using TelecomBoliviaNet.Application.Services.Tickets;
-using TelecomBoliviaNet.Application.Tickets.Helpers;
+using TelecomBoliviaNet.Application.Tickets.Services;
 using TelecomBoliviaNet.Application.Validators.Tickets;
 
 
@@ -244,7 +244,13 @@ public static class DependencyInjection
         services.AddScoped<IExportService, ExportService>();
         services.AddScoped<ICompanyProfileService, CompanyProfileService>();
 
-        services.AddScoped<TicketHelper>();
+        // E-01 — TicketHelper hacía cinco cosas sin relación entre sí (cargar,
+        // componer el DTO, calcular el vencimiento por SLA, notificar y mapear) y
+        // sus 9 dependencias eran la suma de esos cinco trabajos. Partido en tres
+        // colaboradores con nombre propio; el mapeo no necesita ninguno.
+        services.AddScoped<TicketDetailBuilder>();
+        services.AddScoped<TicketDueDateService>();
+        services.AddScoped<TicketAssignmentNotifier>();
         services.AddScoped<IBusinessScheduleService, BusinessScheduleService>();
         services.AddHostedService<SlaAlertJob>();
         services.AddHostedService<AutoCloseTicketJob>();

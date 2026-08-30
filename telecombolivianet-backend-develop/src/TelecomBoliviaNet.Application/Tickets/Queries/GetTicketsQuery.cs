@@ -1,9 +1,9 @@
 ﻿using MediatR;
 using TelecomBoliviaNet.Application.DTOs.Common;
 using TelecomBoliviaNet.Application.DTOs.Tickets;
-using TelecomBoliviaNet.Application.Tickets.Helpers;
 using TelecomBoliviaNet.Domain.Entities.Tickets;
 using TelecomBoliviaNet.Domain.Interfaces;
+using TelecomBoliviaNet.Application.Tickets.Mapping;
 
 namespace TelecomBoliviaNet.Application.Tickets.Queries;
 
@@ -34,6 +34,6 @@ public class GetTicketsHandler : IRequestHandler<GetTicketsQuery, PagedResult<Ti
             PageSize:         f.PageSize), ct);
 
         return new PagedResult<TicketListItemDto>(
-            items.Select(TicketHelper.MapToListItem), total, f.PageNumber, f.PageSize);
+            items.Select(TicketMapper.ToListItem), total, f.PageNumber, f.PageSize);
     }
 }

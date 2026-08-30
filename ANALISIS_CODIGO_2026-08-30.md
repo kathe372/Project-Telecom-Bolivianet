@@ -142,7 +142,7 @@ la otra) y espera hasta 2 s a que publique el año antes de seguir. No se bloque
 indefinidamente: pasado el margen continúa, porque emitir un número del rango viejo
 es molesto pero no rompe nada, mientras que colgar la facturación sí.
 
-## E-01 · `TicketHelper` hace cinco cosas y su nombre no dice ninguna
+## E-01 · `TicketHelper` hace cinco cosas y su nombre no dice ninguna — **CORREGIDO**
 
 `Tickets/Helpers/TicketHelper.cs` — 199 líneas, **9 dependencias, 7 miembros
 públicos**.
@@ -162,9 +162,30 @@ Nada de eso tiene que ver entre sí, y "Helper" es precisamente el nombre que se
 pone a una clase cuando no se sabe qué es. Sus 9 dependencias son la suma de cinco
 trabajos distintos, no el coste de uno complejo.
 
-**Arreglo:** partir en `TicketDetailBuilder`, `TicketNotifier` y `TicketMapper`
-—el proyecto ya tiene convención de `*Mapper` estático— y llevar el cálculo de
-vencimiento junto a `Domain/Services/SlaCalculator`, donde ya vive esa regla.
+**Corregido (2026-08-30).** Partido en cuatro, y `TicketHelper` eliminado:
+
+| Clase | Líneas | Deps | Públicos | Qué hace |
+|---|---:|---:|---:|---|
+| `TicketDetailBuilder` | 76 | 5 | 3 | carga el ticket y compone su ficha |
+| `TicketAssignmentNotifier` | 81 | 2 | 2 | avisa por WhatsApp al técnico asignado |
+| `TicketDueDateService` | 38 | 2 | 2 | cuándo vence, según el plan de SLA |
+| `TicketMapper` | 28 | **0** | 3 | entidad → DTO, estático |
+
+**Lo que de verdad cambió** no es un número, es quién pide qué. Antes
+`CloseTicketCommand` recibía un cajón de 9 dependencias para hacer una sola cosa:
+cargar un ticket. Ahora declara `TicketDetailBuilder` y nada más.
+`GetTicketByIdQuery`, igual. `UpdateTicketCommand` pide dos. `AssignTicketCommand`,
+otras dos. Cada caso de uso dice lo que usa.
+
+**Y una cifra que NO mejoró, dicha tal cual:** las clases de Application con más
+de 6 dependencias siguen siendo **16**, y `CreateTicketHandler` subió de 9 a **11**
+—recibe tres colaboradores donde antes recibía uno—.
+
+Es el mismo efecto que ya apareció en F5 con el recuento de archivos con EF:
+**partir un cajón de sastre empeora la métrica mientras mejora el diseño**. Y
+refuerza justo lo que dice E-02: el número de dependencias está midiendo lo que no
+es. Para los handlers que quedan en 9–11, la respuesta no es seguir partiendo,
+es sacar las transversales del constructor.
 
 ## E-02 · La regla de "máximo 6 dependencias" está midiendo lo que no es
 
@@ -442,7 +463,7 @@ renombrado masivo.
 | 3 | **M-01** tests HTTP de los roles humanos | ✅ **hecho** | medio día |
 | 4 | **P-01** el N+1 del dashboard | ✅ **hecho** | 1 hora |
 | 5 | **E-03** validación en un filtro | ✅ **hecho** | medio día |
-| 6 | **E-01** partir `TicketHelper` | El único SRP roto de verdad | medio día |
+| 6 | **E-01** partir `TicketHelper` | ✅ **hecho** | medio día |
 | 7 | **E-02** `AuditBehavior` | Toca 57 clases: hacerlo con el resto en verde | 1 día |
 | 8 | **E-04** transiciones en 3 entidades | Cierra la puerta por la que volvería D-17 | 1 día |
 | 9 | **E-05** el orquestador del chatbot | Mayor radio; termina una tubería ya empezada | 2-3 días |

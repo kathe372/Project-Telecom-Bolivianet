@@ -1,10 +1,10 @@
 ﻿using MediatR;
 using TelecomBoliviaNet.Application.DTOs.Tickets;
 using TelecomBoliviaNet.Application.Services.Auth;
-using TelecomBoliviaNet.Application.Tickets.Helpers;
 using TelecomBoliviaNet.Domain.Entities.Tickets;
 using TelecomBoliviaNet.Domain.Interfaces;
 using TelecomBoliviaNet.Domain.Primitives;
+using TelecomBoliviaNet.Application.Tickets.Services;
 
 namespace TelecomBoliviaNet.Application.Tickets.Commands;
 
@@ -19,24 +19,24 @@ public class CloseTicketHandler : IRequestHandler<CloseTicketCommand, Result<Tic
 {
     private readonly IGenericRepository<SupportTicket> _ticketRepo;
     private readonly IGenericRepository<TicketComment> _commentRepo;
-    private readonly TicketHelper                      _helper;
+    private readonly TicketDetailBuilder _detalle;
     private readonly AuditService                      _audit;
 
     public CloseTicketHandler(
         IGenericRepository<SupportTicket> ticketRepo,
         IGenericRepository<TicketComment> commentRepo,
-        TicketHelper                      helper,
+        TicketDetailBuilder detalle,
         AuditService                      audit)
     {
         _ticketRepo  = ticketRepo;
         _commentRepo = commentRepo;
-        _helper      = helper;
+        _detalle = detalle;
         _audit       = audit;
     }
 
     public async Task<Result<TicketDetailDto>> Handle(CloseTicketCommand cmd, CancellationToken ct)
     {
-        var ticket = await _helper.LoadAsync(cmd.TicketId);
+        var ticket = await _detalle.CargarAsync(cmd.TicketId);
         if (ticket is null) return Result<TicketDetailDto>.Failure("Ticket no encontrado.");
         if (ticket.Status == TicketStatus.Cerrado)
             return Result<TicketDetailDto>.Failure("El ticket ya está cerrado.");
@@ -63,7 +63,7 @@ public class CloseTicketHandler : IRequestHandler<CloseTicketCommand, Result<Tic
             $"Ticket '{ticket.Subject}' cerrado.",
             cmd.ActorId, cmd.ActorName, cmd.ClientIp, cmd.UserAgent, entityId: ticket.Id);
 
-        var detail = await _helper.BuildDetailAsync(cmd.TicketId);
+        var detail = await _detalle.ConstruirAsync(cmd.TicketId);
         if (detail is null) return Result<TicketDetailDto>.Failure("Ticket no encontrado.");
         return Result<TicketDetailDto>.Success(detail);
     }

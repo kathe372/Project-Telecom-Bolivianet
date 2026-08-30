@@ -2,12 +2,12 @@
 using TelecomBoliviaNet.Application.DTOs.Tickets;
 using TelecomBoliviaNet.Application.Interfaces;
 using TelecomBoliviaNet.Application.Services.Auth;
-using TelecomBoliviaNet.Application.Tickets.Helpers;
 using TelecomBoliviaNet.Domain.Entities.Auth;
 using TelecomBoliviaNet.Domain.Entities.Notifications;
 using TelecomBoliviaNet.Domain.Entities.Tickets;
 using TelecomBoliviaNet.Domain.Interfaces;
 using TelecomBoliviaNet.Domain.Primitives;
+using TelecomBoliviaNet.Application.Tickets.Services;
 
 namespace TelecomBoliviaNet.Application.Tickets.Commands;
 
@@ -24,7 +24,9 @@ public class ChangeTicketStatusHandler : IRequestHandler<ChangeTicketStatusComma
     private readonly IGenericRepository<SupportTicket> _ticketRepo;
     private readonly IGenericRepository<TicketComment> _commentRepo;
     private readonly IGenericRepository<UserSystem>    _userRepo;
-    private readonly TicketHelper                      _helper;
+    private readonly TicketDetailBuilder _detalle;
+    private readonly TicketDueDateService _vencimiento;
+    private readonly TicketAssignmentNotifier _avisoAsignacion;
     private readonly AuditService                      _audit;
     private readonly INotifPublisher                   _notifPublisher;
 
@@ -32,21 +34,25 @@ public class ChangeTicketStatusHandler : IRequestHandler<ChangeTicketStatusComma
         IGenericRepository<SupportTicket> ticketRepo,
         IGenericRepository<TicketComment> commentRepo,
         IGenericRepository<UserSystem>    userRepo,
-        TicketHelper                      helper,
+        TicketDetailBuilder detalle,
+        TicketDueDateService vencimiento,
+        TicketAssignmentNotifier avisoAsignacion,
         AuditService                      audit,
         INotifPublisher                   notifPublisher)
     {
         _ticketRepo     = ticketRepo;
         _commentRepo    = commentRepo;
         _userRepo       = userRepo;
-        _helper         = helper;
+        _detalle = detalle;
+        _vencimiento = vencimiento;
+        _avisoAsignacion = avisoAsignacion;
         _audit          = audit;
         _notifPublisher = notifPublisher;
     }
 
     public async Task<Result<TicketDetailDto>> Handle(ChangeTicketStatusCommand cmd, CancellationToken ct)
     {
-        var ticket = await _helper.LoadAsync(cmd.TicketId);
+        var ticket = await _detalle.CargarAsync(cmd.TicketId);
         if (ticket is null) return Result<TicketDetailDto>.Failure("Ticket no encontrado.");
         if (!Enum.TryParse<TicketStatus>(cmd.Dto.Status, out var newStatus))
             return Result<TicketDetailDto>.Failure("Estado inválido.");
@@ -111,13 +117,13 @@ public class ChangeTicketStatusHandler : IRequestHandler<ChangeTicketStatusComma
             ticket.ResolvedAt        = null;
             ticket.ResolutionMessage = null;
             ticket.SlaCompliant      = null;
-            ticket.DueDate           = await _helper.GetDueDateFromSlaAsync(ticket.Priority);
+            ticket.DueDate           = await _vencimiento.CalcularAsync(ticket.Priority);
 
             if (ticket.AssignedToUserId.HasValue && ticket.Client is not null)
             {
                 var tech = ticket.AssignedTo ?? await _userRepo.GetByIdAsync(ticket.AssignedToUserId.Value);
                 if (tech is not null)
-                    await _helper.SendNotificationAsync(ticket, tech, ticket.Client, reopen: true);
+                    await _avisoAsignacion.NotificarAsync(ticket, tech, ticket.Client, reopen: true);
             }
         }
 
@@ -171,7 +177,7 @@ public class ChangeTicketStatusHandler : IRequestHandler<ChangeTicketStatusComma
                 $"SLA reanudado — ticket '{ticket.Subject}': +{ticket.SlaTotalPausedMinutes}min acumulados.",
                 cmd.ActorId, cmd.ActorName, cmd.ClientIp, cmd.UserAgent, entityId: ticket.Id);
 
-        var detail = await _helper.BuildDetailAsync(cmd.TicketId);
+        var detail = await _detalle.ConstruirAsync(cmd.TicketId);
         if (detail is null) return Result<TicketDetailDto>.Failure("Ticket no encontrado.");
         return Result<TicketDetailDto>.Success(detail);
     }

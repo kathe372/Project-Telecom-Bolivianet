@@ -1,11 +1,11 @@
 ﻿using MediatR;
 using TelecomBoliviaNet.Application.DTOs.Tickets;
 using TelecomBoliviaNet.Application.Services.Auth;
-using TelecomBoliviaNet.Application.Tickets.Helpers;
 using TelecomBoliviaNet.Domain.Entities.Auth;
 using TelecomBoliviaNet.Domain.Entities.Tickets;
 using TelecomBoliviaNet.Domain.Interfaces;
 using TelecomBoliviaNet.Domain.Primitives;
+using TelecomBoliviaNet.Application.Tickets.Services;
 
 namespace TelecomBoliviaNet.Application.Tickets.Commands;
 
@@ -22,26 +22,29 @@ public class AssignTicketHandler : IRequestHandler<AssignTicketCommand, Result<T
     private readonly IGenericRepository<SupportTicket> _ticketRepo;
     private readonly IGenericRepository<UserSystem>    _userRepo;
     private readonly IGenericRepository<TicketComment> _commentRepo;
-    private readonly TicketHelper                      _helper;
+    private readonly TicketDetailBuilder _detalle;
+    private readonly TicketAssignmentNotifier _avisoAsignacion;
     private readonly AuditService                      _audit;
 
     public AssignTicketHandler(
         IGenericRepository<SupportTicket> ticketRepo,
         IGenericRepository<UserSystem>    userRepo,
         IGenericRepository<TicketComment> commentRepo,
-        TicketHelper                      helper,
+        TicketDetailBuilder detalle,
+        TicketAssignmentNotifier avisoAsignacion,
         AuditService                      audit)
     {
         _ticketRepo  = ticketRepo;
         _userRepo    = userRepo;
         _commentRepo = commentRepo;
-        _helper      = helper;
+        _detalle = detalle;
+        _avisoAsignacion = avisoAsignacion;
         _audit       = audit;
     }
 
     public async Task<Result<TicketDetailDto>> Handle(AssignTicketCommand cmd, CancellationToken ct)
     {
-        var ticket = await _helper.LoadAsync(cmd.TicketId);
+        var ticket = await _detalle.CargarAsync(cmd.TicketId);
         if (ticket is null) return Result<TicketDetailDto>.Failure("Ticket no encontrado.");
         if (ticket.Status == TicketStatus.Cerrado)
             return Result<TicketDetailDto>.Failure("No se puede asignar en ticket cerrado.");
@@ -77,9 +80,9 @@ public class AssignTicketHandler : IRequestHandler<AssignTicketCommand, Result<T
 
         string? waWarning = null;
         if (ticket.Client is not null)
-            waWarning = await _helper.SendNotificationAsync(ticket, tech, ticket.Client);
+            waWarning = await _avisoAsignacion.NotificarAsync(ticket, tech, ticket.Client);
 
-        var detail = await _helper.BuildDetailAsync(cmd.TicketId);
+        var detail = await _detalle.ConstruirAsync(cmd.TicketId);
         if (detail is null) return Result<TicketDetailDto>.Failure("Ticket no encontrado.");
         return Result<TicketDetailDto>.Success(detail with { WhatsAppWarning = waWarning });
     }

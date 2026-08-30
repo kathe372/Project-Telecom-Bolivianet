@@ -1,9 +1,9 @@
 ﻿using MediatR;
 using TelecomBoliviaNet.Application.DTOs.Tickets;
-using TelecomBoliviaNet.Application.Tickets.Helpers;
 using TelecomBoliviaNet.Domain.Entities.Tickets;
 using TelecomBoliviaNet.Domain.Interfaces;
 using TelecomBoliviaNet.Domain.Primitives;
+using TelecomBoliviaNet.Application.Tickets.Mapping;
 
 namespace TelecomBoliviaNet.Application.Tickets.Commands;
 
@@ -35,7 +35,7 @@ public class CreateSlaPlanHandler : IRequestHandler<CreateSlaPlanCommand, Result
         };
         await _slaPlanRepo.AddAsync(plan);
         await _slaPlanRepo.SaveChangesAsync();
-        return Result<SlaPlanDto>.Success(TicketHelper.MapSlaPlan(plan));
+        return Result<SlaPlanDto>.Success(TicketMapper.ToSlaPlan(plan));
     }
 }
 
@@ -66,7 +66,7 @@ public class UpdateSlaPlanHandler : IRequestHandler<UpdateSlaPlanCommand, Result
         }
         _slaPlanRepo.Update(plan);
         await _slaPlanRepo.SaveChangesAsync();
-        return Result<SlaPlanDto>.Success(TicketHelper.MapSlaPlan(plan));
+        return Result<SlaPlanDto>.Success(TicketMapper.ToSlaPlan(plan));
     }
 }
 
