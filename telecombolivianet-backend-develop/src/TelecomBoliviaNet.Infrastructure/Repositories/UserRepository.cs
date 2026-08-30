@@ -2,6 +2,7 @@
 using TelecomBoliviaNet.Domain.Entities.Auth;
 using TelecomBoliviaNet.Domain.Interfaces;
 using TelecomBoliviaNet.Infrastructure.Data;
+using TelecomBoliviaNet.Domain.Services;
 
 namespace TelecomBoliviaNet.Infrastructure.Repositories;
 
@@ -18,14 +19,16 @@ public class UserRepository : GenericRepository<UserSystem>, IUserRepository
             .FirstOrDefaultAsync(u => u.Id == id, ct);
 
     public async Task<(List<UserSystem> Items, int Total)> GetPagedAsync(
-        string   excludeEmail,
+        string?  correoDelBot,
         UserRole? role,
         string?  search,
         int      page,
         int      pageSize,
         CancellationToken ct = default)
     {
-        var q = _db.UserSystems.Where(u => u.Email != excludeEmail);
+        // S-01 — El chatbot no es una persona y no sale en el listado del panel.
+        // Quién es lo decide BotIdentity, no una comparación de correo suelta.
+        var q = _db.UserSystems.Where(BotIdentity.NoEsElChatbot(correoDelBot));
 
         if (role.HasValue) q = q.Where(u => u.Role == role.Value);
 

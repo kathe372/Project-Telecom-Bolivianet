@@ -1,4 +1,4 @@
-using MediatR;
+﻿using MediatR;
 using Microsoft.EntityFrameworkCore;
 using TelecomBoliviaNet.Application.Dashboard.Queries;
 using TelecomBoliviaNet.Application.DTOs.Dashboard;
@@ -90,17 +90,46 @@ public class GetCollectionsTrendHandler : IRequestHandler<GetCollectionsTrendQue
     {
         var nowBo   = NowBo();
         var culture = new System.Globalization.CultureInfo("es-BO");
-        var all     = new List<TendenciaMesDto>();
 
+        // P-01 — UNA consulta, no una por mes.
+        //
+        // Esto hacía un viaje a la base por cada mes del rango: doce para dibujar
+        // una gráfica, en la pantalla que más se abre. Ahora se agrupa en SQL.
+        //
+        // Se agrupa por el mes BOLIVIANO, no por el UTC: restar las 4 horas antes
+        // de leer año y mes es lo que evita que un cobro de las 21:00 del día 31
+        // —que en UTC ya es día 1 del mes siguiente— caiga en el mes equivocado.
+        var desde = StartOfMonthUtc(nowBo.AddMonths(-(q.Meses - 1)));
+        var hasta = StartOfMonthUtc(nowBo.AddMonths(1));
+
+        var porMes = await _db.Payments
+            .Where(x => !x.IsVoided && x.PaidAt >= desde && x.PaidAt < hasta)
+            .GroupBy(x => new
+            {
+                Anio = x.PaidAt.AddHours(-4).Year,
+                Mes  = x.PaidAt.AddHours(-4).Month,
+            })
+            .Select(g => new
+            {
+                g.Key.Anio,
+                g.Key.Mes,
+                Total    = g.Sum(x => x.Amount),
+                Cantidad = g.Count(),
+            })
+            .ToListAsync(ct);
+
+        // Los meses sin un solo cobro no aparecen en el agrupado; la gráfica los
+        // necesita igual, en cero.
+        var all = new List<TendenciaMesDto>();
         for (int i = q.Meses - 1; i >= 0; i--)
         {
             var fecha = nowBo.AddMonths(-i);
-            var ini   = StartOfMonthUtc(fecha);
-            var fin   = StartOfMonthUtc(new DateTime(fecha.Year, fecha.Month, 1).AddMonths(1));
-            var p     = await _db.Payments.Where(x => !x.IsVoided && x.PaidAt >= ini && x.PaidAt < fin)
-                .GroupBy(_ => 1).Select(g => new { T = g.Sum(x => x.Amount), C = g.Count() })
-                .FirstOrDefaultAsync(ct);
-            all.Add(new TendenciaMesDto(Cap(fecha.ToString("MMM", culture)), Cap(fecha.ToString("MMMM yyyy", culture)), p?.T ?? 0m, p?.C ?? 0));
+            var m     = porMes.FirstOrDefault(x => x.Anio == fecha.Year && x.Mes == fecha.Month);
+            all.Add(new TendenciaMesDto(
+                Cap(fecha.ToString("MMM", culture)),
+                Cap(fecha.ToString("MMMM yyyy", culture)),
+                m?.Total    ?? 0m,
+                m?.Cantidad ?? 0));
         }
 
         int first = all.FindIndex(m => m.Cantidad > 0);

@@ -63,7 +63,7 @@ en el cuerpo — que es la situación buena.
 
 Ordenados por lo que costaría que salieran mal.
 
-## S-01 · El bot se identifica por su dirección de correo
+## S-01 · El bot se identifica por su dirección de correo — **CORREGIDO**
 
 `TicketsController.cs:62`
 
@@ -94,11 +94,24 @@ Dos problemas encadenados:
    bloque del correo pasó a ser código muerto — pero código muerto que *parece*
    una regla de seguridad vigente.
 
-**Arreglo:** sustituir la comparación de correo por `CurrentUserRole == "Bot"`.
-Deja de depender de una cadena de configuración y dice lo que quiere decir. Va en
-el mismo paso que el `UPDATE` del rol que ya está pendiente en producción.
+**Corregido (2026-08-30).** La identificación vive ahora en
+`Domain/Services/BotIdentity`, una sola vez, y **manda el rol**.
 
-## S-02 · El generador de números se quedó fuera de la coordinación entre réplicas
+La comparación por correo sigue como **puente explícito y fechado**: el usuario que
+ya existe en producción todavía tiene rol `Tecnico`, así que quitarla antes de
+aplicar el `UPDATE` dejaría al chatbot sin acceso a tickets el mismo día del
+despliegue. Está marcada para borrarse con ese paso, y limitada a `Tecnico` — si
+alguien diera de alta a una persona con ese correo y otro rol, no heredaría nada.
+
+El segundo sitio también cae: `UserRepository.GetPagedAsync` filtraba el listado de
+usuarios comparando la misma cadena. Ahora usa `BotIdentity.NoEsElChatbot`, la forma
+traducible a SQL de la misma regla, atada a la de memoria por una tabla de casos.
+
+`TechnicianScopeIntegrationTests` lo fija por HTTP con un token de rol `Bot` y un
+correo **deliberadamente distinto** del configurado: si alguien devolviera la
+comparación por correo, ese test se pone rojo.
+
+## S-02 · El generador de números se quedó fuera de la coordinación entre réplicas — **CORREGIDO**
 
 `SequenceGenerator.cs:17`
 
@@ -121,8 +134,13 @@ dos facturas legales con el mismo número. El fallo es ruidoso. Pero es un fallo
 1 de enero, en el proceso de facturación, y por una causa que ya está resuelta a
 tres archivos de distancia.
 
-**Arreglo:** envolver el reinicio en `JobLease.TryRunExclusiveAsync`, que es
-exactamente para esto y ya está probado.
+**Corregido (2026-08-30).** El reinicio va dentro de `JobLease.TryRunExclusiveAsync`
+—la misma pieza que coordina los 11 jobs— con la clave `seq-reset:{configKey}`.
+
+Si otra réplica tiene el lease, ésta **no** reinicia (correcto: ya lo está haciendo
+la otra) y espera hasta 2 s a que publique el año antes de seguir. No se bloquea
+indefinidamente: pasado el margen continúa, porque emitir un número del rango viejo
+es molesto pero no rompe nada, mientras que colgar la facturación sí.
 
 ## E-01 · `TicketHelper` hace cinco cosas y su nombre no dice ninguna
 
@@ -206,7 +224,7 @@ Cada endpoint nuevo suma una dependencia al controlador y otra copia del bloque.
 copias, quita 8 dependencias de `TicketsController` y hace que validar deje de
 depender de que quien escriba el endpoint se acuerde.
 
-## M-01 · La lógica de autorización vive en el controlador y no la prueba nadie
+## M-01 · La lógica de autorización vive en el controlador y no la prueba nadie — **CORREGIDO**
 
 | Capa | Archivos de test que la tocan |
 |---|---:|
@@ -231,9 +249,15 @@ Es una **regla de autorización a nivel de dato** —impide que un técnico vea 
 carga de trabajo de sus compañeros manipulando el query string— y no tiene ningún
 test. Igual que `CanActOnTicketAsync`, que decide lo mismo en 9 endpoints.
 
-**Arreglo:** tests de integración por HTTP con un token de técnico, en la línea de
-`BotEndpointsIntegrationTests`. La infraestructura ya está montada; falta usarla
-para los roles humanos.
+**Corregido (2026-08-30).** `TechnicianScopeIntegrationTests`, 7 tests por HTTP que
+cubren las dos reglas: qué ve un técnico y sobre qué puede actuar. Incluye el caso
+que les da sentido —Ana pidiendo explícitamente `/api/tickets?assignedToId={id de
+Beto}` y no recibiendo nada— y la contraprueba de que un administrador sí los ve
+todos.
+
+**Se comprobó que sirven.** Pasar a la primera no demuestra nada, así que se
+desactivaron las dos reglas del controlador a propósito: **3 de los 7 se pusieron
+rojos**. Luego se restauró.
 
 ## E-04 · Modelo anémico: las reglas existen, pero nada obliga a pasar por ellas
 
@@ -264,7 +288,7 @@ tres entidades que más duelen —`Invoice.Saldar()`, `Ticket.Cerrar()`,
 `Installation.Cancelar()`— y `private set` en esos campos concretos. El compilador
 pasa a ser quien obliga.
 
-## P-01 · El dashboard hace una consulta por mes para dibujar una gráfica
+## P-01 · El dashboard hace una consulta por mes para dibujar una gráfica — **CORREGIDO**
 
 `DashboardReadHandlers.cs:100`
 
@@ -281,8 +305,17 @@ Doce meses son **doce viajes a la base** para una sola gráfica de la pantalla q
 más se abre. Es el único N+1 real que quedó en pie tras verificar los 13
 candidatos que marcó el detector.
 
-**Arreglo:** un `GroupBy` por año y mes en una consulta, y rellenar en memoria los
-meses sin cobros.
+**Corregido (2026-08-30).** Una sola consulta agrupada, y los meses sin cobros se
+rellenan en memoria.
+
+El detalle que importa: se agrupa por el mes **boliviano**, restando las 4 horas
+antes de leer año y mes. Un cobro de las 21:00 del día 31 ya es día 1 del mes
+siguiente en UTC, así que un `GroupBy` ingenuo lo habría contado en el mes
+equivocado — y la gráfica se habría seguido dibujando sin que nadie lo notara.
+
+`CollectionsTrendIntegrationTests` va contra PostgreSQL de verdad porque es lo único
+que demuestra las dos cosas que un test en memoria no ve: que EF traduce
+`PaidAt.AddHours(-4).Month` a SQL, y que el borde de mes cae donde debe.
 
 ## E-05 · El chatbot: 24 dependencias y un método de 348 líneas
 
@@ -297,7 +330,7 @@ de handlers — pero el núcleo de la conversación no pasó por ella.
 por decisión (audio, menú, elección de cuenta, procedimiento, CSAT). No es un
 rediseño: es terminar el que ya se empezó.
 
-## S-03 · Un `#pragma` que apaga el aviso de inyección SQL
+## S-03 · Un `#pragma` que apaga el aviso de inyección SQL — **CORREGIDO**
 
 `SequenceGenerator.cs:21`
 
@@ -312,8 +345,15 @@ await _db.Database.ExecuteSqlRawAsync(
 quien mañana quiera generar secuencias por sucursal y pase un nombre desde fuera no
 encontrará ninguna alarma, porque está apagada.
 
-**Arreglo:** una guarda de una línea —`if (!Regex.IsMatch(seqName, "^[a-z_]+$"))
-throw`— y el `#pragma` deja de ser una promesa a ciegas.
+**Corregido (2026-08-30), y el hallazgo estaba mal planteado.** La guarda **ya
+existía**: `ValidateSequenceName` es una lista blanca de cuatro nombres, más estricta
+que la expresión regular que yo proponía. Lo que fallaba es que solo se aplicaba en
+`NextVal`.
+
+`ResetIfYearChangedAsync` corre **antes** que `NextVal` y ejecutaba `CREATE SEQUENCE`
+y `ALTER SEQUENCE` sin pasar por ella. Ahora la lista blanca se aplica en las tres
+rutas. No hacía falta inventar una guarda nueva: hacía falta usar la que había en
+todas partes.
 
 ## C-01 · Nombres que prometen más de lo que hay
 
@@ -373,12 +413,12 @@ renombrado masivo.
 
 # Qué haría, y en qué orden
 
-| # | Hallazgo | Por qué primero | Esfuerzo |
+| # | Hallazgo | Estado | Esfuerzo |
 |---|---|---|---|
-| 1 | **S-01** rol en vez de correo | Va en el mismo paso que el `UPDATE` del rol, ya pendiente | 15 min |
-| 2 | **S-02** advisory lock en el generador | Falla el 1 de enero; la pieza ya existe | 30 min |
-| 3 | **M-01** tests HTTP de los roles humanos | Hay autorización sin probar | medio día |
-| 4 | **P-01** el N+1 del dashboard | Pantalla más abierta, arreglo contenido | 1 hora |
+| 1 | **S-01** rol en vez de correo | ✅ **hecho** | 15 min |
+| 2 | **S-02** advisory lock en el generador (+ **S-03**) | ✅ **hecho** | 30 min |
+| 3 | **M-01** tests HTTP de los roles humanos | ✅ **hecho** | medio día |
+| 4 | **P-01** el N+1 del dashboard | ✅ **hecho** | 1 hora |
 | 5 | **E-03** `ValidationBehavior` | Quita 17 copias y 8 dependencias | medio día |
 | 6 | **E-01** partir `TicketHelper` | El único SRP roto de verdad | medio día |
 | 7 | **E-02** `AuditBehavior` | Toca 57 clases: hacerlo con el resto en verde | 1 día |

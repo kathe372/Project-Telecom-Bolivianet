@@ -8,6 +8,8 @@ using TelecomBoliviaNet.Application.Tickets.Commands;
 using TelecomBoliviaNet.Application.Tickets.Queries;
 using TelecomBoliviaNet.Domain.Entities.Tickets;
 using TelecomBoliviaNet.Presentation.Controllers;
+using TelecomBoliviaNet.Domain.Services;
+using TelecomBoliviaNet.Domain.Entities.Auth;
 
 namespace TelecomBoliviaNet.Presentation.Controllers.Tickets;
 
@@ -57,14 +59,20 @@ public class TicketsController : BaseController
     }
 
     // Un técnico solo puede actuar sobre tickets asignados a él — salvo la
-    // cuenta de servicio del chatbot (mismo rol Tecnico, pero actúa en nombre
-    // de clientes vía WhatsApp sobre cualquier ticket, no solo "los suyos").
+    // cuenta de servicio del chatbot, que actúa en nombre de clientes vía
+    // WhatsApp sobre cualquier ticket, no solo "los suyos".
+    //
+    // S-01 — Quién es el chatbot lo dice BotIdentity, no una comparación de
+    // correo escrita aquí. Estaba en dos sitios (aquí y en el listado de
+    // usuarios) y dependía de una variable de entorno: si faltaba, el bot perdía
+    // el acceso a estos 9 endpoints sin que fallara nada ni avisara nadie.
     private async Task<bool> CanActOnTicketAsync(Guid ticketId)
     {
-        if (CurrentUserRole != "Tecnico") return true;
+        if (!Enum.TryParse<UserRole>(CurrentUserRole, out var rol)) return false;
 
-        var botEmail = _config["SISTEMA_BOT_EMAIL"] ?? "bot@telecombolivianet.bo";
-        if (string.Equals(CurrentUserEmail, botEmail, StringComparison.OrdinalIgnoreCase))
+        if (rol != UserRole.Tecnico) return true;
+
+        if (BotIdentity.EsElChatbot(rol, CurrentUserEmail, _config["SISTEMA_BOT_EMAIL"]))
             return true;
 
         var ownerId = await _mediator.Send(new GetTicketOwnerQuery(ticketId));

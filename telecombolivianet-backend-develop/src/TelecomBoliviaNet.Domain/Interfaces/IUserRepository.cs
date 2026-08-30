@@ -27,7 +27,7 @@ public interface IUserRepository : IGenericRepository<UserSystem>
     /// de datos por la ventana.
     /// </summary>
     Task<(List<UserSystem> Items, int Total)> GetPagedAsync(
-        string   excludeEmail,
+        string?  correoDelBot,
         UserRole? role,
         string?  search,
         int      page,
