@@ -124,7 +124,7 @@ public class RescheduleTicketVisitHandler
         }
 
         if (ticket.Status is TicketStatus.Abierto or TicketStatus.EnProceso)
-            ticket.Status = TicketStatus.EnVisita;
+            ticket.PasarAEnVisita();
 
 
         await _commentRepo.AddAsync(new TicketComment

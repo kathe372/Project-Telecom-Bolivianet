@@ -340,7 +340,7 @@ todos.
 desactivaron las dos reglas del controlador a propósito: **3 de los 7 se pusieron
 rojos**. Luego se restauró.
 
-## E-04 · Modelo anémico: las reglas existen, pero nada obliga a pasar por ellas — **CORREGIDO en `Invoice`**
+## E-04 · Modelo anémico: las reglas existen, pero nada obliga a pasar por ellas — **CORREGIDO**
 
 De ~30 entidades, **3 tienen comportamiento**: `DistributionBox` (6 métodos),
 `Client` (4) y `BusinessSchedule` (2). El resto son bolsas de propiedades con
@@ -394,8 +394,29 @@ Al intentar "arreglar" que la tabla prohibía `Emitida → Pagada` **el test exi
 me paró**: la restricción era intencionada y estaba probada desde antes. Revertí y
 dejé escrito el porqué, que era lo que faltaba.
 
-**Pendiente:** `SupportTicket` (13 asignaciones) e `Installation` (7). El patrón ya
-está establecido; falta aplicarlo.
+**`SupportTicket` e `Installation`, hechas también.** Cero asignaciones directas
+de estado en las tres entidades.
+
+En tickets no había tabla: las reglas eran `if` sueltos dentro de **un** handler
+—que un ticket cerrado no se toca, y que resolver exige explicar cómo— y los otros
+**ocho** caminos que cambian el estado no las consultaban. Ahora `Resolver` pide el
+mensaje como argumento: olvidarlo deja de compilar.
+
+**Y ahí apareció una contradicción.** El cumplimiento del SLA de un ticket **sin
+fecha límite** se calculaba de dos formas opuestas:
+
+| Camino | `SlaCompliant` sin fecha límite |
+|---|---|
+| `ChangeTicketStatusHandler` (manual) | `true` — inflaba el KPI |
+| `CompleteInstallationCommand` | `false` — lo hundía |
+
+Ninguna es cierta: sin fecha límite no hay SLA que cumplir. Unificado en **`null`**,
+que además es como ya lo lee el propio KPI — `GetTicketKpiQuery` filtra por
+`.HasValue`.
+
+En instalaciones, los tres caminos que la cierran tenían que acordarse de rellenar
+`MotivoCancelacion`, `CanceladoPor` y `CanceladoAt` a mano. Ahora son argumentos de
+`Cancelar` y `MarcarNoRealizada`.
 
 ## P-01 · El dashboard hace una consulta por mes para dibujar una gráfica — **CORREGIDO**
 
@@ -531,7 +552,7 @@ renombrado masivo.
 | 5 | **E-03** validación en un filtro | ✅ **hecho** | medio día |
 | 6 | **E-01** partir `TicketHelper` | ✅ **hecho** | medio día |
 | 7 | **E-02** regla y métrica corregidas | ✅ **hecho** (el `AuditBehavior` se descartó, razonado) | — |
-| 8 | **E-04** transiciones en las entidades | ✅ `Invoice` hecho · ⬜ `SupportTicket`, `Installation` | 1 día |
+| 8 | **E-04** transiciones en las entidades | ✅ **hecho** (`Invoice`, `SupportTicket`, `Installation`) | 1 día |
 | 9 | **E-05** el orquestador del chatbot | Mayor radio; termina una tubería ya empezada | 2-3 días |
 
 Los ocho primeros son del backend y **no dependen de desplegar**. El noveno toca el

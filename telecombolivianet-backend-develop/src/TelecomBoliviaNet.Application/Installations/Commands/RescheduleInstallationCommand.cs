@@ -78,7 +78,7 @@ public class RescheduleInstallationHandler : IRequestHandler<RescheduleInstallat
         // y el T-1 vuelve a disparar para la nueva fecha (BUG B3).
         inst.Fecha          = nuevaFecha;
         inst.HoraInicio     = nuevaHora;
-        inst.Status         = InstallationStatus.Pendiente;
+        inst.VolverAPendiente(DateTime.UtcNow);
         inst.ReminderSentAt = null;
         inst.ActualizadoAt  = DateTime.UtcNow;
         // D-13 — La instalación, su ticket y su visita se mueven juntos o no se

@@ -45,8 +45,7 @@ public class AssignTechniciansHandler : IRequestHandler<AssignTechniciansCommand
         if (!validacion.IsSuccess) return validacion;
 
         inst.TecnicoId     = cmd.Dto.TecnicoLeadId;
-        inst.Status        = InstallationStatus.EnProceso;
-        inst.ActualizadoAt = DateTime.UtcNow;
+        inst.PasarAEnProceso(DateTime.UtcNow);
         _instRepo.Update(inst);
         // D-13 — Había DOS SaveChangesAsync idénticos seguidos. El segundo no
         // guardaba nada (no queda nada pendiente tras el primero) pero daba a

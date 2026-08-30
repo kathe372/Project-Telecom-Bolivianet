@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using TelecomBoliviaNet.Application.Constants;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -53,8 +53,7 @@ public class AutoCloseTicketJob : BackgroundService
 
         foreach (var ticket in tickets)
         {
-            ticket.Status   = TicketStatus.Cerrado;
-            ticket.ClosedAt = DateTime.UtcNow;
+            ticket.Cerrar(DateTime.UtcNow);
 
             if (ticket.Client is not null && !string.IsNullOrWhiteSpace(ticket.Client.PhoneMain))
             {

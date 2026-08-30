@@ -80,4 +80,78 @@ public class Installation : Entity
     public DateTime  CreadoAt       { get; set; } = DateTime.UtcNow;
     public DateTime? ActualizadoAt  { get; set; }
     public Guid      CreadoPorId    { get; set; }
+
+    // ── Transiciones de estado (E-04) ───────────────────────────────────────
+    //
+    // Siete sitios ponían `Status` a mano, y los tres que cierran una instalación
+    // —cancelar, no realizada— tenían que acordarse de rellenar MotivoCancelacion,
+    // CanceladoPor y CanceladoAt por su cuenta. Aquí esos datos son argumentos:
+    // olvidarlos deja de compilar.
+
+    /// <summary>Se asigna técnico y empieza el trabajo.</summary>
+    public void PasarAEnProceso(DateTime cuando)
+    {
+        GarantizarQueSePuedeTocar();
+        Status        = InstallationStatus.EnProceso;
+        ActualizadoAt = cuando;
+    }
+
+    /// <summary>Se reprograma: vuelve a quedar pendiente.</summary>
+    public void VolverAPendiente(DateTime cuando)
+    {
+        GarantizarQueSePuedeTocar();
+        Status        = InstallationStatus.Pendiente;
+        ActualizadoAt = cuando;
+    }
+
+    /// <summary>Instalada. Estado final.</summary>
+    public void Completar(DateTime cuando)
+    {
+        GarantizarQueSePuedeTocar();
+        Status        = InstallationStatus.Completada;
+        ActualizadoAt = cuando;
+    }
+
+    /// <summary>
+    /// Se cancela. El motivo y quién la cancela son obligatorios: sin ellos, una
+    /// instalación desaparece de la agenda sin que nadie sepa por qué.
+    /// </summary>
+    public void Cancelar(string motivo, string canceladoPor, DateTime cuando)
+    {
+        GarantizarQueSePuedeTocar();
+
+        if (string.IsNullOrWhiteSpace(motivo))
+            throw new ArgumentException("Cancelar una instalación exige un motivo.", nameof(motivo));
+
+        Status            = InstallationStatus.Cancelada;
+        MotivoCancelacion = motivo.Trim();
+        CanceladoPor      = canceladoPor;
+        CanceladoAt       = cuando;
+        ActualizadoAt     = cuando;
+    }
+
+    /// <summary>
+    /// El técnico fue y no se pudo instalar (cliente ausente, etc.). Distinto de
+    /// cancelar: aquí hubo visita, y eso cuenta para la capacidad del día.
+    /// </summary>
+    public void MarcarNoRealizada(string motivo, DateTime cuando)
+    {
+        GarantizarQueSePuedeTocar();
+
+        if (string.IsNullOrWhiteSpace(motivo))
+            throw new ArgumentException("Marcar no realizada exige un motivo.", nameof(motivo));
+
+        Status            = InstallationStatus.NoRealizada;
+        MotivoCancelacion = motivo.Trim();
+        CanceladoPor      = "NO_SHOW";
+        CanceladoAt       = cuando;
+        ActualizadoAt     = cuando;
+    }
+
+    private void GarantizarQueSePuedeTocar()
+    {
+        if (Status is InstallationStatus.Completada or InstallationStatus.Cancelada)
+            throw new InvalidOperationException(
+                $"La instalación ya está {Status} y no admite más cambios.");
+    }
 }

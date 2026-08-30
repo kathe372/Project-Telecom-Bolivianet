@@ -56,18 +56,29 @@ public class ChangeTicketStatusHandler : IRequestHandler<ChangeTicketStatusComma
         if (ticket is null) return Result<TicketDetailDto>.Failure("Ticket no encontrado.");
         if (!Enum.TryParse<TicketStatus>(cmd.Dto.Status, out var newStatus))
             return Result<TicketDetailDto>.Failure("Estado inválido.");
+        // E-04 — Las dos reglas de abajo vivían aquí, y los otros ocho caminos que
+        // cambian el estado de un ticket no las consultaban. Ahora las hace cumplir
+        // la entidad; esto solo traduce el fallo a un Result para la API.
         if (ticket.Status == TicketStatus.Cerrado)
             return Result<TicketDetailDto>.Failure("Un ticket cerrado no puede modificarse.");
         if (newStatus == TicketStatus.Resuelto && string.IsNullOrWhiteSpace(cmd.Dto.ResolutionMessage))
             return Result<TicketDetailDto>.Failure("Se requiere mensaje de resolución al marcar como Resuelto.");
 
         var prevStatus = ticket.Status;
-        ticket.Status  = newStatus;
+        var ahora      = DateTime.UtcNow;
 
-        if (newStatus == TicketStatus.EnProceso && ticket.FirstRespondedAt is null)
+        switch (newStatus)
         {
-            ticket.FirstRespondedAt = DateTime.UtcNow;
+            case TicketStatus.EnProceso: ticket.PasarAEnProceso(ahora);                            break;
+            case TicketStatus.EnVisita:  ticket.PasarAEnVisita();                                  break;
+            case TicketStatus.Resuelto:  ticket.Resolver(cmd.Dto.ResolutionMessage!, ahora);       break;
+            case TicketStatus.Cerrado:   ticket.Cerrar(ahora);                                     break;
+            case TicketStatus.Abierto:   ticket.Reabrir();                                         break;
+            default:                     ticket.Status = newStatus;                                break;
+        }
 
+        if (newStatus == TicketStatus.EnProceso)
+        {
             if (ticket.Client?.PhoneMain is not null
                 && ticket.ClientId.HasValue
                 && prevStatus == TicketStatus.Abierto)
@@ -88,11 +99,8 @@ public class ChangeTicketStatusHandler : IRequestHandler<ChangeTicketStatusComma
             }
         }
 
-        if (newStatus == TicketStatus.Resuelto && ticket.ResolvedAt is null)
+        if (newStatus == TicketStatus.Resuelto)
         {
-            ticket.ResolvedAt        = DateTime.UtcNow;
-            ticket.ResolutionMessage = cmd.Dto.ResolutionMessage!.Trim();
-            ticket.SlaCompliant      = !ticket.DueDate.HasValue || ticket.ResolvedAt <= ticket.DueDate;
 
             if (ticket.Client?.PhoneMain is not null && ticket.ClientId.HasValue)
             {

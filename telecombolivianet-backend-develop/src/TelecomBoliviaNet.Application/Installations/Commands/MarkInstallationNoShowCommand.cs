@@ -53,10 +53,7 @@ public class MarkInstallationNoShowHandler
         // Libera el puerto NAP reservado: la visita no se concretó (F3).
         await _boxReservation.ReleaseAsync(inst, ct);
 
-        inst.Status            = InstallationStatus.NoRealizada;
-        inst.MotivoCancelacion = cmd.Motivo.Trim();
-        inst.CanceladoPor      = "NO_SHOW";
-        inst.CanceladoAt       = DateTime.UtcNow;
+        inst.MarcarNoRealizada(cmd.Motivo, DateTime.UtcNow);
         inst.ActualizadoAt     = DateTime.UtcNow;
         _instRepo.Update(inst);
         await _instRepo.SaveChangesAsync();

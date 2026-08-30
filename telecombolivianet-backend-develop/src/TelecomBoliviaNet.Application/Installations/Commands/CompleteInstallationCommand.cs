@@ -84,8 +84,7 @@ public class CompleteInstallationHandler : IRequestHandler<CompleteInstallationC
                 ? System.Text.Json.JsonSerializer.Serialize(cmd.Dto.FotosUrls)
                 : null;
 
-            inst.Status        = InstallationStatus.Completada;
-            inst.ActualizadoAt = DateTime.UtcNow;
+            inst.Completar(DateTime.UtcNow);
             _instRepo.Update(inst);
 
             // D-09 — El serial de la ONU se copia también a la ficha del cliente.
@@ -121,11 +120,11 @@ public class CompleteInstallationHandler : IRequestHandler<CompleteInstallationC
             if (inst.Ticket is not null &&
                 inst.Ticket.Status is TicketStatus.Abierto or TicketStatus.EnProceso)
             {
-                inst.Ticket.Status            = TicketStatus.Resuelto;
-                inst.Ticket.ResolutionMessage = cmd.Dto.NotasTecnico ?? "Instalación completada exitosamente.";
-                inst.Ticket.ResolvedAt        = DateTime.UtcNow;
-                inst.Ticket.SlaCompliant      = inst.Ticket.DueDate.HasValue &&
-                                                DateTime.UtcNow <= inst.Ticket.DueDate.Value;
+                // E-04 — Resolver exige el mensaje como argumento; la fecha y el
+                // cumplimiento del SLA los deriva la entidad.
+                inst.Ticket.Resolver(
+                    cmd.Dto.NotasTecnico ?? "Instalación completada exitosamente.",
+                    DateTime.UtcNow);
                 _ticketRepo.Update(inst.Ticket);
             }
 

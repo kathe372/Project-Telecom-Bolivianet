@@ -110,7 +110,7 @@ public class ScheduleVisitHandler : IRequestHandler<ScheduleVisitCommand, Result
         await _visitRepo.AddAsync(visit);
 
         if (ticket.Status is TicketStatus.Abierto or TicketStatus.EnProceso)
-            ticket.Status = TicketStatus.EnVisita;
+            ticket.PasarAEnVisita();
 
         if (!string.IsNullOrWhiteSpace(cmd.Dto.Observations))
             await _commentRepo.AddAsync(new TicketComment

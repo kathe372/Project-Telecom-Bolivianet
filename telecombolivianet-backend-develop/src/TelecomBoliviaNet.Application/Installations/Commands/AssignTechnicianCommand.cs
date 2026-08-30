@@ -42,8 +42,7 @@ public class AssignTechnicianHandler : IRequestHandler<AssignTechnicianCommand, 
             return Result.Failure("Solo se puede asignar a un usuario con rol Técnico o Admin.");
 
         inst.TecnicoId     = cmd.Dto.TecnicoId;
-        inst.Status        = InstallationStatus.EnProceso;
-        inst.ActualizadoAt = DateTime.UtcNow;
+        inst.PasarAEnProceso(DateTime.UtcNow);
         _instRepo.Update(inst);
         await _instRepo.SaveChangesAsync();
         await _audit.LogAsync("Instalaciones", "INSTALACION_TECNICO_ASIGNADO",

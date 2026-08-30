@@ -57,7 +57,7 @@ public class AssignTicketHandler : IRequestHandler<AssignTicketCommand, Result<T
         ticket.AssignedToUserId = cmd.Dto.TechnicianId;
         ticket.AssignedTo       = tech;
         if (ticket.Status == TicketStatus.Abierto)
-            ticket.Status = TicketStatus.EnProceso;
+            ticket.PasarAEnProceso(DateTime.UtcNow);
 
         _ticketRepo.Update(ticket);
 

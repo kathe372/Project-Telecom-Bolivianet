@@ -43,8 +43,7 @@ public class CloseTicketHandler : IRequestHandler<CloseTicketCommand, Result<Tic
         if (ticket.Status != TicketStatus.Resuelto)
             return Result<TicketDetailDto>.Failure("Solo se pueden cerrar tickets en estado Resuelto.");
 
-        ticket.Status   = TicketStatus.Cerrado;
-        ticket.ClosedAt = DateTime.UtcNow;
+        ticket.Cerrar(DateTime.UtcNow);
         _ticketRepo.Update(ticket);
                 await _commentRepo.AddAsync(new TicketComment
         {

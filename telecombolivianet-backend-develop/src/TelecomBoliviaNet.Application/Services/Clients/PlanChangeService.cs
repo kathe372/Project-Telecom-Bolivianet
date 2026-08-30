@@ -104,11 +104,11 @@ public class PlanChangeService : IPlanChangeService
             _changeRepo.Update(cambio);
             if (ticket is not null)
             {
-                ticket.Status            = TicketStatus.Resuelto;
-                ticket.ResolutionMessage = midMonth
-                    ? "Cambio de plan aprobado y ejecutado inmediatamente. Facturas proporcionales generadas."
-                    : $"Cambio de plan aprobado. Efectivo el {cambio.EffectiveDate:dd/MM/yyyy}.";
-                ticket.ResolvedAt = hoy;
+                ticket.Resolver(
+                    midMonth
+                        ? "Cambio de plan aprobado y ejecutado inmediatamente. Facturas proporcionales generadas."
+                        : $"Cambio de plan aprobado. Efectivo el {cambio.EffectiveDate:dd/MM/yyyy}.",
+                    hoy);
                 _ticketRepo.Update(ticket);
             }
 
@@ -169,9 +169,8 @@ public class PlanChangeService : IPlanChangeService
             _changeRepo.Update(cambio);
             if (ticket is not null)
             {
-                ticket.Status            = TicketStatus.Cerrado;
                 ticket.ResolutionMessage = $"Cambio de plan rechazado. Motivo: {motivo}";
-                ticket.ClosedAt          = ahora;
+                ticket.Cerrar(ahora);
                 _ticketRepo.Update(ticket);
             }
 

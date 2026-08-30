@@ -82,11 +82,8 @@ public class CancelInstallationHandler : IRequestHandler<CancelInstallationComma
         // el puerto vuelve a estar disponible para otros agendamientos.
         await _boxReservation.ReleaseAsync(inst, ct);
 
-        inst.Status            = InstallationStatus.Cancelada;
-        inst.MotivoCancelacion = cmd.Dto.MotivoCancelacion.Trim();
-        inst.CanceladoPor      = cmd.Dto.CanceladoPor;
-        inst.CanceladoAt       = DateTime.UtcNow;
-        inst.ActualizadoAt     = DateTime.UtcNow;
+        // E-04 — El motivo y quién cancela son argumentos: sin ellos no compila.
+        inst.Cancelar(cmd.Dto.MotivoCancelacion, cmd.Dto.CanceladoPor, DateTime.UtcNow);
         // D-13 — La cancelación y el cierre de su ticket son UNA operación.
         //
         // Es el mismo modo de fallo que ya se corrigió en
@@ -102,9 +99,8 @@ public class CancelInstallationHandler : IRequestHandler<CancelInstallationComma
         if (inst.Ticket is not null &&
             inst.Ticket.Status is TicketStatus.Abierto or TicketStatus.EnProceso)
         {
-            inst.Ticket.Status            = TicketStatus.Cerrado;
             inst.Ticket.ResolutionMessage = $"Instalación cancelada. Motivo: {cmd.Dto.MotivoCancelacion}";
-            inst.Ticket.ClosedAt          = DateTime.UtcNow;
+            inst.Ticket.Cerrar(DateTime.UtcNow);
             _ticketRepo.Update(inst.Ticket);
         }
 
