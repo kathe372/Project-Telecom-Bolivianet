@@ -187,7 +187,7 @@ refuerza justo lo que dice E-02: el número de dependencias está midiendo lo qu
 es. Para los handlers que quedan en 9–11, la respuesta no es seguir partiendo,
 es sacar las transversales del constructor.
 
-## E-02 · La regla de "máximo 6 dependencias" está midiendo lo que no es
+## E-02 · La regla de "máximo 6 dependencias" está midiendo lo que no es — **RESUELTO (corrigiendo la regla, no el código)**
 
 Dieciséis clases de Application pasan de 6 dependencias. Al mirarlas una a una:
 
@@ -214,8 +214,46 @@ transversal viajando por el constructor de medio sistema. Y **el pipeline de
 MediatR ya existe y está enchufado** (`LoggingBehavior`), así que la pieza donde
 debería vivir está construida y sin usar.
 
-**Arreglo:** un `AuditBehavior` en el pipeline. Bajaría una dependencia a 57 clases
-y dejaría la regla de las 6 midiendo lo que pretendía medir.
+**Resuelto (2026-08-30), y el arreglo que yo proponía era el equivocado.** Al ir a
+escribir el `AuditBehavior` aparecieron dos razones para no hacerlo:
+
+**1. El contenido de cada asiento es propio del caso de uso.** Las 78 llamadas a
+`LogAsync` llevan información que solo ese handler tiene:
+
+```csharp
+await _audit.LogAsync("Facturación", "CREDIT_APPLIED_TO_INVOICE",
+    $"Crédito aplicado: factura {invoice.InvoiceNumber} Bs.{aplicar:F2}", ...);
+```
+
+Un behaviour genérico solo sabría escribir *"CreateTicketCommand ejecutado"*. Sería
+cambiar una auditoría útil por una inútil.
+
+**2. La mitad de esas clases no pasa por el pipeline.** De las 57, solo **30** son
+handlers de MediatR; 27 son servicios llamados directamente.
+
+Y la alternativa que se me ocurrió después —un `ICurrentUser` ambiental para dejar
+de arrastrar `actorId/actorName/ip` por 68 firmas— **también falla**: los mismos
+servicios los llaman las peticiones HTTP *y* los jobs, con `actorName: "Sistema"`.
+Un accesor basado en el contexto HTTP leería null justo en los caminos que más
+necesitan rastro: la facturación automática y la auto-suspensión. Pasar el actor
+explícitamente no es un descuido, es lo que hace que el rastro funcione sin
+contexto web.
+
+**Así que lo que estaba mal era la regla, no el código.** `CONVENCIONES.md` regla 2
+cuenta ahora **dependencias de negocio**, descontando `AuditService`, `ILogger<T>`,
+`IUnitOfWork` e `IConfiguration`:
+
+| | |
+|---|---:|
+| Clases por encima del techo, contando todo | 16 |
+| Contando solo colaboradores de negocio | **6** |
+
+Y con la cifra corregida se ve el objetivo real, que antes quedaba escondido entre
+otras quince: **`CreateTicketHandler`, con 10 colaboradores de negocio**. Ése sí
+está haciendo demasiado.
+
+`scripts/analisis/colaboradores.py` está en el CI como trinquete con techo 10 —el
+peor de hoy— para que no aparezca uno peor mientras se bajan los seis.
 
 ## E-03 · Dos mecanismos de validación conviviendo, aplicados de forma desigual — **CORREGIDO**
 
@@ -464,7 +502,7 @@ renombrado masivo.
 | 4 | **P-01** el N+1 del dashboard | ✅ **hecho** | 1 hora |
 | 5 | **E-03** validación en un filtro | ✅ **hecho** | medio día |
 | 6 | **E-01** partir `TicketHelper` | ✅ **hecho** | medio día |
-| 7 | **E-02** `AuditBehavior` | Toca 57 clases: hacerlo con el resto en verde | 1 día |
+| 7 | **E-02** regla y métrica corregidas | ✅ **hecho** (el `AuditBehavior` se descartó, razonado) | — |
 | 8 | **E-04** transiciones en 3 entidades | Cierra la puerta por la que volvería D-17 | 1 día |
 | 9 | **E-05** el orquestador del chatbot | Mayor radio; termina una tubería ya empezada | 2-3 días |
 

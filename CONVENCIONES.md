@@ -23,8 +23,21 @@ quedan se van moviendo a Commands/Queries a medida que se tocan.
 
 1. **Ninguna clase de Application supera 250 líneas.** Hoy quedan dos por encima
    y están argumentadas en el plan; no se suman más.
-2. **Ningún constructor supera 6 dependencias.** Si hace falta la séptima, la
-   clase está haciendo dos cosas.
+2. **Ningún constructor supera 6 dependencias DE NEGOCIO.** Si hace falta la
+   séptima, la clase está haciendo dos cosas.
+
+   *De negocio* significa: sin contar `AuditService`, `ILogger<T>`, `IUnitOfWork`
+   ni `IConfiguration`. Contarlas todas mide lo que no es — la auditoría la
+   inyectan 57 clases y el registro 35, y ninguna de las dos dice nada sobre si
+   la clase hace demasiado. Con el contador corregido
+   (`scripts/analisis/colaboradores.py`) las clases por encima del techo pasan de
+   16 a **6**.
+
+   Y no, esas transversales **no** se pueden mover al pipeline: el contenido de
+   cada asiento de auditoría es propio del caso de uso (*"Crédito aplicado:
+   factura F-2026-0012 Bs.150.00"*), y la mitad de esas clases ni siquiera son
+   handlers de MediatR. Un `AuditBehavior` genérico solo sabría escribir el nombre
+   del comando, que es peor que lo que hay. Está razonado en el análisis, E-02.
 3. **Ninguna función supera 50 líneas.**
 4. **Una regla de negocio se escribe una vez.** Es la que más veces se ha roto en
    este proyecto: prorrateo, días laborables (cuatro copias), ventana de anulación,

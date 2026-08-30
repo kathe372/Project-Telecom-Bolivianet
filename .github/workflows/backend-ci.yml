@@ -130,6 +130,12 @@ jobs:
             exit 1
           fi
 
+      - name: Ninguna clase acumula más de 6 colaboradores de negocio
+        run: python3 scripts/analisis/colaboradores.py --techo 10
+        # Techo 10 y no 6 a propósito: es un TRINQUETE sobre la peor de hoy
+        # (CreateTicketHandler, con 10). Impide que aparezca una peor mientras se
+        # baja. Se aprieta a medida que esas 6 se resuelvan.
+
       - name: Las funciones largas no crecen (trinquete)
         run: python3 scripts/funciones-largas.py
 
