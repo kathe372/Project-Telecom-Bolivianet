@@ -102,8 +102,7 @@ public class InvoiceStatusService : IInvoiceStatusService
 
         foreach (var invoice in overdue)
         {
-            invoice.Status    = InvoiceStatus.Vencida;
-            invoice.UpdatedAt = now;
+            invoice.CambiarEstadoA(InvoiceStatus.Vencida);
         }
 
         _invoiceRepo.UpdateRange(overdue);
@@ -191,7 +190,7 @@ public class InvoiceStatusService : IInvoiceStatusService
         if (justification.Trim().Length < 10)                  return Result.Failure("La justificación debe tener al menos 10 caracteres.");
 
         var prevStatus    = invoice.Status.ToString();
-        invoice.Status    = InvoiceStatus.Anulada;
+        invoice.CambiarEstadoA(InvoiceStatus.Anulada);
         // Se ANEXA en vez de sobrescribir: antes la justificación pisaba la nota
         // existente (p. ej. "Mes proporcional: 12 de 31 días"), destruyendo el
         // registro de cómo se calculó el importe.

@@ -64,7 +64,7 @@ public class InvoiceProrationService
                 nota += $" — Bs. {inv.AmountPaid:F2} abonados devueltos como saldo a favor";
             }
 
-            inv.Status    = InvoiceStatus.Anulada;
+            inv.CambiarEstadoA(InvoiceStatus.Anulada);
             inv.Notes     = string.IsNullOrWhiteSpace(inv.Notes) ? nota : $"{inv.Notes}\n{nota}";
             inv.UpdatedAt = hoy;
             _invoiceRepo.Update(inv);

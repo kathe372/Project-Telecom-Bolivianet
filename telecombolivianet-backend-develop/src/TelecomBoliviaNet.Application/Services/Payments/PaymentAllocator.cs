@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using TelecomBoliviaNet.Application.DTOs.Payments;
 using TelecomBoliviaNet.Domain.Entities.Clients;
 using TelecomBoliviaNet.Domain.Interfaces;
@@ -78,12 +78,10 @@ public class PaymentAllocator
             var applied = Math.Min(inv.Amount - inv.AmountPaid, remaining);
             if (applied <= 0) continue;
 
-            inv.AmountPaid += applied;
-            remaining      -= applied;
-            inv.Status    = inv.AmountPaid >= inv.Amount
-                ? InvoiceStatus.Pagada
-                : InvoiceStatus.ParcialmentePagada;
-            inv.UpdatedAt = DateTime.UtcNow;
+            // E-04 — El estado lo decide la entidad con la regla del dominio, y
+            // la transición pasa por la tabla. Antes se elegía aquí a mano.
+            inv.Abonar(applied);
+            remaining -= applied;
 
             // Update marca, no confirma: con varias facturas por pago, confirmar
             // aquí haría un round-trip de SaveChanges POR FACTURA. El guardado

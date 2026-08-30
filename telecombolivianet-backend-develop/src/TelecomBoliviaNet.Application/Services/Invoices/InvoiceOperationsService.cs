@@ -61,8 +61,7 @@ public class InvoiceOperationsService : IInvoiceOperationsService
         }
 
         var prevStatus = invoice.Status;
-        invoice.Status    = nuevoEstado;
-        invoice.UpdatedAt = DateTime.UtcNow;
+        invoice.CambiarEstadoA(nuevoEstado);
         _invoiceRepo.Update(invoice);
         await _invoiceRepo.SaveChangesAsync();
         if (nuevoEstado == InvoiceStatus.Enviada && invoice.Client is not null)
@@ -109,7 +108,7 @@ public class InvoiceOperationsService : IInvoiceOperationsService
 
         foreach (var inv in facturas)
         {
-            inv.Status    = InvoiceStatus.Enviada;
+            inv.CambiarEstadoA(InvoiceStatus.Enviada);
             inv.UpdatedAt = DateTime.UtcNow;
         }
         _invoiceRepo.UpdateRange(facturas);

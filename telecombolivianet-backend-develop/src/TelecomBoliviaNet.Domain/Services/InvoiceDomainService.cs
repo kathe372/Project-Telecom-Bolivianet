@@ -104,6 +104,11 @@ public static class InvoiceDomainService
     /// </summary>
     private static readonly Dictionary<InvoiceStatus, InvoiceStatus[]> _transiciones = new()
     {
+        // Cobrar NO figura aquí a propósito, y está probado: esta tabla la usa
+        // el endpoint MANUAL de cambio de estado, y un administrador no puede
+        // declarar pagada una factura sin un pago detrás — eso dejaría dinero sin
+        // asentar. Llegar a Pagada/ParcialmentePagada es competencia de
+        // `Invoice.RegistrarAbono`, que exige el importe abonado.
         [InvoiceStatus.Emitida]            = [InvoiceStatus.Enviada, InvoiceStatus.Pendiente, InvoiceStatus.Vencida, InvoiceStatus.Anulada],
         [InvoiceStatus.Enviada]            = [InvoiceStatus.Pendiente, InvoiceStatus.Vencida, InvoiceStatus.Anulada],
         [InvoiceStatus.Pendiente]          = [InvoiceStatus.Vencida, InvoiceStatus.Anulada],

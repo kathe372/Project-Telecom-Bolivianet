@@ -52,10 +52,10 @@ public class InvoiceCreditService : IInvoiceCreditService
         if (credito <= 0) return Result.Failure("El cliente no tiene crédito a favor.");
 
         var (aplicar, _)       = InvoiceDomainService.ApplyCredit(credito, saldoPendiente);
-        invoice.AmountPaid    += aplicar;
         invoice.CreditApplied += aplicar;
-        invoice.Status         = InvoiceDomainService.CalculateStatus(invoice.Amount, invoice.AmountPaid);
-        invoice.UpdatedAt      = DateTime.UtcNow;
+        // E-04 — Ya usaba la regla correcta; ahora además pasa por la tabla de
+        // transiciones, igual que el resto.
+        invoice.Abonar(aplicar);
 
         // El saldo lo ajusta el libro mayor, que además deja el asiento. Antes se
         // asignaba `CreditBalance` a mano y el consumo no quedaba registrado.

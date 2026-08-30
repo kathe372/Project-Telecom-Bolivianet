@@ -340,7 +340,7 @@ todos.
 desactivaron las dos reglas del controlador a propósito: **3 de los 7 se pusieron
 rojos**. Luego se restauró.
 
-## E-04 · Modelo anémico: las reglas existen, pero nada obliga a pasar por ellas
+## E-04 · Modelo anémico: las reglas existen, pero nada obliga a pasar por ellas — **CORREGIDO en `Invoice`**
 
 De ~30 entidades, **3 tienen comportamiento**: `DistributionBox` (6 métodos),
 `Client` (4) y `BusinessSchedule` (2). El resto son bolsas de propiedades con
@@ -364,10 +364,38 @@ calcula. Nada impide dejar una factura en `Pagada` con `AmountPaid = 0` — que 
 exactamente **D-17**, ya corregido una vez, y que puede volver por cualquiera de
 los otros cinco sitios.
 
-**Arreglo proporcionado** (no reescribir el dominio): métodos de transición en las
-tres entidades que más duelen —`Invoice.Saldar()`, `Ticket.Cerrar()`,
-`Installation.Cancelar()`— y `private set` en esos campos concretos. El compilador
-pasa a ser quien obliga.
+**Corregido en `Invoice` (2026-08-30).** Los siete sitios que asignaban el estado
+a mano pasan ahora por la entidad, con **dos operaciones que no son la misma**:
+
+- `CambiarEstadoA(nuevo)` — el cambio manual. Consulta la tabla de transiciones
+  del dominio, que **prohíbe llegar a `Pagada` a propósito**: un administrador no
+  puede declarar pagada una factura sin un pago detrás, porque eso dejaría dinero
+  sin asentar.
+- `RegistrarAbono(importe)` / `Abonar(importe)` — cobrar. **No** pasa por esa
+  tabla, y es deliberado: aquí sí hay pago, el importe es el argumento. El estado
+  no se elige, lo calcula `InvoiceDomainService.CalculateStatus`, que es la puerta
+  por la que volvería **D-17**.
+
+**Y apareció un descuadre real.** `InitialChargesService` ponía `Status = Pagada`
+al dar de alta un cliente que paga el primer mes, **sin tocar `AmountPaid`**, y
+creaba los enlaces pago↔factura **sin `AmountApplied`**. No producía deuda fantasma
+—`Outstanding` filtra por estado— pero descuadraba cualquier informe que sume lo
+abonado, y al anular ese pago la reversión caía en la rama de *"enlaces heredados
+sin ningún reparto conocido"*, que marca el resultado como inexacto para revisión
+manual. Corregido: la factura registra el abono y el enlace lleva su importe.
+
+**Una corrección a este propio hallazgo.** Escribí antes que la tabla de
+transiciones "no la usa nadie". **Es falso**, y mi grep no incluía su nombre: la
+usa `InvoiceOperationsService`, el endpoint manual. Lo que sí es cierto es que
+solo la consultaba **ese** camino, mientras las seis transiciones automáticas la
+esquivaban. Ahora la entidad la hace cumplir en todos.
+
+Al intentar "arreglar" que la tabla prohibía `Emitida → Pagada` **el test existente
+me paró**: la restricción era intencionada y estaba probada desde antes. Revertí y
+dejé escrito el porqué, que era lo que faltaba.
+
+**Pendiente:** `SupportTicket` (13 asignaciones) e `Installation` (7). El patrón ya
+está establecido; falta aplicarlo.
 
 ## P-01 · El dashboard hace una consulta por mes para dibujar una gráfica — **CORREGIDO**
 
@@ -503,7 +531,7 @@ renombrado masivo.
 | 5 | **E-03** validación en un filtro | ✅ **hecho** | medio día |
 | 6 | **E-01** partir `TicketHelper` | ✅ **hecho** | medio día |
 | 7 | **E-02** regla y métrica corregidas | ✅ **hecho** (el `AuditBehavior` se descartó, razonado) | — |
-| 8 | **E-04** transiciones en 3 entidades | Cierra la puerta por la que volvería D-17 | 1 día |
+| 8 | **E-04** transiciones en las entidades | ✅ `Invoice` hecho · ⬜ `SupportTicket`, `Installation` | 1 día |
 | 9 | **E-05** el orquestador del chatbot | Mayor radio; termina una tubería ya empezada | 2-3 días |
 
 Los ocho primeros son del backend y **no dependen de desplegar**. El noveno toca el

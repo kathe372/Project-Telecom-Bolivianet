@@ -88,8 +88,12 @@ public class InitialChargesService : IInitialChargesService
 
             if (firstMonthInvoice is not null)
             {
-                firstMonthInvoice.Status    = InvoiceStatus.Pagada;
-                firstMonthInvoice.UpdatedAt = DateTime.UtcNow;
+                // E-04 — Antes ponía Pagada y NO tocaba AmountPaid, así que la
+                // factura quedaba saldada con cero abonado. No producía deuda
+                // fantasma —Outstanding filtra por estado— pero descuadraba
+                // cualquier informe que sume lo abonado, y al anular ese pago la
+                // reversión caía en la rama de "enlaces sin reparto conocido".
+                firstMonthInvoice.RegistrarAbono(firstMonthInvoice.Amount);
                 _invoiceRepo.Update(firstMonthInvoice);
                 await _invoiceRepo.SaveChangesAsync();
                 invoiceIds.Add(firstMonthInvoice.Id);
@@ -115,8 +119,16 @@ public class InitialChargesService : IInitialChargesService
         };
         await _paymentRepo.AddAsync(payment);
 
-        var piEntries = invoiceIds
-            .Select(invId => new PaymentInvoice { PaymentId = payment.Id, InvoiceId = invId })
+        // E-04 — El enlace lleva CUÁNTO se aplicó a cada factura. Sin ese dato,
+        // anular este pago no puede saber qué revertir de cada una y acaba
+        // marcando la reversión como inexacta, para revisión manual.
+        var piEntries = paidInvoices
+            .Select(inv => new PaymentInvoice
+            {
+                PaymentId     = payment.Id,
+                InvoiceId     = inv.Id,
+                AmountApplied = inv.Amount,
+            })
             .ToList();
         await _piRepo.AddRangeAsync(piEntries);
         await _paymentRepo.SaveChangesAsync();
