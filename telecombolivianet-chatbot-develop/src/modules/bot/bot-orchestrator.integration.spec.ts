@@ -53,6 +53,10 @@ import { ClientIdentificationHandler } from './pipeline/client-identification.ha
 import { AgentToolRegistry } from './tools/agent-tool-registry.service';
 import { ActionConfirmationGuard } from './guards/action-confirmation.guard';
 import { InteractiveReplyBuilder } from './interactive-reply.builder';
+import { EscalationService } from './turn/escalation.service';
+import { ImagenSinPieHandler } from './turn/imagen-sin-pie.handler';
+import { EleccionDeCuentaPendienteHandler } from './turn/eleccion-de-cuenta.handler';
+import { SaludoYPrimerContactoHandler } from './turn/saludo-y-primer-contacto.handler';
 import { FirstContactPolicy } from './pipeline/first-contact.policy';
 import { InteractiveIntentMapperService } from './intents/interactive-intent-mapper.service';
 import { MainMenuService } from './main-menu.service';
@@ -138,12 +142,26 @@ function makeSuite(tools: any[] = []) {
     getInstallationById: jest.fn(),
   };
   const procAcciones = { ejecutar: jest.fn().mockResolvedValue({ extra: '', ok: true }) };
+  // E-05 — La escalacion salio del orquestador a su propio servicio; se arma
+  // con los mismos dobles que ya habia, para que los tests de escalacion sigan
+  // comprobando exactamente lo mismo por el camino nuevo.
+  const escalacion = new EscalationService(
+    botConfigCache as any, whatsapp as any, adminNotifier as any,
+    session as any, agent as any, convRepo as any,
+  );
+
   const orch = new BotOrchestratorService(
     pipeline as any, session, whatsapp as any, adminNotifier as any, agent as any,
     registry, audioTranscriber as any, botConfigCache as any, sender, persistence,
     convRepo as any, intentMapper, new FirstContactPolicy(), eventRecorder as any, indicator as any,
     mainMenu, accountChoice, new InteractiveIdCodec(), mapsLinkResolver as any,
     csatRecorder as any, procRunner as any, procAcciones as any, instRepoMock as any,
+    // E-05 — Los handlers extraidos se construyen con los MISMOS dobles que ya
+    // usaba el orquestador, para que estos 38 tests sigan comprobando lo mismo.
+    escalacion,
+    new ImagenSinPieHandler(escalacion),
+    new EleccionDeCuentaPendienteHandler(accountChoice as any),
+    new SaludoYPrimerContactoHandler(mainMenu as any, new FirstContactPolicy()),
   );
 
   return { orch, whatsapp, agent, adminNotifier, eventRecorder, clientRepo, convRepo, session, botConfigCache, csatRecorder, procRunner, procAcciones, instRepoMock, registry };

@@ -447,7 +447,7 @@ equivocado — y la gráfica se habría seguido dibujando sin que nadie lo notar
 que demuestra las dos cosas que un test en memoria no ve: que EF traduce
 `PaidAt.AddHours(-4).Month` a SQL, y que el borde de mes cae donde debe.
 
-## E-05 · El chatbot: 24 dependencias y un método de 348 líneas
+## E-05 · El chatbot: 24 dependencias y un método de 348 líneas — **EMPEZADO, no terminado**
 
 `bot-orchestrator.service.ts` — 664 líneas, **24 dependencias inyectadas**, y
 `processCoreLogic` ocupa de la línea 219 a la 567.
@@ -456,9 +456,47 @@ Es el mismo patrón que E-03, y con la misma ironía: **la abstracción correcta
 está ahí**. El constructor recibe `pipeline: MessageHandler[]` — existe una tubería
 de handlers — pero el núcleo de la conversación no pasó por ella.
 
-**Arreglo:** mover los tramos de `processCoreLogic` a handlers de esa tubería, uno
-por decisión (audio, menú, elección de cuenta, procedimiento, CSAT). No es un
-rediseño: es terminar el que ya se empezó.
+**Empezado (2026-08-30).** Tres decisiones extraídas y, sobre todo, **la pieza que
+las bloqueaba a todas**:
+
+| Clase | Líneas | Qué decide |
+|---|---:|---|
+| `EscalationService` | 83 | pasar la conversación a una persona |
+| `SaludoYPrimerContactoHandler` | 42 | cuándo mostrar el menú y cuándo cortar el turno |
+| `ImagenSinPieHandler` | 31 | foto sin texto → escalar |
+| `EleccionDeCuentaPendienteHandler` | 29 | teléfono con varios clientes sin resolver |
+
+**`EscalationService` es la que importa.** Escalar era un método **público del
+orquestador**, así que la primera decisión que se sacara a su propia clase tendría
+que depender del orquestador entero — una dependencia circular. Sacar también la
+escalación la deshace y desbloquea el resto de las extracciones.
+
+**Un detalle de orden que casi se me escapa:** los tres tramos **no corrían
+seguidos**. Cada uno decidía en un punto distinto, entre medias de la resolución
+del texto y la detección de sentimiento. Meterlos en la tubería frontal habría
+cambiado el comportamiento —la elección de cuenta pasaría a mostrarse en turnos sin
+texto, que hoy terminan antes—. Se invocan en su sitio exacto con un pequeño
+`continuar(handler, ctx)`.
+
+**Los números, sin adornos:**
+
+| | Antes | Ahora |
+|---|---:|---:|
+| `processCoreLogic` | 348 líneas | **313** |
+| Orquestador | 664 líneas | 632 |
+| Dependencias del orquestador | 24 | **28** |
+
+Es decir: **el método apenas bajó y las dependencias subieron**, otra vez el mismo
+efecto que con `TicketHelper`. Los tres tramos extraídos eran los pequeños; los que
+de verdad pesan —el bloque del id interactivo (~95 líneas) y el del agente (~100)—
+siguen dentro.
+
+**Lo que sí quedó demostrado:** los **38 tests de integración del orquestador pasan
+sin tocar una sola aserción**, y el suite completo del chatbot sigue en 1474
+verdes. El patrón funciona y la red aguanta; falta recorrerlo.
+
+**Pendiente:** los dos bloques grandes, más audio, procedimiento y CSAT. El plan
+seguía estimando 2–3 días y sigue siendo cierto.
 
 ## S-03 · Un `#pragma` que apaga el aviso de inyección SQL — **CORREGIDO**
 
@@ -553,7 +591,7 @@ renombrado masivo.
 | 6 | **E-01** partir `TicketHelper` | ✅ **hecho** | medio día |
 | 7 | **E-02** regla y métrica corregidas | ✅ **hecho** (el `AuditBehavior` se descartó, razonado) | — |
 | 8 | **E-04** transiciones en las entidades | ✅ **hecho** (`Invoice`, `SupportTicket`, `Installation`) | 1 día |
-| 9 | **E-05** el orquestador del chatbot | Mayor radio; termina una tubería ya empezada | 2-3 días |
+| 9 | **E-05** el orquestador del chatbot | 🔶 **empezado** (4 piezas; faltan los 2 bloques grandes) | 2-3 días |
 
 Los ocho primeros son del backend y **no dependen de desplegar**. El noveno toca el
 chatbot.

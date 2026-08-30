@@ -83,6 +83,10 @@ import { ReopenSupportTicketTool } from './modules/bot/tools/reopen-support-tick
 import { ShowMainMenuTool } from './modules/bot/tools/show-main-menu.tool';
 import { MainMenuService } from './modules/bot/main-menu.service';
 import { AccountChoiceService } from './modules/bot/account-choice.service';
+import { EscalationService } from './modules/bot/turn/escalation.service';
+import { ImagenSinPieHandler } from './modules/bot/turn/imagen-sin-pie.handler';
+import { EleccionDeCuentaPendienteHandler } from './modules/bot/turn/eleccion-de-cuenta.handler';
+import { SaludoYPrimerContactoHandler } from './modules/bot/turn/saludo-y-primer-contacto.handler';
 import { GetInstallationPlansTool } from './modules/bot/tools/get-installation-plans.tool';
 import { SaveProspectDataTool } from './modules/bot/tools/save-prospect-data.tool';
 import { InteractiveIdCodec } from './modules/bot/intents/interactive-id.codec';
@@ -321,6 +325,11 @@ const whatsappProvider = IS_MOCK
     ExplainInvoiceDifferenceTool,
     MainMenuService,
     AccountChoiceService,
+    // E-05 — Las decisiones que salieron de processCoreLogic.
+    EscalationService,
+    ImagenSinPieHandler,
+    EleccionDeCuentaPendienteHandler,
+    SaludoYPrimerContactoHandler,
     ShowMainMenuTool,
     GetInstallationPlansTool,
     CheckRecurringIssueTool,

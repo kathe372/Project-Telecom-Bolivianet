@@ -15,6 +15,10 @@ import { AccountChoiceService } from './account-choice.service';
 import { Conversation } from '../../database/entities/conversation.entity';
 import { MessageSource } from '../../database/entities/message.entity';
 import { MessageContext } from './pipeline/message-context';
+import { EscalationService } from './turn/escalation.service';
+import { ImagenSinPieHandler } from './turn/imagen-sin-pie.handler';
+import { EleccionDeCuentaPendienteHandler } from './turn/eleccion-de-cuenta.handler';
+import { SaludoYPrimerContactoHandler } from './turn/saludo-y-primer-contacto.handler';
 import { MessageHandler, MESSAGE_PIPELINE } from './pipeline/message-handler';
 import { MessageSenderService } from './pipeline/message-sender.service';
 import { MessagePersistenceService } from './pipeline/message-persistence.service';
@@ -78,6 +82,11 @@ export class BotOrchestratorService {
     private readonly procedimiento: ProcedureRunnerService,
     private readonly accionesProc: ProcedureActionsService,
     @Inject(INSTALLATION_REPOSITORY) private readonly installationRepo: IInstallationRepository,
+    // E-05 — Cada decision del turno, en su propia clase.
+    private readonly escalacion: EscalationService,
+    private readonly imagenSinPie: ImagenSinPieHandler,
+    private readonly eleccionDeCuenta: EleccionDeCuentaPendienteHandler,
+    private readonly saludoYPrimerContacto: SaludoYPrimerContactoHandler,
   ) {}
 
   /**
@@ -216,17 +225,28 @@ export class BotOrchestratorService {
     await run();
   }
 
+  /**
+   * Ejecuta UN handler y dice si el turno debe continuar.
+   *
+   * E-05 — Los tramos extraidos de processCoreLogic no corrian seguidos: cada
+   * uno decidia en un punto distinto, entre medias de la resolucion del texto y
+   * la deteccion de sentimiento. Meterlos en la tuberia frontal habria cambiado
+   * ese orden —por ejemplo, la eleccion de cuenta pasaria a mostrarse en turnos
+   * sin texto, que hoy terminan antes—. Asi que se invocan en su sitio exacto.
+   *
+   * @returns false si el handler atendio el turno (no llamo a next).
+   */
+  private async continuar(handler: MessageHandler, ctx: MessageContext): Promise<boolean> {
+    let siguio = false;
+    await handler.handle(ctx, async () => { siguio = true; });
+    return siguio;
+  }
+
   private async processCoreLogic(ctx: MessageContext): Promise<void> {
     const session = ctx.updatedSession!;
     session.humanAvailable = ctx.humanAvailable;
 
-    if (ctx.type === 'image' && ctx.imageId) {
-      const imageCaption = ctx.imageCaption?.trim();
-      if (!imageCaption) {
-        await this.triggerEscalation(session, !session.humanAvailable);
-        return;
-      }
-    }
+    if (!await this.continuar(this.imagenSinPie, ctx)) return;
 
     let effectiveText: string | null | undefined;
     // ¿El turno viene de un id que YA trae su significado resuelto (un plan, un
@@ -335,14 +355,7 @@ export class BotOrchestratorService {
 
     if (!effectiveText?.trim()) return;
 
-    // 2026-08-05: hay una elección de cuenta pendiente (teléfono con más de
-    // un cliente asociado) que este turno no resolvió — se re-muestra la
-    // lista antes que nada más (menú de bienvenida incluido, que además
-    // mostraría un saludo genérico de prospecto con la identidad sin resolver).
-    if (session.ambiguousClients && session.ambiguousClients.length > 0) {
-      await this.accountChoice.sendChoices(session);
-      return;
-    }
+    if (!await this.continuar(this.eleccionDeCuenta, ctx)) return;
 
     if (ctx.type !== 'location' && effectiveText) {
       let mapsCoords = parseGoogleMapsUrl(effectiveText);
@@ -378,18 +391,7 @@ export class BotOrchestratorService {
         this.logger.warn(`Sentimiento ${maskPhone(ctx.phone)}: ${(err as Error)?.message ?? String(err)}`);
       });
 
-    if (ctx.isFirstContact) {
-      await this.mainMenu.sendWelcome(session);
-      // BUG-4: si el primer mensaje trae contenido accionable (GPS, imagen,
-      // consulta real), se procesa en el mismo turno en vez de descartarlo.
-      if (!this.firstContactPolicy.hasActionableContent(ctx)) return;
-    } else if (this.firstContactPolicy.isBareGreeting(ctx)) {
-      // PASO 6B: un saludo suelto en cualquier punto de la conversación
-      // vuelve a mostrar el menú con botones — antes esto solo pasaba en el
-      // primer contacto y luego el LLM narraba las opciones en texto plano.
-      await this.mainMenu.sendWelcome(session);
-      return;
-    }
+    if (!await this.continuar(this.saludoYPrimerContacto, ctx)) return;
 
     // ── Intención de negocio evidente ───────────────────────────────────────
     // Medido en producción: "Hola quiero realizar la instalación" -> el modelo
@@ -618,47 +620,13 @@ export class BotOrchestratorService {
     return transcript;
   }
 
+  /**
+   * @deprecated E-05 — La escalacion vive ahora en EscalationService. Este
+   * metodo se queda como fachada porque es publico y lo llaman desde fuera; los
+   * usos internos ya van al servicio.
+   */
   async triggerEscalation(session: SessionData, deferred = false, notifyUser = true): Promise<void> {
-    const cfg = await this.botConfigCache.getConfig();
-
-    if (deferred) {
-      if (notifyUser) {
-        await this.whatsapp.sendText(session.phoneNumber, cfg.Horario.MensajeFueraHorario);
-      }
-      this.logger.log(JSON.stringify({
-        event: 'escalation_deferred', phone: session.phoneNumber,
-        clientName: session.clientName,
-      }));
-    } else {
-      if (notifyUser) {
-        await this.whatsapp.sendText(session.phoneNumber, cfg.Mensajes.EscaladoAgente);
-      }
-      await this.adminNotifier.notifyEscalation({
-        phoneNumber: session.phoneNumber,
-        clientName:  session.clientName ?? undefined,
-        reason:      'Escalado via agente IA',
-      });
-    }
-
-    await this.session.escalate(session.phoneNumber);
-
-    let summary = '';
-    try {
-      const history = await this.session.getGeminiHistory(session.phoneNumber);
-      summary = await this.agent.summarizeConversation(history);
-    } catch (err) {
-      this.logger.warn(`No se pudo generar resumen de escalación: ${(err as Error).message}`);
-    }
-
-    await this.convRepo.update(
-      { phoneNumber: session.phoneNumber },
-      { isEscalated: true, escalatedAt: new Date(), ...(summary ? { summary } : {}) },
-    );
-
-    this.logger.log(JSON.stringify({
-      event: 'escalation_triggered', phone: session.phoneNumber,
-      clientName: session.clientName, deferred, hasSummary: !!summary,
-    }));
+    await this.escalacion.trigger(session, deferred, notifyUser);
   }
 
 }
