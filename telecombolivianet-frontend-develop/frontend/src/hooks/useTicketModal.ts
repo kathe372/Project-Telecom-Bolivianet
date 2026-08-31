@@ -21,7 +21,13 @@ export function useTicketModal() {
   const refreshTicket = useCallback(async (id: string) => {
     try {
       setTicket(await ticketService.getById(id));
-    } catch {  }
+    } catch {
+      // Deliberadamente silencioso, y por una razón distinta a los demás casos:
+      // esto refresca un ticket que YA está en pantalla. Si la relectura falla,
+      // lo correcto es conservar lo último bueno; borrarlo cerraría el modal
+      // delante del usuario. Quien necesita avisar del fallo es quien lanzó la
+      // acción, y ese aviso lo da TicketDetailModal.reload().
+    }
   }, []);
 
   return { ticket, loading, openTicket, closeTicket, refreshTicket };

@@ -20,6 +20,7 @@ import { formatBs } from '@/utils/currency';
 import { statusBadge } from '@/components/clients/profile/profileHelpers';
 import { InfoTab } from '@/components/clients/profile/InfoTab';
 import { InvoiceGrid } from '@/components/clients/profile/InvoiceGrid';
+import { ErrorDeCarga } from '@/components/shared/ErrorDeCarga';
 import { PaymentHistory } from '@/components/clients/profile/PaymentHistory';
 import { VoidPaymentModal } from '@/components/clients/profile/VoidPaymentModal';
 import { PlanChangeTab } from '@/components/clients/profile/PlanChangeTab';
@@ -42,6 +43,7 @@ export default function ClientProfilePage() {
   const [grid,    setGrid]    = useState<InvoiceGridDto | null>(null);
   const [gridYear, setGridYear] = useState(new Date().getFullYear());
   const [gridLoading, setGridLoading] = useState(false);
+  const [gridFallo,   setGridFallo]   = useState(false);
 
   const [paymentModal,   setPaymentModal]   = useState<string | null>(null);
   const [voidPaymentId,  setVoidPaymentId]  = useState<string | null>(null);
@@ -72,10 +74,17 @@ export default function ClientProfilePage() {
   const loadGrid = useCallback(async () => {
     if (!id) return;
     setGridLoading(true);
+    setGridFallo(false);
     try {
       const gridData = await clientService.getInvoices(id, gridYear);
       setGrid(gridData);
-    } catch {  }
+    } catch {
+      // Antes se tragaba y la seccion de facturas desaparecia entera: quien
+      // mirara la ficha concluiria que el cliente no debe nada. Aqui eso es
+      // dinero, asi que el fallo tiene que verse.
+      setGridFallo(true);
+      setGrid(null);
+    }
     finally { setGridLoading(false); }
   }, [id, gridYear]);
 
@@ -87,6 +96,8 @@ export default function ClientProfilePage() {
   useEffect(() => {
     userService.getAll(1, 100)
       .then(res => setTechnicians(res.Items.filter((u: UserSystemDto) => u.Role === 'Admin' || u.Role === 'Tecnico')))
+      // Silencio deliberado: solo rellena un desplegable auxiliar. Si falla, la
+      // ficha del cliente se sigue viendo entera, que es lo que se vino a ver.
       .catch(() => {  });
   }, []);
 
@@ -271,6 +282,8 @@ export default function ClientProfilePage() {
               <div className="flex items-center justify-center h-24 text-gray-400">
                 <Loader2 className="w-5 h-5 animate-spin mr-2" /> Cargando...
               </div>
+            ) : gridFallo ? (
+              <ErrorDeCarga que="la facturación del cliente" onReintentar={loadGrid} />
             ) : grid ? (
               <InvoiceGrid
                 grid={grid}

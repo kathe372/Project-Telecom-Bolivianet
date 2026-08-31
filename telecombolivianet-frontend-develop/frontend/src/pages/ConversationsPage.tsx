@@ -89,7 +89,12 @@ export default function ConversationsPage() {
       setConversations(convRes.Items);
       setTotal(convRes.Total);
       setStats(statsRes);
-    } catch {  }
+    } catch {
+      // Silencio deliberado: esto es el refresco en segundo plano, no la carga
+      // inicial. La carga inicial (`load`, arriba) SÍ muestra el error. Aquí lo
+      // correcto es conservar lo último bueno y reintentar en el siguiente
+      // ciclo; un aviso por cada fallo pasajero de red sería ruido constante.
+    }
   }, [tab, page]);
 
   useEffect(() => { loadSilentRef.current = loadSilent; }, [loadSilent]);
@@ -128,7 +133,11 @@ export default function ConversationsPage() {
       try {
         const d = await chatbotService.getConversacion(phone);
         setDetail(d);
-      } catch {  }
+      } catch {
+        // Mismo criterio que en loadSilent: es sondeo periódico y conservar la
+        // conversación que ya se está leyendo vale más que avisar de un fallo
+        // que el siguiente ciclo probablemente resuelva.
+      }
     }, 10_000);
     return () => clearInterval(id);
   }, [selected]);

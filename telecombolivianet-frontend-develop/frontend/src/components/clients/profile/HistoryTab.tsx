@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Loader2 } from 'lucide-react';
+import { ErrorDeCarga } from '@/components/shared/ErrorDeCarga';
 import {
   getClientHistorial,
   type ClientActivityItemDto, type ClientHistoryDto,
@@ -31,14 +32,22 @@ const TIPO_COLORS: Record<string, string> = {
 export function HistoryTab({ clientId }: { clientId: string }) {
   const [data, setData]       = useState<ClientHistoryDto | null>(null);
   const [loading, setLoading] = useState(true);
+  const [fallo, setFallo]     = useState(false);
   const [page, setPage]       = useState(1);
   const [tipo, setTipo]       = useState('');
 
   const load = useCallback(async () => {
     setLoading(true);
+    setFallo(false);
     try {
       setData(await getClientHistorial(clientId, page, 25, tipo || undefined));
-    } catch {  }
+    } catch {
+      // Antes esto se tragaba en silencio y la pestaña quedaba igual que si el
+      // cliente no tuviera historial. Para quien atiende, «sin incidencias
+      // previas» y «no pudimos cargarlo» son hechos muy distintos.
+      setFallo(true);
+      setData(null);
+    }
     finally { setLoading(false); }
   }, [clientId, page, tipo]);
 
@@ -73,6 +82,8 @@ export function HistoryTab({ clientId }: { clientId: string }) {
         <div className="card p-8 flex justify-center">
           <Loader2 className="w-5 h-5 animate-spin text-indigo-600" />
         </div>
+      ) : fallo ? (
+        <ErrorDeCarga que="el historial del cliente" onReintentar={load} />
       ) : !data || data.Items.length === 0 ? (
         <div className="card p-8 text-center text-gray-400 text-sm">
           No hay actividad registrada{tipo ? ` para el tipo "${tipo}"` : ''}.

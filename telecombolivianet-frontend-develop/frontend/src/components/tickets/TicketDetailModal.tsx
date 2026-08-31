@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useCallback, useState, useRef, useEffect } from 'react';
 import {
   X, CalendarClock, Info, MessageSquare, Paperclip, History, MapPin,
 } from 'lucide-react';
@@ -41,6 +41,7 @@ export function TicketDetailModal({ ticket, technicians, isAdmin, onClose, onRef
 
   const [activity,      setActivity]      = useState<TicketActivityDto[]>([]);
   const [activityLoaded, setActivityLoaded] = useState(false);
+  const [activityFallo,  setActivityFallo]  = useState(false);
 
   const [cannedResponses, setCannedResponses] = useState<CannedResponseDto[]>([]);
   const [showCanned,      setShowCanned]      = useState(false);
@@ -48,24 +49,38 @@ export function TicketDetailModal({ ticket, technicians, isAdmin, onClose, onRef
   const nexts   = NEXT_STATUS[detail.Status] ?? [];
   const technician = technicians.find(t => t.Id === detail.AssignedToUserId);
 
+  const cargarActividad = useCallback(() => {
+    setActivityFallo(false);
+    ticketService.getActivity(detail.Id).then(data => {
+      setActivity(data);
+      setActivityLoaded(true);
+    }).catch(() => {
+      // Antes se tragaba y `activityLoaded` no llegaba a true nunca: la pestaña
+      // se quedaba con el spinner girando indefinidamente.
+      setActivityFallo(true);
+    });
+  }, [detail.Id]);
+
   useEffect(() => {
-    if (tab === 'history' && !activityLoaded) {
-      ticketService.getActivity(detail.Id).then(data => {
-        setActivity(data);
-        setActivityLoaded(true);
-      }).catch(() => {  });
-    }
-  }, [tab, activityLoaded, detail.Id]);
+    if (tab === 'history' && !activityLoaded && !activityFallo) cargarActividad();
+  }, [tab, activityLoaded, activityFallo, cargarActividad]);
 
   useEffect(() => {
     if (tab === 'comments' && cannedResponses.length === 0) {
+      // Silencio deliberado: las respuestas predefinidas son un atajo para
+      // escribir, no el contenido del ticket. Sin ellas se escribe a mano.
       cannedResponseService.getAll().then(setCannedResponses).catch(() => {  });
     }
   }, [tab, cannedResponses.length]);
 
   const reload = async () => {
     try { setDetail(await ticketService.getById(detail.Id)); }
-    catch {  }
+    catch {
+      // Se tragaba, y la pantalla seguía mostrando el estado anterior: el
+      // usuario creía que su cambio no se había aplicado y volvía a intentarlo.
+      // El cambio SÍ se guardó; lo que falló es releerlo.
+      setErrMsg('El cambio se guardó, pero no pudimos recargar el ticket. Ciérralo y vuelve a abrirlo para ver el estado actual.');
+    }
   };
 
   const handleStatus = async (newStatus: string) => {
@@ -263,7 +278,12 @@ export function TicketDetailModal({ ticket, technicians, isAdmin, onClose, onRef
           )}
 
           {tab === 'history' && (
-            <HistoryTab activity={activity} activityLoaded={activityLoaded} />
+            <HistoryTab
+              activity={activity}
+              activityLoaded={activityLoaded}
+              fallo={activityFallo}
+              onReintentar={cargarActividad}
+            />
           )}
 
           {tab === 'visits' && (

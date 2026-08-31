@@ -59,6 +59,9 @@ export default function NotificationBell() {
   const handleClick = async (alert: InternalAlertDto) => {
     setOpen(false);
     removeAlert(alert.Id);
+    // Silencio deliberado: marcar como leída es cosmético y se reintenta solo
+    // en la siguiente carga. Un aviso de error aquí interrumpiría la navegación
+    // que el usuario acaba de iniciar al pulsar la alerta.
     try { await alertService.markRead(alert.Id); } catch {  }
     navigate(alert.Link);
   };

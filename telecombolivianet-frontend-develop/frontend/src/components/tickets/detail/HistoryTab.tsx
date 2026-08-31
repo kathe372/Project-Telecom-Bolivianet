@@ -1,12 +1,20 @@
 import { Loader2 } from 'lucide-react';
+import { ErrorDeCarga } from '@/components/shared/ErrorDeCarga';
 import type { TicketActivityDto } from '@/types/ticket.types';
 
 export function HistoryTab({
-  activity, activityLoaded,
+  activity, activityLoaded, fallo, onReintentar,
 }: {
   activity: TicketActivityDto[];
   activityLoaded: boolean;
+  /** La carga falló. Sin esto el spinner giraba para siempre. */
+  fallo?: boolean;
+  onReintentar?: () => void;
 }) {
+  if (fallo) {
+    return <ErrorDeCarga que="el historial del ticket" onReintentar={onReintentar} />;
+  }
+
   if (!activityLoaded) {
     return (
       <p className="text-sm text-gray-400 text-center py-8 flex items-center justify-center gap-2">

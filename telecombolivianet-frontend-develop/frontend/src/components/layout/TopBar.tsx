@@ -34,6 +34,10 @@ export function TopBar({ onMenuClick }: TopBarProps) {
   }, []);
 
   const handleLogout = async () => {
+    // Silencio deliberado: si el servidor no responde, la sesión LOCAL se
+    // limpia igualmente. Bloquear el cierre de sesión por un fallo de red
+    // dejaría al usuario dentro de una sesión que quería abandonar — lo
+    // contrario de lo que pidió, y peor en un ordenador compartido.
     try { await authService.logout(); } catch {  }
     clearSession();
     navigate('/login', { replace: true });
