@@ -57,3 +57,10 @@ Thumbs.db
 
 # ── Docker volumes locales ───────────────────────────────────────────────────
 uploads/
+# Estado de las suites E2E: contienen tokens JWT y cookies de sesion reales.
+# El patron cubre .estado-*.json y .api-estado.json — el segundo se escapaba del
+# patron anterior y git ya lo tenia como no rastreado, listo para colarse en un
+# `git add -A`.
+e2e/.*.json
+test-results/
+playwright-report/
