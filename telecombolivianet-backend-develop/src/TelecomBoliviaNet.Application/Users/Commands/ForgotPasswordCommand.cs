@@ -36,19 +36,53 @@ public class ForgotPasswordHandler : IRequestHandler<ForgotPasswordCommand, Resu
     public async Task<Result<ForgotPasswordResultDto>> Handle(
         ForgotPasswordCommand cmd, CancellationToken ct)
     {
+        // ── La respuesta es SIEMPRE la misma, exista la cuenta o no ───────────
+        //
+        // Antes este endpoint distinguía cuatro situaciones para quien llamaba
+        // sin credenciales: cuenta inexistente (400), desactivada (400),
+        // pendiente de activación (400) y éxito (200). Con eso, cualquiera podía
+        // probar direcciones y averiguar cuáles tienen cuenta en el sistema —y
+        // hasta en qué estado está—.
+        //
+        // No es una fuga menor aquí: tres intentos fallidos bloquean una cuenta,
+        // así que enumerar al personal permite después dejarlo a todo fuera.
+        //
+        // El motivo real se registra en el log del servidor, donde sí interesa.
+        //
+        // Lo que SÍ se sigue rechazando es una dirección mal formada: eso no
+        // filtra nada —se puede decidir sin mirar la base— y sin la comprobación
+        // se devolvía un 200 con un enmascarado sin sentido («***@»).
+        if (string.IsNullOrWhiteSpace(cmd.Email) ||
+            !System.Text.RegularExpressions.Regex.IsMatch(
+                cmd.Email, @"^[^@\s]+@[^@\s]+\.[^@\s]+$"))
+        {
+            return Result<ForgotPasswordResultDto>.Failure(
+                "El correo electrónico no tiene un formato válido.");
+        }
+
+        var respuestaUniforme = Result<ForgotPasswordResultDto>.Success(
+            new ForgotPasswordResultDto(
+                $"Si existe una cuenta con {UserMapper.MaskEmail(cmd.Email)}, " +
+                "te enviamos el enlace de recuperación. Revisa tu correo.",
+                "Email",
+                UserMapper.MaskEmail(cmd.Email)));
+
         var user = await _repo.FirstOrDefaultAsync(u => u.Email.ToLower() == cmd.Email.ToLower());
 
         if (user is null)
-            return Result<ForgotPasswordResultDto>.Failure(
-                "No existe ninguna cuenta registrada con ese correo electrónico.");
+        {
+            _logger.LogInformation(
+                "PASSWORD_RESET pedido para un correo sin cuenta: {Email}", cmd.Email);
+            return respuestaUniforme;
+        }
 
-        if (user.Status == UserStatus.Inactivo)
-            return Result<ForgotPasswordResultDto>.Failure(
-                "Esta cuenta está desactivada. Contacta al administrador del sistema.");
-
-        if (user.Status == UserStatus.PendienteActivacion)
-            return Result<ForgotPasswordResultDto>.Failure(
-                "Esta cuenta aún no ha sido activada. Revisa tu correo para el enlace de activación.");
+        if (user.Status is UserStatus.Inactivo or UserStatus.PendienteActivacion)
+        {
+            _logger.LogInformation(
+                "PASSWORD_RESET pedido para cuenta en estado {Estado}: {Email}",
+                user.Status, user.Email);
+            return respuestaUniforme;
+        }
 
         var prevTokens = await _resetRepo.ListAsync(
             t => t.UserId == user.Id && !t.Used && t.ExpiresAt > DateTime.UtcNow);
@@ -91,10 +125,7 @@ public class ForgotPasswordHandler : IRequestHandler<ForgotPasswordCommand, Resu
 
         _logger.LogInformation("PASSWORD_RESET solicitado para {Email}", user.Email);
 
-        return Result<ForgotPasswordResultDto>.Success(
-            new ForgotPasswordResultDto(
-                $"Te enviamos el enlace de recuperación a {resetToken.SentTo}. Revisa tu correo.",
-                "Email",
-                resetToken.SentTo));
+        // La misma respuesta del caso «no existe»: desde fuera, indistinguible.
+        return respuestaUniforme;
     }
 }

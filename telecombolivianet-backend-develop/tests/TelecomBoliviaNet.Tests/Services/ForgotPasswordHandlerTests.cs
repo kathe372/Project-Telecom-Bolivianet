@@ -151,7 +151,7 @@ public class ForgotPasswordHandlerTests
     // ── TC-FP-03 · Email no registrado → Failure con mensaje directo, sin email enviado ─
 
     [Fact]
-    public async Task Handle_EmailNoRegistrado_RetornaFailureSinEnviarEmail()
+    public async Task Handle_EmailNoRegistrado_RespondeIgualQueSiExistiera_SinEnviarEmail()
     {
         _userRepo.Setup(r => r.GetAll())
             .Returns(new List<UserSystem>().BuildMock());
@@ -165,8 +165,13 @@ public class ForgotPasswordHandlerTests
         var result = await MakeHandler().Handle(
             new ForgotPasswordCommand("noexiste@x.com"), CancellationToken.None);
 
-        result.IsSuccess.Should().BeFalse();
-        result.ErrorMessage.Should().Contain("No existe");
+        // La respuesta es la MISMA que la de un correo con cuenta: distinguirlas
+        // permitía enumerar usuarios sin credenciales, y como tres intentos
+        // fallidos bloquean una cuenta, eso deja bloquear al personal entero.
+        // Lo que este caso protege de verdad —que NO se envíe correo ni se
+        // genere token— sigue comprobándose abajo, que es lo esencial.
+        result.IsSuccess.Should().BeTrue();
+        result.Value!.Message.Should().NotContain("No existe");
 
         // No se llama al servicio de email ni se crea token
         _email.Verify(e => e.SendPasswordResetAsync(
@@ -177,7 +182,7 @@ public class ForgotPasswordHandlerTests
     // ── TC-FP-04 · Usuario inactivo → Failure con mensaje directo, sin email enviado ─
 
     [Fact]
-    public async Task Handle_UsuarioInactivo_RetornaFailureSinEnviarEmail()
+    public async Task Handle_UsuarioInactivo_RespondeIgualQueSiEstuvieraActivo_SinEnviarEmail()
     {
         var inactivo = MakeUser(status: UserStatus.Inactivo);
 
@@ -193,8 +198,13 @@ public class ForgotPasswordHandlerTests
         var result = await MakeHandler().Handle(
             new ForgotPasswordCommand(ValidEmail), CancellationToken.None);
 
-        result.IsSuccess.Should().BeFalse();
-        result.ErrorMessage.Should().Contain("desactivada");
+        // La respuesta es la MISMA que la de un correo con cuenta: distinguirlas
+        // permitía enumerar usuarios sin credenciales, y como tres intentos
+        // fallidos bloquean una cuenta, eso deja bloquear al personal entero.
+        // Lo que este caso protege de verdad —que NO se envíe correo ni se
+        // genere token— sigue comprobándose abajo, que es lo esencial.
+        result.IsSuccess.Should().BeTrue();
+        result.Value!.Message.Should().NotContain("desactivada");
         _email.Verify(e => e.SendPasswordResetAsync(
             It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()), Times.Never);
     }

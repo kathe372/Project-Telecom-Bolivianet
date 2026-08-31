@@ -404,7 +404,7 @@ public class UserHandlerTests
     // ── TC-USR-17 · ForgotPassword usuario inexistente → Failure con mensaje directo ──
 
     [Fact]
-    public async Task ForgotPassword_UnknownEmail_ReturnsFailureWithMessage()
+    public async Task ForgotPassword_UnknownEmail_RespondeIgualQueSiExistiera()
     {
         var config = new ConfigurationBuilder()
             .AddInMemoryCollection(new Dictionary<string, string?> { ["App:FrontendUrl"] = "http://localhost" })
@@ -421,7 +421,11 @@ public class UserHandlerTests
             new ForgotPasswordCommand("noexiste@bo.com"),
             CancellationToken.None);
 
-        result.IsSuccess.Should().BeFalse();
-        result.ErrorMessage.Should().Contain("correo");
+        // La respuesta es la MISMA que la de un correo con cuenta: distinguirlas
+        // permitía enumerar usuarios del sistema sin credenciales, y como tres
+        // intentos fallidos bloquean una cuenta, eso permite dejar fuera al
+        // personal entero.
+        result.IsSuccess.Should().BeTrue();
+        result.Value!.Message.Should().NotContain("No existe");
     }
 }

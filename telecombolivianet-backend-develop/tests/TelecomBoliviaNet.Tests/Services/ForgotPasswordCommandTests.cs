@@ -69,15 +69,20 @@ public class ForgotPasswordCommandTests
         var result = await MakeHandler().Handle(
             new ForgotPasswordCommand("noexiste@bo.com"), CancellationToken.None);
 
-        result.IsSuccess.Should().BeFalse();
-        result.ErrorMessage.Should().Contain("correo");
+        // La respuesta es la MISMA que la de un correo con cuenta: distinguirlas
+        // permitía enumerar usuarios sin credenciales, y como tres intentos
+        // fallidos bloquean una cuenta, eso deja bloquear al personal entero.
+        // Lo esencial que protege este caso —que NO se envíe correo— sigue
+        // comprobándose abajo.
+        result.IsSuccess.Should().BeTrue();
+        result.Value!.Message.Should().NotContain("No existe");
         _email.Verify(e => e.SendPasswordResetAsync(
             It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()), Times.Never);
     }
 
     // TC-02: Usuario inactivo → Failure con mensaje directo, IEmailService no llamado
     [Fact]
-    public async Task TC02_UsuarioInactivo_RetornaFailure_SinEnviarEmail()
+    public async Task TC02_UsuarioInactivo_RespondeIgualQueSiEstuvieraActivo_SinEnviarEmail()
     {
         var user = MakeUser(status: UserStatus.Inactivo);
         _userRepo.Setup(r => r.GetAll())
@@ -92,8 +97,13 @@ public class ForgotPasswordCommandTests
         var result = await MakeHandler().Handle(
             new ForgotPasswordCommand(user.Email), CancellationToken.None);
 
-        result.IsSuccess.Should().BeFalse();
-        result.ErrorMessage.Should().Contain("desactivada");
+        // La respuesta es la MISMA que la de un correo con cuenta: distinguirlas
+        // permitía enumerar usuarios sin credenciales, y como tres intentos
+        // fallidos bloquean una cuenta, eso deja bloquear al personal entero.
+        // Lo esencial que protege este caso —que NO se envíe correo— sigue
+        // comprobándose abajo.
+        result.IsSuccess.Should().BeTrue();
+        result.Value!.Message.Should().NotContain("desactivada");
         _email.Verify(e => e.SendPasswordResetAsync(
             It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()), Times.Never);
     }
