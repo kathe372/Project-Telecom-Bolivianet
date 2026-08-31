@@ -109,9 +109,18 @@ public record CreateOrUpdateSegmentDto(
 public record SegmentPreviewDto(int ClientesCoinciden);
 
 
+/// <summary>Envío masivo. <c>SegmentId</c> nulo significa «todos los clientes activos».</summary>
+/// <remarks>
+/// <c>Tipo</c> es anulable A PROPÓSITO. Siendo <c>NotifType</c> a secas, un cuerpo
+/// sin ese campo —un <c>{}</c>, una petición mal formada, un reintento que perdió
+/// el cuerpo— se enlazaba al valor por defecto del enum, que es
+/// <c>SUSPENSION</c>. Combinado con <c>SegmentId</c> nulo, eso es anunciar a toda
+/// la cartera que le han cortado el servicio. Anulable, la ausencia se distingue
+/// de la elección y el controlador puede rechazarla.
+/// </remarks>
 public record BulkSendDto(
-    NotifType Tipo,
-    Guid?     SegmentId
+    NotifType? Tipo,
+    Guid?      SegmentId
 );
 
 public record BulkSendResultDto(int Enviados, int OmitidosAntispam, int SinTelefono);

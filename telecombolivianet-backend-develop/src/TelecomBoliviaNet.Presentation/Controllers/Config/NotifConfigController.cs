@@ -209,6 +209,14 @@ public class NotifConfigController : BaseController
     [Authorize(Policy = "AdminOnly")]
     public async Task<IActionResult> BulkSend([FromBody] BulkSendDto dto)
     {
+        // Sin tipo no hay envío. Antes, un cuerpo vacío se enlazaba al primer
+        // valor del enum (SUSPENSION) y, como SegmentId nulo significa «todos
+        // los clientes activos», bastaba un POST con {} para anunciar a la
+        // cartera entera que le habían suspendido el servicio. Se comprobó: el
+        // endpoint respondía 200 y solo la ventana antispam frenó los envíos.
+        if (dto?.Tipo is null)
+            return BadRequestResult("Debe indicarse el tipo de notificación a enviar.");
+
         var result = await _envioSvc.BulkSendAsync(dto, CurrentUserId, CurrentUserName, ClientIp);
         return result.IsSuccess ? OkResult(result.Value) : BadRequestResult(result.ErrorMessage);
     }

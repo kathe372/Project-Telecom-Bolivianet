@@ -46,12 +46,19 @@ public class NotifSendService
     public async Task<Result<BulkSendResultDto>> BulkSendAsync(
         BulkSendDto dto, Guid actorId, string actorName, string ip)
     {
+        // Segunda guarda, a propósito: el controlador ya rechaza el tipo ausente,
+        // pero este servicio manda WhatsApp a toda la cartera y no debe depender
+        // de que quien lo llame se haya acordado de comprobarlo.
+        if (dto.Tipo is not { } tipo)
+            return Result<BulkSendResultDto>.Failure(
+                "Debe indicarse el tipo de notificación a enviar.");
+
         var config = await _configRepo.GetAll()
-            .FirstOrDefaultAsync(c => c.Tipo == dto.Tipo);
+            .FirstOrDefaultAsync(c => c.Tipo == tipo);
 
         if (config is null || !config.Activo)
             return Result<BulkSendResultDto>.Failure(
-                $"El tipo {dto.Tipo} está desactivado o no existe.");
+                $"El tipo {tipo} está desactivado o no existe.");
 
         var clientes = await LoadTargetClientsAsync(dto);
         if (!clientes.Any())
@@ -61,7 +68,7 @@ public class NotifSendService
         var clienteIds   = clientes.Select(c => c.Id).ToList();
         var yaRecibieroList = await _logRepo.GetAll()
             .Where(l => clienteIds.Contains(l.ClienteId)
-                     && l.Tipo      == dto.Tipo
+                     && l.Tipo      == tipo
                      && l.Estado    == NotifLogEstado.ENVIADO
                      && l.RegistradoAt >= ventana24h)
             .Select(l => l.ClienteId)
@@ -89,7 +96,7 @@ public class NotifSendService
                 {
                     OutboxId     = null,
                     ClienteId    = cliente.Id,
-                    Tipo         = dto.Tipo,
+                    Tipo         = tipo,
                     PhoneNumber  = cliente.PhoneMain,
                     Mensaje      = string.Empty,
                     Estado       = NotifLogEstado.OMITIDO,
@@ -104,7 +111,7 @@ public class NotifSendService
 
             outboxBatch.Add(new NotifOutbox
             {
-                Tipo         = dto.Tipo,
+                Tipo         = tipo,
                 ClienteId    = cliente.Id,
                 PhoneNumber  = cliente.PhoneMain,
                 Publicado    = false,
@@ -127,7 +134,7 @@ public class NotifSendService
             await _outboxRepo.SaveChangesAsync();
 
         await _audit.LogAsync("Notificaciones", "NOTIF_ENVIO_MASIVO",
-            $"Envío masivo tipo={dto.Tipo} programados={outboxBatch.Count} omitidos={omitidoLogs.Count} sinTelefono={sinTelefono}",
+            $"Envío masivo tipo={tipo} programados={outboxBatch.Count} omitidos={omitidoLogs.Count} sinTelefono={sinTelefono}",
             userId: actorId, userName: actorName, ip: ip);
 
         return Result<BulkSendResultDto>.Success(
