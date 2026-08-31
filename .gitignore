@@ -64,3 +64,4 @@ uploads/
 e2e/.*.json
 test-results/
 playwright-report/
+cobertura-e2e/

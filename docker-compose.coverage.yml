@@ -1,0 +1,22 @@
+# Sustituye el backend por su variante instrumentada, para medir qué cubren las
+# pruebas E2E. Se usa junto al compose principal:
+#
+#   docker compose -f docker-compose.yml -f docker-compose.coverage.yml up -d backend
+#
+# o mejor, con el script que orquesta todo:  scripts/e2e-cobertura.sh
+services:
+  backend:
+    # Etiqueta PROPIA. Sin esto, ambos compose construyen
+    # `project-telecom-bolivianet-backend:latest` y el ultimo `docker compose
+    # build backend` sobrescribe al otro en silencio — con el sintoma de que
+    # inspeccionas la imagen instrumentada y encuentras la normal.
+    image: telecom-backend-cobertura:latest
+    build:
+      context: ./telecombolivianet-backend-develop
+      dockerfile: Dockerfile.coverage
+    volumes:
+      - ./cobertura-e2e:/cobertura
+    # coverlet escribe el informe al terminar el proceso ORDENADAMENTE. Con el
+    # margen de 10 s por defecto, docker manda SIGKILL antes de que acabe y el
+    # fichero no aparece — sin ningun error visible que lo explique.
+    stop_grace_period: 120s
