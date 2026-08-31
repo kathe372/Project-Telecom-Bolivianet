@@ -10,7 +10,18 @@ using TelecomBoliviaNet.Presentation.Controllers;
 namespace TelecomBoliviaNet.Presentation.Controllers.Coverage;
 
 [Route("api/coverage")]
-[Authorize(Policy = "AdminOnly")]
+// El piso del controlador es AdminOrTecnico, no AdminOnly.
+//
+// Las 14 acciones llevan su propio [Authorize] fijado explícitamente (F9), y
+// como los atributos se EXIGEN LOS DOS (D-25), las 10 marcadas AdminOnly siguen
+// siendo AdminOnly: bajar el piso no abre ninguna. Lo que arregla es las 4
+// marcadas AdminOrTecnico —zonas, cajas, puertos y ubicaciones—, que hasta
+// ahora respondían 403 al técnico pese a decir lo contrario.
+//
+// No era teórico: el frontend deja al técnico abrir /coverage
+// (allowedRoles={['Admin','Tecnico']}), así que el mapa de cobertura se le
+// quedaba vacío sin explicar por qué.
+[Authorize(Policy = "AdminOrTecnico")]
 public class CoverageAdminController : BaseController
 {
     private readonly IMediator _mediator;
