@@ -42,6 +42,14 @@ public class BusinessScheduleService : IBusinessScheduleService
         var validation = ValidateDto(dto.StartHour, dto.EndHour, dto.WorkingDaysMask, dto.Is24x7);
         if (validation is not null) return Result<BusinessScheduleDto>.Failure(validation);
 
+        // El nombre no se comprobaba. Las horas y la máscara sí, pero un horario
+        // sin nombre entraba, y el segundo fallaba con "Ya existe un horario con
+        // ese nombre" — un mensaje que no describe el problema y que confunde a
+        // quien lo lee. Este controlador no tiene validador de FluentValidation
+        // registrado, así que la comprobación va aquí, junto a las demás.
+        if (string.IsNullOrWhiteSpace(dto.Name))
+            return Result<BusinessScheduleDto>.Failure("El nombre del horario es obligatorio.");
+
         var exists = await _scheduleRepo.AnyAsync(s => s.Name == dto.Name.Trim());
         if (exists) return Result<BusinessScheduleDto>.Failure("Ya existe un horario con ese nombre.");
 
@@ -130,6 +138,12 @@ public class BusinessScheduleService : IBusinessScheduleService
 
         if (!DateOnly.TryParseExact(dto.Date, "yyyy-MM-dd", out var date))
             return Result<ScheduleHolidayDto>.Failure("Formato de fecha inválido. Use yyyy-MM-dd.");
+
+        // Un feriado sin nombre se aceptaba con 200. Queda en el calendario como
+        // un día no laborable en blanco: alarga los plazos de SLA y nadie puede
+        // decir por qué, ni si sobra o falta.
+        if (string.IsNullOrWhiteSpace(dto.Name))
+            return Result<ScheduleHolidayDto>.Failure("El nombre del feriado es obligatorio.");
 
         var dup = await _holidayRepo.AnyAsync(h => h.BusinessScheduleId == scheduleId && h.Date == date);
         if (dup) return Result<ScheduleHolidayDto>.Failure("Ya existe un feriado para esa fecha en este horario.");
