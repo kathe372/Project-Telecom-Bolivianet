@@ -109,9 +109,17 @@ public class PaymentsController : BaseController
     [HttpGet("check-duplicate")]
     [Authorize(Policy = "AdminOrTecnico")]
     public async Task<IActionResult> CheckDuplicate(
-        [FromQuery] Guid clientId, [FromQuery] decimal amount, [FromQuery] DateTime paidAt)
+        [FromQuery] Guid clientId, [FromQuery] decimal amount, [FromQuery] DateTime? paidAt)
     {
-        var result = await _querySvc.CheckDuplicateAsync(clientId, amount, paidAt);
+        // `paidAt` era un DateTime a secas. Cuando el parámetro no venía, el
+        // enlace de modelos lo dejaba en DateTime.MinValue sin protestar, y el
+        // servicio hacía paidAt.AddDays(-3): por debajo de la fecha mínima
+        // representable, lo que reventaba en 500. Un parámetro que falta es una
+        // petición mal formada, no un error del servidor.
+        if (paidAt is null)
+            return BadRequestResult("La fecha de pago (paidAt) es obligatoria.");
+
+        var result = await _querySvc.CheckDuplicateAsync(clientId, amount, paidAt.Value);
         return OkResult(result);
     }
 

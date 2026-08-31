@@ -63,12 +63,42 @@ public class PaymentReportService : IPaymentReportService
         var count = totals?.Count ?? 0;
         var avg   = count > 0 ? Math.Round(total / count, 2) : 0m;
 
-        // El desglose por operador también se agrega en SQL.
-        var byUser = await baseQuery
-            .GroupBy(p => p.RegisteredBy != null ? p.RegisteredBy.FullName : "Sistema")
-            .Select(g => new CollectionByUserDto(g.Key, g.Count(), g.Sum(p => p.Amount)))
-            .OrderByDescending(u => u.Total)
+        // El desglose por operador también se agrega en SQL, pero agrupando por
+        // la CLAVE, no por el nombre.
+        //
+        // Antes se agrupaba por `p.RegisteredBy != null ? p.RegisteredBy.FullName
+        // : "Sistema"`. Esa clave condicional sobre una propiedad de navegación
+        // obliga a EF a resolver un JOIN y luego agregar sobre el identificador
+        // transparente resultante, y eso NO lo sabe traducir a SQL: lanzaba
+        // InvalidOperationException en TODA llamada. El endpoint devolvía 500
+        // siempre, con cualquier rango de fechas.
+        //
+        // Agrupar por el Guid sí se traduce. Los nombres se resuelven después,
+        // en una única consulta acotada a los operadores que aparecen.
+        var porOperador = await baseQuery
+            .GroupBy(p => p.RegisteredByUserId)
+            .Select(g => new { UserId = g.Key, Count = g.Count(), Total = g.Sum(p => p.Amount) })
             .ToListAsync();
+
+        var ids = porOperador.Select(x => x.UserId).ToList();
+
+        var nombres = ids.Count == 0
+            ? new Dictionary<Guid, string>()
+            : await _userRepo.GetAll().AsNoTracking()
+                .Where(u => ids.Contains(u.Id))
+                .Select(u => new { u.Id, u.FullName })
+                .ToDictionaryAsync(u => u.Id, u => u.FullName);
+
+        // "Sistema" solo puede darse si el usuario ya no se puede leer (borrado
+        // lógico), no si el pago no tiene operador: RegisteredByUserId es
+        // obligatorio. El condicional original —`p.RegisteredBy != null`— cubría
+        // un caso que el modelo no permite.
+        var byUser = porOperador
+            .Select(x => new CollectionByUserDto(
+                nombres.TryGetValue(x.UserId, out var nombre) ? nombre : "Sistema",
+                x.Count, x.Total))
+            .OrderByDescending(u => u.Total)
+            .ToList();
 
         // El DETALLE sí se acota: es una lista para mostrar, no la base del total.
         var payments = await baseQuery
