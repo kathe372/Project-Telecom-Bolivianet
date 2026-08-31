@@ -7,11 +7,11 @@ import { ConfigService } from '@nestjs/config';
 import { Response } from 'express';
 import { RawBodyRequest } from '@nestjs/common';
 import { Request } from 'express';
-import * as crypto from 'crypto';
 import { BotOrchestratorService } from '../bot/bot-orchestrator.service';
 import { INotificationRepository, NOTIFICATION_REPOSITORY } from '../client/sistema-api.interfaces';
 import { WebhookDedupService } from './webhook-dedup.service';
 import { validatePhone } from '../../common/validators/phone.validator';
+import { verificarFirmaWebhook } from './webhook-signature';
 
 
 export interface MetaWebhookPayload {
@@ -86,21 +86,16 @@ export class WhatsappWebhookController {
       this.logger.error('META_APP_SECRET no configurado — el webhook no puede verificar firmas');
       throw new InternalServerErrorException('Webhook mal configurado: META_APP_SECRET ausente');
     }
-    if (!signature) {
+    // Segunda comprobación, a propósito. WebhookSignatureMiddleware ya rechazó
+    // lo que no viniera firmado —y lo hace ANTES del limitador de tasa, que es
+    // lo que importa—, pero es barata y evita que reordenar el registro de
+    // middleware vuelva a abrir el hueco sin que nadie se entere.
+    const firma = verificarFirmaWebhook(req.rawBody, signature, appSecret);
+    if (firma === 'ausente') {
       this.logger.warn('Webhook recibido sin X-Hub-Signature-256 — rechazado');
       throw new UnauthorizedException('Firma X-Hub-Signature-256 requerida');
     }
-    const rawBody = req.rawBody;
-    const expectedHash = crypto
-      .createHmac('sha256', appSecret)
-      .update(rawBody ?? '')
-      .digest('hex');
-    const expectedSig = Buffer.from(`sha256=${expectedHash}`);
-    const receivedSig = Buffer.from(signature);
-    const sigValid =
-      expectedSig.length === receivedSig.length &&
-      crypto.timingSafeEqual(expectedSig, receivedSig);
-    if (!sigValid) {
+    if (firma === 'invalida') {
       this.logger.warn('Firma de webhook inválida — payload ignorado');
       return { status: 'ok' };
     }

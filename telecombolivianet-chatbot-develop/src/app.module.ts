@@ -117,6 +117,7 @@ import { MonitorController } from './modules/admin/monitor.controller';
 import { RagDocumentsController } from './modules/rag/rag-documents.controller';
 
 import { PhoneRateLimiterMiddleware } from './common/middleware/phone-rate-limiter.middleware';
+import { WebhookSignatureMiddleware } from './common/middleware/webhook-signature.middleware';
 
 import { InputSanitizerService } from './modules/bot/input-sanitizer.service';
 import { ActionConfirmationGuard } from './modules/bot/guards/action-confirmation.guard';
@@ -433,7 +434,10 @@ const whatsappProvider = IS_MOCK
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer): void {
     consumer
-      .apply(PhoneRateLimiterMiddleware)
+      // El orden IMPORTA: autenticar antes de contar. Con el limitador
+      // primero, una peticion sin firma movia estado en Redis y podia
+      // disparar un envio saliente. Ver WebhookSignatureMiddleware.
+      .apply(WebhookSignatureMiddleware, PhoneRateLimiterMiddleware)
       .forRoutes({ path: 'webhook', method: RequestMethod.POST });
   }
 }
