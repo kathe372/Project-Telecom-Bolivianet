@@ -13,12 +13,17 @@ public class CreateTicketValidator : AbstractValidator<CreateTicketDto>
         RuleFor(x => x.ClientId)
             .NotEmpty().When(x => string.IsNullOrWhiteSpace(x.ProspectName))
             .WithMessage("Debes seleccionar un cliente o ingresar el nombre del prospecto.");
+        // Ojo con el alcance de `When`: por defecto se aplica a TODAS las reglas
+        // anteriores de la cadena, no solo a la que precede. Sin
+        // ApplyConditionTo.CurrentValidator, el `.When(... is not null)` de abajo
+        // se propagaba hacia atrás y desactivaba el NotEmpty justo cuando el
+        // campo venía nulo — es decir, en el único caso para el que se escribió.
         RuleFor(x => x.ProspectName)
-            .NotEmpty().When(x => !x.ClientId.HasValue)
+            .NotEmpty().When(x => !x.ClientId.HasValue, ApplyConditionTo.CurrentValidator)
             .WithMessage("El nombre del prospecto es obligatorio cuando no hay cliente seleccionado.")
-            .MaximumLength(200).When(x => x.ProspectName is not null)
+            .MaximumLength(200).When(x => x.ProspectName is not null, ApplyConditionTo.CurrentValidator)
             .WithMessage("El nombre del prospecto no puede superar 200 caracteres.")
-            .Matches(@"^[\p{L}\s\-\.\']{2,200}$").When(x => x.ProspectName is not null)
+            .Matches(@"^[\p{L}\s\-\.\']{2,200}$").When(x => x.ProspectName is not null, ApplyConditionTo.CurrentValidator)
             .WithMessage("El nombre del prospecto solo puede contener letras y espacios.");
         RuleFor(x => x.ProspectPhone)
             .MaximumLength(30).When(x => x.ProspectPhone is not null)
@@ -27,10 +32,15 @@ public class CreateTicketValidator : AbstractValidator<CreateTicketDto>
             .WithMessage("Número de teléfono inválido.");
         // Mismo criterio que CreateInstallationValidator (PASO 10): un ticket
         // para alguien sin ficha de cliente debe quedar con identidad verificable.
+        // Mismo problema de alcance que arriba, y aquí SÍ dejaba un hueco real:
+        // se comprobó contra el sistema en marcha que un ticket sin cliente y con
+        // ProspectIdentityCard=null se creaba con 200, mientras que el mismo
+        // ticket con cadena vacía devolvía 400 con este mismo mensaje. La regla
+        // solo saltaba en el caso para el que NO se escribió.
         RuleFor(x => x.ProspectIdentityCard)
-            .NotEmpty().When(x => !x.ClientId.HasValue)
+            .NotEmpty().When(x => !x.ClientId.HasValue, ApplyConditionTo.CurrentValidator)
             .WithMessage("Se requiere la cédula de identidad del prospecto para crear el ticket.")
-            .MaximumLength(30).When(x => x.ProspectIdentityCard is not null)
+            .MaximumLength(30).When(x => x.ProspectIdentityCard is not null, ApplyConditionTo.CurrentValidator)
             .WithMessage("La cédula de identidad no puede superar 30 caracteres.");
         RuleFor(x => x.Subject).NotEmpty().WithMessage("El asunto es obligatorio.")
             .MinimumLength(3).WithMessage("El asunto debe tener al menos 3 caracteres.")
@@ -74,10 +84,16 @@ public class ChangeTicketStatusValidator : AbstractValidator<ChangeTicketStatusD
     {
         RuleFor(x => x.Status).NotEmpty().WithMessage("El estado es obligatorio.")
             .Must(s => ValidStatus.Contains(s)).WithMessage("Estado inválido.");
+        // Tercera aparición del mismo alcance de `When` (ver ProspectName y
+        // ProspectIdentityCard). Aquí el hueco lo tapaba el dominio —
+        // SupportTicket.Resolver() rechaza un mensaje en blanco desde E-04—,
+        // así que no llegaba a guardarse un ticket resuelto sin explicación;
+        // pero el rechazo salía del dominio y no del validador, con el mensaje
+        // y el código de estado equivocados.
         RuleFor(x => x.ResolutionMessage)
-            .NotEmpty().When(x => x.Status == "Resuelto")
+            .NotEmpty().When(x => x.Status == "Resuelto", ApplyConditionTo.CurrentValidator)
             .WithMessage("Se requiere mensaje de resolución al marcar como Resuelto.")
-            .MaximumLength(2000).When(x => x.ResolutionMessage is not null)
+            .MaximumLength(2000).When(x => x.ResolutionMessage is not null, ApplyConditionTo.CurrentValidator)
             .WithMessage("El mensaje de resolución no puede superar 2000 caracteres.");
     }
 }
