@@ -171,6 +171,8 @@ Y dos inserciones en páginas existentes:
 
 ## 3. PARTE B — Integración MikroTik
 
+> **⚠️ Revisado el 2026-08-27 en [`PLAN_RED_HALLAZGOS_MIKROTIK.md`](PLAN_RED_HALLAZGOS_MIKROTIK.md)** tras inspeccionar el router real. Tres correcciones a esta sección: (1) RouterOS es **v6.45.9**, así que **no hay REST API** — el agente usa la API binaria; (2) los routers **tienen IP pública**, así que el agente puede correr en un **VPS con IP fija** y ya no hace falta hardware en la oficina; (3) son **3 routers**, no uno. El mapeo `WinboxNumber` ↔ secret está prácticamente resuelto (`TBN-0457` ↔ `0457D@gpon`).
+
 ### 3.1 El bloqueante real no es RouterOS, es la ruta de red
 
 El backend corre en **Railway** (nube pública, IP de salida no fija). El MikroTik está **en la red de la empresa** (oficina o sala de equipos — ver Anexo B). Para que el backend le hable hay cuatro caminos, y tres son malos:
